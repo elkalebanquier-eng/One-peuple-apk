@@ -76,3 +76,16 @@
 - [x] Guide de génération APK
 - [x] Script de build APK
 - [x] Configuration app.config.ts pour Android
+
+## Media Publishing Features
+
+- [x] Service d'accès à la galerie (expo-image-picker)
+- [x] Service d'accès à la caméra (expo-camera)
+- [x] Écran de création de post (photo/vidéo)
+- [x] Compression des images et vidéos
+- [x] Upload vers Cloudinary et ImageKit
+- [x] Formulaire de publication avec description
+- [x] Sauvegarde dans Firebase après upload
+- [x] Affichage du statut d'upload (progress bar)
+- [x] Gestion des erreurs d'upload
+- [x] Permissions pour caméra et galerie

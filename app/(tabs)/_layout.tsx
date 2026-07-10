@@ -37,6 +37,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="create"
+        options={{
+          title: "Create",
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>➕</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="buzz"
         options={{
           title: "Buzz",
