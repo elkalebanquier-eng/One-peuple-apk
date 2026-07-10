@@ -1,46 +1,219 @@
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
-
+import { ScrollView, Text, View, TouchableOpacity, FlatList, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
 
-/**
- * Home Screen - NativeWind Example
- *
- * This template uses NativeWind (Tailwind CSS for React Native).
- * You can use familiar Tailwind classes directly in className props.
- *
- * Key patterns:
- * - Use `className` instead of `style` for most styling
- * - Theme colors: use tokens directly (bg-background, text-foreground, bg-primary, etc.); no dark: prefix needed
- * - Responsive: standard Tailwind breakpoints work on web
- * - Custom colors defined in tailwind.config.js
- */
-export default function HomeScreen() {
+// Mock data for stories
+const mockStories = [
+  { id: 1, name: "Ajouter", emoji: "➕", isAdd: true },
+  { id: 2, name: "Khadija", emoji: "👩", hasNew: true },
+  { id: 3, name: "Ahmed", emoji: "👨", hasNew: false },
+  { id: 4, name: "Fatima", emoji: "👩", hasNew: true },
+  { id: 5, name: "Mohamed", emoji: "👨", hasNew: false },
+];
+
+// Mock data for video cards
+const mockVideos = [
+  {
+    id: 1,
+    author: "Khadija",
+    avatar: "👩",
+    title: "Développement Web",
+    likes: 234,
+    comments: 45,
+    shares: 12,
+    liked: false,
+  },
+  {
+    id: 2,
+    author: "Ahmed",
+    avatar: "👨",
+    title: "Startup Tech",
+    likes: 567,
+    comments: 89,
+    shares: 34,
+    liked: false,
+  },
+  {
+    id: 3,
+    author: "Fatima",
+    avatar: "👩",
+    title: "Design UI/UX",
+    likes: 345,
+    comments: 67,
+    shares: 23,
+    liked: false,
+  },
+];
+
+function StoryBubble({ story }: { story: (typeof mockStories)[0] }) {
+  const colors = useColors();
+  
+  if (story.isAdd) {
+    return (
+      <TouchableOpacity className="items-center gap-1.5 flex-shrink-0">
+        <View
+          className="w-16 h-16 rounded-full border-2 border-dashed items-center justify-center"
+          style={{ borderColor: colors.primary, backgroundColor: colors.surface }}
+        >
+          <Text className="text-2xl">{story.emoji}</Text>
+        </View>
+        <Text className="text-xs text-center max-w-16" numberOfLines={1} style={{ color: colors.primary }}>
+          {story.name}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="flex-1 gap-8">
-          {/* Hero Section */}
-          <View className="items-center gap-2">
-            <Text className="text-4xl font-bold text-foreground">Welcome</Text>
-            <Text className="text-base text-muted text-center">
-              Edit app/(tabs)/index.tsx to get started
+    <TouchableOpacity className="items-center gap-1.5 flex-shrink-0 active:opacity-75">
+      <View
+        className="w-16 h-16 rounded-full border-2 items-center justify-center"
+        style={{
+          borderColor: story.hasNew ? colors.primary : colors.border,
+          backgroundColor: colors.surface,
+        }}
+      >
+        <Text className="text-2xl">{story.emoji}</Text>
+        {story.hasNew && (
+          <View
+            className="absolute bottom-0 right-0 px-1 py-0.5 rounded-full text-xs font-bold"
+            style={{ backgroundColor: colors.primary }}
+          >
+            <Text className="text-xs font-bold" style={{ color: colors.background }}>
+              NEW
             </Text>
           </View>
+        )}
+      </View>
+      <Text className="text-xs text-center max-w-16" numberOfLines={1} style={{ color: colors.foreground }}>
+        {story.name}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
-          {/* Example Card */}
-          <View className="w-full max-w-sm self-center bg-surface rounded-2xl p-6 shadow-sm border border-border">
-            <Text className="text-lg font-semibold text-foreground mb-2">NativeWind Ready</Text>
-            <Text className="text-sm text-muted leading-relaxed">
-              Use Tailwind CSS classes directly in your React Native components.
+function VideoCard({ video }: { video: (typeof mockVideos)[0] }) {
+  const colors = useColors();
+  
+  return (
+    <TouchableOpacity
+      className="rounded-2xl overflow-hidden mb-4 active:opacity-90"
+      style={{ backgroundColor: colors.surface }}
+    >
+      {/* Video placeholder */}
+      <View
+        className="w-full aspect-video items-center justify-center"
+        style={{ backgroundColor: colors.background }}
+      >
+        <Text className="text-5xl">▶️</Text>
+      </View>
+
+      {/* Content section */}
+      <View className="p-4">
+        {/* Header */}
+        <View className="flex-row items-center gap-3 mb-3">
+          <View
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: colors.border }}
+          >
+            <Text className="text-lg">{video.avatar}</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="font-semibold text-sm" style={{ color: colors.foreground }}>
+              {video.author}
             </Text>
           </View>
+        </View>
 
-          {/* Example Button */}
-          <View className="items-center">
-            <TouchableOpacity className="bg-primary px-6 py-3 rounded-full active:opacity-80">
-              <Text className="text-background font-semibold">Get Started</Text>
-            </TouchableOpacity>
+        {/* Title */}
+        <Text className="font-bold text-base mb-3" style={{ color: colors.foreground }}>
+          {video.title}
+        </Text>
+
+        {/* Actions */}
+        <View className="flex-row justify-between gap-2">
+          <TouchableOpacity className="flex-row items-center gap-1 flex-1 p-2 rounded-lg active:opacity-70" style={{ backgroundColor: colors.background }}>
+            <Text className="text-lg">❤️</Text>
+            <Text className="text-xs" style={{ color: colors.muted }}>
+              {video.likes}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity className="flex-row items-center gap-1 flex-1 p-2 rounded-lg active:opacity-70" style={{ backgroundColor: colors.background }}>
+            <Text className="text-lg">💬</Text>
+            <Text className="text-xs" style={{ color: colors.muted }}>
+              {video.comments}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity className="flex-row items-center gap-1 flex-1 p-2 rounded-lg active:opacity-70" style={{ backgroundColor: colors.background }}>
+            <Text className="text-lg">📤</Text>
+            <Text className="text-xs" style={{ color: colors.muted }}>
+              {video.shares}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function HomeScreen() {
+  const colors = useColors();
+
+  return (
+    <ScreenContainer
+      containerClassName="flex-1"
+      className="flex-1"
+      edges={["top", "left", "right"]}
+    >
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View className="px-4 py-4 flex-row items-center justify-between">
+          <Text className="text-2xl font-bold" style={{ color: colors.primary }}>
+            KIKO👑
+          </Text>
+          <TouchableOpacity className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: colors.surface }}>
+            <Text className="text-lg">🔔</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Hero Banner */}
+        <View className="px-4 mb-6">
+          <View
+            className="w-full rounded-2xl overflow-hidden aspect-video items-center justify-center"
+            style={{ backgroundColor: colors.surface }}
+          >
+            <Text className="text-6xl">🎬</Text>
           </View>
+        </View>
+
+        {/* Stories Section */}
+        <View className="mb-6">
+          <Text className="text-lg font-bold px-4 mb-3" style={{ color: colors.foreground }}>
+            Stories
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          >
+            {mockStories.map((story) => (
+              <StoryBubble key={story.id} story={story} />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Video Feed Section */}
+        <View className="px-4">
+          <Text className="text-lg font-bold mb-3" style={{ color: colors.foreground }}>
+            Feed
+          </Text>
+          {mockVideos.map((video) => (
+            <VideoCard key={video.id} video={video} />
+          ))}
         </View>
       </ScrollView>
     </ScreenContainer>
