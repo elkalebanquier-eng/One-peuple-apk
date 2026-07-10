@@ -1,8 +1,9 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useEffect, useState } from "react";
 import { subscribeToVideos, type Video } from "@/lib/firebase";
+import { getMediaUrl } from "@/lib/media-upload";
 
 function BuzzVideoCard({ video }: { video: Video }) {
   const colors = useColors();
@@ -14,13 +15,25 @@ function BuzzVideoCard({ video }: { video: Video }) {
     >
       {/* Video placeholder */}
       <View
-        className="w-full aspect-video items-center justify-center relative"
+        className="w-full aspect-video items-center justify-center relative overflow-hidden"
         style={{ backgroundColor: colors.background }}
       >
-        <Text className="text-6xl">▶️</Text>
-        <View className="absolute bottom-2 right-2 px-2 py-1 rounded-lg" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-          <Text className="text-xs text-white font-semibold">3:45</Text>
-        </View>
+        {video.videoUrl ? (
+          <>
+            <Image
+              source={{ uri: getMediaUrl(video.videoUrl, "video") }}
+              className="w-full h-full"
+              style={{ resizeMode: "cover" }}
+            />
+            <View className="absolute inset-0 items-center justify-center">
+              <View className="w-16 h-16 rounded-full items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                <Text className="text-4xl">▶️</Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <Text className="text-6xl">▶️</Text>
+        )}
       </View>
 
       {/* Content section */}

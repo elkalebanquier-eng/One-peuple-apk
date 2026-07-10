@@ -3,6 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useEffect, useState } from "react";
 import { subscribeToPosts, type Post } from "@/lib/firebase";
+import { getMediaUrl } from "@/lib/media-upload";
 
 // Mock data for stories
 const mockStories = [

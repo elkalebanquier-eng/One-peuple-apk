@@ -62,3 +62,17 @@
 - [ ] Implémenter le système de suivi (following)
 - [x] Charger les opportunités avec filtres
 - [ ] Synchroniser les données utilisateur (profil, bio, avatar)
+
+## Media Upload Integration
+
+- [x] Intégrer Cloudinary pour les vidéos
+- [x] Intégrer ImageKit pour les images
+- [x] Optimisation des images avec compression
+- [x] Service de gestion des URLs média
+
+## APK Build Configuration
+
+- [x] Configuration EAS Build
+- [x] Guide de génération APK
+- [x] Script de build APK
+- [x] Configuration app.config.ts pour Android
