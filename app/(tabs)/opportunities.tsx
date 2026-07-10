@@ -1,7 +1,8 @@
-import { ScrollView, Text, View, TouchableOpacity, FlatList } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, FlatList, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { subscribeToJobPosts, type JobPost } from "@/lib/firebase";
 
 const opportunityTypes = [
   { id: "all", label: "Tous", emoji: "📋", color: "#5B8DEF" },
@@ -18,54 +19,7 @@ const domains = [
   { id: "sante", label: "Santé", emoji: "🩺" },
 ];
 
-const mockOpportunities = [
-  {
-    id: 1,
-    type: "job",
-    domain: "technologie",
-    author: "TechCorp",
-    avatar: "🏢",
-    title: "Développeur React Senior",
-    description: "Rejoignez notre équipe de développement...",
-    city: "Dakar",
-    premium: true,
-  },
-  {
-    id: 2,
-    type: "formation",
-    domain: "technologie",
-    author: "Code Academy",
-    avatar: "🎓",
-    title: "Formation Web Development",
-    description: "12 semaines intensives...",
-    city: "Abidjan",
-    premium: false,
-  },
-  {
-    id: 3,
-    type: "financement",
-    domain: "agriculture",
-    author: "AgriVenture",
-    avatar: "🌾",
-    title: "Fonds pour startups agricoles",
-    description: "Jusqu'à 50M FCFA...",
-    city: "Bamako",
-    premium: true,
-  },
-  {
-    id: 4,
-    type: "partenariat",
-    domain: "education",
-    author: "EduTech",
-    avatar: "📖",
-    title: "Partenariat écoles-entreprises",
-    description: "Créons ensemble...",
-    city: "Ouagadougou",
-    premium: false,
-  },
-];
-
-function OpportunityCard({ opp }: { opp: (typeof mockOpportunities)[0] }) {
+function OpportunityCard({ opp }: { opp: JobPost }) {
   const colors = useColors();
   const typeInfo = opportunityTypes.find((t) => t.id === opp.type);
 
@@ -84,12 +38,12 @@ function OpportunityCard({ opp }: { opp: (typeof mockOpportunities)[0] }) {
           className="w-12 h-12 rounded-full items-center justify-center"
           style={{ backgroundColor: colors.background }}
         >
-          <Text className="text-2xl">{opp.avatar}</Text>
+          <Text className="text-2xl">{opp.user?.avatar || "👤"}</Text>
         </View>
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
             <Text className="font-semibold text-sm" style={{ color: colors.foreground }}>
-              {opp.author}
+              {opp.user?.name || "Anonyme"}
             </Text>
             {opp.premium && (
               <View
@@ -103,7 +57,7 @@ function OpportunityCard({ opp }: { opp: (typeof mockOpportunities)[0] }) {
             )}
           </View>
           <Text className="text-xs" style={{ color: colors.muted }}>
-            📍 {opp.city}
+            📍 {opp.city || "—"}
           </Text>
         </View>
         <View
@@ -121,8 +75,25 @@ function OpportunityCard({ opp }: { opp: (typeof mockOpportunities)[0] }) {
 
       {/* Description */}
       <Text className="text-sm mb-3 line-clamp-2" style={{ color: colors.muted }}>
-        {opp.description}
+        {opp.desc}
       </Text>
+
+      {/* Skills (if any) */}
+      {opp.skills && opp.skills.length > 0 && (
+        <View className="flex-row flex-wrap gap-1 mb-3">
+          {opp.skills.slice(0, 3).map((skill, idx) => (
+            <View
+              key={idx}
+              className="px-2 py-1 rounded-full"
+              style={{ backgroundColor: colors.background }}
+            >
+              <Text className="text-xs" style={{ color: colors.muted }}>
+                {skill}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Action */}
       <TouchableOpacity
@@ -141,8 +112,22 @@ export default function OpportunitiesScreen() {
   const colors = useColors();
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [opportunities, setOpportunities] = useState<JobPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredOpps = mockOpportunities.filter((opp) => {
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeToJobPosts((posts) => {
+      setOpportunities(posts);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const filteredOpps = opportunities.filter((opp) => {
     if (selectedType !== "all" && opp.type !== selectedType) return false;
     if (selectedDomain && opp.domain !== selectedDomain) return false;
     return true;
@@ -235,24 +220,30 @@ export default function OpportunitiesScreen() {
         </ScrollView>
 
         {/* Opportunities List */}
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {filteredOpps.length > 0 ? (
-            filteredOpps.map((opp) => <OpportunityCard key={opp.id} opp={opp} />)
-          ) : (
-            <View className="flex-1 items-center justify-center">
-              <Text className="text-lg font-semibold mb-2" style={{ color: colors.muted }}>
-                Aucune opportunité
-              </Text>
-              <Text className="text-sm" style={{ color: colors.muted }}>
-                Sois le premier à publier !
-              </Text>
-            </View>
-          )}
-        </ScrollView>
+        {loading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredOpps.length > 0 ? (
+              filteredOpps.map((opp) => <OpportunityCard key={opp.id} opp={opp} />)
+            ) : (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-lg font-semibold mb-2" style={{ color: colors.muted }}>
+                  Aucune opportunité
+                </Text>
+                <Text className="text-sm" style={{ color: colors.muted }}>
+                  Sois le premier à publier !
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        )}
       </View>
     </ScreenContainer>
   );

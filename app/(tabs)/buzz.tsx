@@ -1,53 +1,10 @@
-import { ScrollView, Text, View, TouchableOpacity, FlatList } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { subscribeToVideos, type Video } from "@/lib/firebase";
 
-// Mock data for buzz videos
-const mockBuzzVideos = [
-  {
-    id: 1,
-    author: "Khadija",
-    avatar: "👩",
-    title: "Développement Web 2024",
-    views: "2.3M",
-    likes: 234,
-    comments: 45,
-    shares: 12,
-  },
-  {
-    id: 2,
-    author: "Ahmed",
-    avatar: "👨",
-    title: "Startup Success Story",
-    views: "5.6M",
-    likes: 567,
-    comments: 89,
-    shares: 34,
-  },
-  {
-    id: 3,
-    author: "Fatima",
-    avatar: "👩",
-    title: "Design Trends 2024",
-    views: "3.4M",
-    likes: 345,
-    comments: 67,
-    shares: 23,
-  },
-  {
-    id: 4,
-    author: "Mohamed",
-    avatar: "👨",
-    title: "Tech Innovation",
-    views: "1.2M",
-    likes: 123,
-    comments: 34,
-    shares: 12,
-  },
-];
-
-function BuzzVideoCard({ video }: { video: (typeof mockBuzzVideos)[0] }) {
+function BuzzVideoCard({ video }: { video: Video }) {
   const colors = useColors();
 
   return (
@@ -74,11 +31,11 @@ function BuzzVideoCard({ video }: { video: (typeof mockBuzzVideos)[0] }) {
             className="w-12 h-12 rounded-full items-center justify-center"
             style={{ backgroundColor: colors.border }}
           >
-            <Text className="text-2xl">{video.avatar}</Text>
+            <Text className="text-2xl">{video.authorAvatar || "👤"}</Text>
           </View>
           <View className="flex-1">
             <Text className="font-semibold text-sm" style={{ color: colors.foreground }}>
-              {video.author}
+              {video.auteur}
             </Text>
             <Text className="text-xs" style={{ color: colors.muted }}>
               {video.views} views
@@ -95,6 +52,13 @@ function BuzzVideoCard({ video }: { video: (typeof mockBuzzVideos)[0] }) {
         <Text className="font-bold text-base mb-3" style={{ color: colors.foreground }}>
           {video.title}
         </Text>
+
+        {/* Description */}
+        {video.desc && (
+          <Text className="text-sm mb-3" style={{ color: colors.muted }} numberOfLines={2}>
+            {video.desc}
+          </Text>
+        )}
 
         {/* Actions */}
         <View className="flex-row justify-between gap-2">
@@ -139,6 +103,20 @@ function BuzzVideoCard({ video }: { video: (typeof mockBuzzVideos)[0] }) {
 
 export default function BuzzScreen() {
   const colors = useColors();
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeToVideos((vids) => {
+      setVideos(vids);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <ScreenContainer
@@ -158,15 +136,30 @@ export default function BuzzScreen() {
         </View>
 
         {/* Video Feed */}
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {mockBuzzVideos.map((video) => (
-            <BuzzVideoCard key={video.id} video={video} />
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {videos.length > 0 ? (
+              videos.map((video) => <BuzzVideoCard key={video.id} video={video} />)
+            ) : (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-lg font-semibold mb-2" style={{ color: colors.muted }}>
+                  Aucune vidéo
+                </Text>
+                <Text className="text-sm" style={{ color: colors.muted }}>
+                  Reviens plus tard !
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        )}
       </View>
     </ScreenContainer>
   );

@@ -49,3 +49,16 @@
 - [ ] app.config.ts mis à jour
 - [ ] Splash screen
 - [ ] Icons adaptifs Android
+
+## Firebase Integration
+
+- [x] Intégrer Firebase Realtime Database
+- [x] Charger les posts depuis Firebase (jobPosts collection)
+- [x] Charger les vidéos depuis Firebase (videos collection)
+- [ ] Implémenter l'authentification utilisateur (phone + password)
+- [ ] Charger les stories depuis Firebase
+- [ ] Synchroniser les likes avec Firebase
+- [ ] Charger les commentaires en temps réel
+- [ ] Implémenter le système de suivi (following)
+- [x] Charger les opportunités avec filtres
+- [ ] Synchroniser les données utilisateur (profil, bio, avatar)

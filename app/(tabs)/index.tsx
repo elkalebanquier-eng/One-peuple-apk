@@ -1,6 +1,8 @@
-import { ScrollView, Text, View, TouchableOpacity, FlatList, Image } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, FlatList, Image, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useEffect, useState } from "react";
+import { subscribeToPosts, type Post } from "@/lib/firebase";
 
 // Mock data for stories
 const mockStories = [
@@ -92,7 +94,18 @@ function StoryBubble({ story }: { story: (typeof mockStories)[0] }) {
   );
 }
 
-function VideoCard({ video }: { video: (typeof mockVideos)[0] }) {
+interface VideoCardProps {
+  id: string;
+  author: string;
+  avatar: string;
+  title: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  liked: boolean;
+}
+
+function VideoCard({ video }: { video: VideoCardProps }) {
   const colors = useColors();
   
   return (
@@ -158,6 +171,20 @@ function VideoCard({ video }: { video: (typeof mockVideos)[0] }) {
 
 export default function HomeScreen() {
   const colors = useColors();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeToPosts((p) => {
+      setPosts(p);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <ScreenContainer
@@ -211,9 +238,27 @@ export default function HomeScreen() {
           <Text className="text-lg font-bold mb-3" style={{ color: colors.foreground }}>
             Feed
           </Text>
-          {mockVideos.map((video) => (
-            <VideoCard key={video.id} video={video} />
-          ))}
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} />
+          ) : posts.length > 0 ? (
+            posts.map((post) => (
+              <VideoCard
+                key={post.id}
+                video={{
+                  id: post.id,
+                  author: post.auteur || "Anonyme",
+                  avatar: post.authorAvatar || "👤",
+                  title: post.titre || post.text || "Post",
+                  likes: post.likes || 0,
+                  comments: 0,
+                  shares: post.shares || 0,
+                  liked: false,
+                }}
+              />
+            ))
+          ) : (
+            <Text style={{ color: colors.muted }}>Aucun post pour le moment</Text>
+          )}
         </View>
       </ScrollView>
     </ScreenContainer>
