@@ -89,3 +89,32 @@
 - [x] Affichage du statut d'upload (progress bar)
 - [x] Gestion des erreurs d'upload
 - [x] Permissions pour caméra et galerie
+
+## GitHub et préparation du build Android
+
+- [x] Vérifier la connexion GitHub disponible
+- [ ] Identifier ou confirmer le dépôt GitHub cible — création bloquée par les permissions GitHub du compte
+- [x] Ajouter la configuration de build Android reproductible
+- [x] Ajouter le workflow GitHub Actions pour générer un APK
+- [ ] Synchroniser le code KIKO avec GitHub — dépôt distant non créé
+- [x] Vérifier le projet et documenter l'installation de l'APK
+
+## Historique de la demande
+
+- [ ] Préparer un dépôt GitHub complet pour permettre la construction de l'application KIKO — permissions de création insuffisantes
+- [x] Fournir une méthode d'installation directe de l'APK sans WebView
+
+---
+
+**Note de sécurité :** les clés Firebase, Cloudinary, ImageKit et les secrets GitHub ne doivent pas être écrits en clair dans le dépôt. Ils seront configurés via les secrets GitHub ou l'interface de configuration sécurisée.
+
+## Livrables demandés
+
+- [x] Vérifier la configuration Android et la présence du SDK/Gradle
+- [x] Préparer un profil de build debug reproductible
+- [ ] Générer et tester l’APK debug installable — build local interrompu par les limites de ressources
+- [x] Créer une archive complète du code source
+- [x] Ajouter la documentation d’installation et de lancement
+- [ ] Livrer l’APK debug et l’archive source — archive prête, APK non généré
+
+**Sécurité :** ne pas inclure les clés Firebase, Cloudinary, ImageKit ou les jetons GitHub dans l’archive source.
