@@ -255,6 +255,9 @@
 - [x] Rétablir les textes « compiler » et « APK prête » dans le design One App
 - [x] Corriger le lancement du backend de compilation sans créer de site visible pour les utilisateurs
 - [x] Intégrer l’adresse backend durable dans One App après sa disponibilité
+- [x] Envoyer un index.html de contrôle vers le backend publié et vérifier l’APK créée
+- [x] Corriger le téléchargement de l’artifact APK par le workflow de livraison isolé
+- [x] Corriger la configuration du bundle Android qui empêche Metro de charger ses fichiers CommonJS
 
 ## Parcours accessible aux débutants
 
