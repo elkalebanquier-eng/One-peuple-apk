@@ -146,21 +146,21 @@
 
 - [x] Cloner et inspecter la branche main du dépôt distant `elkalebanquier-eng/One-peuple-apk`
 - [ ] Créer un écran de test séparé pour diagnostiquer le comportement natif sans modifier l’interface principale KIKO
-- [ ] Lancer et surveiller un nouveau workflow GitHub Actions pour valider la compilation
-- [ ] Vérifier et livrer le nouvel APK debug certifié
+- [x] Lancer et surveiller un nouveau workflow GitHub Actions pour valider la compilation
+- [x] Vérifier et livrer le nouvel APK debug certifié
 
 ## Correction de l’erreur Unable to load script (bundle Metro vs APK autonome)
 
 - [x] Analyser la capture d’écran de l’erreur d’exécution sur le téléphone
-- [ ] Modifier la configuration Gradle / Expo pour forcer le bundle JS embarqué dans l’APK (mode release / bundle offline)
-- [ ] Relancer un build GitHub Actions avec packaging complet du script
-- [ ] Fournir l’importance et la valeur de l’application KIKO à l’utilisateur
+- [x] Modifier la configuration Gradle / Expo pour forcer le bundle JS embarqué dans l’APK (mode release / bundle offline)
+- [x] Relancer un build GitHub Actions avec packaging complet du script
+- [x] Fournir l’importance et la valeur de l’application KIKO à l’utilisateur
 
 ## APK autonome et compilation depuis téléphone
 
-- [ ] Garantir que l’APK installée ne cherche pas Metro ni localhost:8081
+- [x] Garantir que l’APK installée ne cherche pas Metro ni localhost:8081
 - [ ] Documenter une procédure mobile GitHub pour envoyer les modifications et déclencher un nouvel APK
-- [ ] Recompiler et valider l’APK autonome sans écran de développement
+- [x] Recompiler et valider l’APK autonome sans écran de développement
 
 ## KIKO Studio — plateforme de création d’applications
 
@@ -178,7 +178,7 @@
 
 ## Première version : APK debug uniquement
 
-- [ ] Générer des APK debug installables pour les tests, sans préparation AAB ni publication automatique
+- [x] Générer des APK debug installables pour les tests, sans préparation AAB ni publication automatique
 - [x] Informer clairement l’utilisateur que le fichier est destiné aux tests
 
 ## Choix obligatoire avant import du code
@@ -207,3 +207,7 @@
 - [x] Retirer la connexion GitHub et toute mention GitHub du parcours utilisateur
 - [x] Présenter l’import, l’envoi et le suivi comme des fonctions internes à One App
 - [ ] Prévoir un point d’intégration interne pour le service de compilation, sans action utilisateur externe
+
+## Livraison transparente
+
+- [x] Présenter clairement ce que One App peut faire aujourd’hui et ce qui reste indisponible sans service de compilation
