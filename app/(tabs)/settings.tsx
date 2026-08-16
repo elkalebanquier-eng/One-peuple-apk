@@ -1,95 +1,56 @@
-import { ScrollView, Switch, Text, View } from "react-native";
-import { useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 
+function InfoRow({ icon, title, detail, border }: { icon: "inventory-2" | "timer" | "lock-outline" | "info-outline"; title: string; detail: string; border?: string }) {
+  const colors = useColors();
+  return <View style={[styles.infoRow, border ? { borderBottomColor: border, borderBottomWidth: StyleSheet.hairlineWidth } : null]}><View style={[styles.infoIcon, { backgroundColor: colors.background }]}><MaterialIcons color={colors.primary} name={icon} size={19} /></View><View style={styles.infoCopy}><Text style={[styles.infoTitle, { color: colors.foreground }]}>{title}</Text><Text style={[styles.infoDetail, { color: colors.muted }]}>{detail}</Text></View></View>;
+}
+
 export default function SettingsScreen() {
   const colors = useColors();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [keepArchives, setKeepArchives] = useState(true);
-
-  const SettingRow = ({
-    icon,
-    label,
-    value,
-    isToggle = false,
-    toggleValue = false,
-    onToggle = () => undefined,
-  }: {
-    icon: string;
-    label: string;
-    value?: string;
-    isToggle?: boolean;
-    toggleValue?: boolean;
-    onToggle?: (value: boolean) => void;
-  }) => (
-    <View
-      className="flex-row items-center justify-between px-4 py-4 border-b"
-      style={{ borderBottomColor: colors.border }}
-    >
-      <View className="flex-row items-center gap-3 flex-1">
-        <Text className="text-2xl">{icon}</Text>
-        <Text style={{ color: colors.foreground }} className="font-medium">
-          {label}
-        </Text>
-      </View>
-      {isToggle ? (
-        <Switch
-          value={toggleValue}
-          onValueChange={onToggle}
-          trackColor={{ false: colors.surface, true: colors.primary }}
-          thumbColor={colors.background}
-        />
-      ) : (
-        <Text style={{ color: colors.muted }} className="text-sm">
-          {value ?? ""}
-        </Text>
-      )}
-    </View>
-  );
-
   return (
-    <ScreenContainer containerClassName="flex-1" className="flex-1" edges={["top", "left", "right"]}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-4 border-b" style={{ borderBottomColor: colors.border }}>
-          <Text className="text-2xl font-bold" style={{ color: colors.foreground }}>Paramètres One App</Text>
-          <Text className="text-sm mt-1" style={{ color: colors.muted }}>Vos projets restent sur votre téléphone jusqu’à leur envoi.</Text>
+    <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={[styles.eyebrow, { color: colors.primary }]}>À PROPOS DE ONE APP</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>Simple, même depuis un téléphone.</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>Ces informations décrivent les limites et la protection appliquées à la compilation.</Text>
+
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Votre compilation</Text>
+        <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <InfoRow icon="inventory-2" title="Fichiers acceptés" detail="ZIP Expo, Android natif ou HTML" border={colors.border} />
+          <InfoRow icon="timer" title="Limite gratuite" detail="2 compilations par heure · 50 Mo maximum" border={colors.border} />
+          <InfoRow icon="info-outline" title="Résultat" detail="APK Android destinée aux tests" />
         </View>
 
-        <View className="mt-4">
-          <Text className="px-4 py-2 font-semibold text-xs" style={{ color: colors.primary }}>BUILDS</Text>
-          <SettingRow icon="🔔" label="Notifications de build" isToggle toggleValue={notificationsEnabled} onToggle={setNotificationsEnabled} />
-          <SettingRow icon="📦" label="Conserver les archives ZIP" isToggle toggleValue={keepArchives} onToggle={setKeepArchives} />
-          <SettingRow icon="🧪" label="Format de sortie" value="APK debug" />
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Protection</Text>
+        <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <InfoRow icon="lock-outline" title="Fichier source" detail="Utilisé seulement pendant la préparation de la compilation" border={colors.border} />
+          <InfoRow icon="timer" title="Lien APK" detail="Disponible temporairement après la compilation" />
         </View>
 
-        <View className="mt-4">
-          <Text className="px-4 py-2 font-semibold text-xs" style={{ color: colors.primary }}>STOCKAGE</Text>
-          <SettingRow icon="📁" label="Dossier de travail" value="One App privé" />
-          <SettingRow icon="🛡️" label="Code importé" value="Non partagé avant envoi" />
-        </View>
-
-        <View className="mt-4">
-          <Text className="px-4 py-2 font-semibold text-xs" style={{ color: colors.primary }}>AIDE</Text>
-          <SettingRow icon="❔" label="Projets acceptés" value="Expo · Android · HTML" />
-          <View className="mx-4 mt-2 rounded-2xl border p-4" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-            <Text className="text-sm font-bold" style={{ color: colors.foreground }}>Créer une APK en 3 étapes</Text>
-            <Text className="text-xs mt-2 leading-5" style={{ color: colors.muted }}>1. Choisissez le type qui correspond à votre code.</Text>
-            <Text className="text-xs mt-1 leading-5" style={{ color: colors.muted }}>2. Sélectionnez le fichier ZIP de votre projet.</Text>
-            <Text className="text-xs mt-1 leading-5" style={{ color: colors.muted }}>3. Lancez la compilation, attendez l’état « APK prête », puis téléchargez-la.</Text>
-          </View>
-          <View className="mx-4 mt-3 rounded-2xl border p-4" style={{ backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}55` }}>
-            <Text className="text-xs leading-5" style={{ color: colors.muted }}>Une compilation peut prendre quelques minutes. Gardez simplement One App ouverte et revenez sur « Mes builds » pour voir l’avancement. La version gratuite accepte des ZIP de 50 Mo maximum et jusqu’à deux compilations par heure.</Text>
-          </View>
-          <SettingRow icon="ⓘ" label="À propos" value="One App v1.0.0" />
-        </View>
-
-        <View className="mt-8 px-4 py-4 items-center">
-          <Text className="text-xs" style={{ color: colors.muted }}>One App v1.0.0</Text>
-          <Text className="text-xs mt-1 text-center" style={{ color: colors.muted }}>Créez, testez et organisez vos applications depuis votre téléphone.</Text>
-        </View>
+        <View style={[styles.notice, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}4D` }]}><MaterialIcons color={colors.primary} name="lightbulb-outline" size={21} /><Text style={[styles.noticeText, { color: colors.muted }]}>Pour éviter un refus, envoyez un fichier propre : pas de node_modules, pas de dossier build et aucune clé secrète.</Text></View>
+        <Text style={[styles.version, { color: colors.muted }]}>One App · Version 1.0.0</Text>
       </ScrollView>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { paddingHorizontal: 18, paddingTop: 15, paddingBottom: 30 },
+  eyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
+  title: { marginTop: 5, fontSize: 26, lineHeight: 32, fontWeight: "800", letterSpacing: -0.8, maxWidth: 310 },
+  subtitle: { marginTop: 7, fontSize: 13, lineHeight: 19 },
+  sectionTitle: { marginTop: 27, marginBottom: 11, fontSize: 17, fontWeight: "800" },
+  panel: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+  infoRow: { minHeight: 75, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 11 },
+  infoIcon: { width: 39, height: 39, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  infoCopy: { flex: 1 },
+  infoTitle: { fontSize: 13, fontWeight: "800" },
+  infoDetail: { marginTop: 3, fontSize: 11, lineHeight: 16 },
+  notice: { marginTop: 23, borderWidth: 1, borderRadius: 17, padding: 14, flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  noticeText: { flex: 1, fontSize: 11, lineHeight: 17 },
+  version: { marginTop: 23, textAlign: "center", fontSize: 11 },
+});

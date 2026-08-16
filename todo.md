@@ -1,5 +1,12 @@
 # KIKO👑 Native App — TODO
 
+## Refonte visuelle One App
+
+- [x] Refaire l’accueil pour clarifier immédiatement l’action « importer et compiler »
+- [x] Refaire l’écran Nouvelle compilation avec un choix de type plus visuel et rassurant
+- [x] Refaire les statuts de compilation et le téléchargement APK pour qu’ils soient lisibles sur téléphone
+- [x] Harmoniser la navigation et les réglages avec la nouvelle identité One App
+
 ## Core Features
 
 - [x] Home Screen avec scroll feed
@@ -228,6 +235,7 @@
 - [x] Tester la préparation index.html directe puis reconstruire l’APK One App
 - [x] Détecter une réponse HTML ou un service indisponible et montrer une erreur simple dans One App
 - [ ] Configurer l’URL du moteur publiée dans l’APK de production
+- [ ] Vérifier le parcours complet index.html depuis la version APK installable de One App
 
 ## Parcours accessible aux débutants
 
@@ -237,3 +245,25 @@
 - [x] Présenter le téléchargement et l’installation de l’APK sous forme d’étapes guidées
 - [x] Réutiliser l’autorisation GitHub déjà connectée sans demander de jeton ou de réglage aux utilisateurs
 - [x] Remplacer le déclenchement authentifié par une file de build sécurisée ne demandant aucun jeton utilisateur
+
+## Accompagnement mobile
+
+- [x] Présenter l’architecture et les prochaines étapes avec des explications utilisables uniquement depuis un téléphone
+- [x] Vérifier une solution de stockage temporaire d’APK réellement utilisable sans carte bancaire
+
+- [x] Abandonner R2 pour les ZIP et APK : Cloudflare demande une carte bancaire lors de l’activation
+- [x] Préparer puis retirer la couche R2 non activable, sans exposer de clé dans One App
+- [x] Remplacer la suppression R2 par le nettoyage automatique des APK GitHub après 48h
+- [x] Remplacer les liens R2 par une publication GitHub temporaire isolée du code importé
+- [x] Remplacer le test R2 par la vérification du parcours GitHub temporaire
+- [x] Documenter que le bucket R2 ne sera pas créé sans activation nécessitant une carte bancaire
+
+## Stockage sans carte bancaire
+
+- [x] Vérifier la faisabilité du stockage et de la livraison temporaire d’APK avec GitHub public
+- [x] Remplacer le stockage R2 bloqué par une distribution temporaire gratuite compatible avec One App
+- [x] Ajouter la suppression automatique des APK temporaires sans service payant
+- [x] Isoler la publication GitHub de la compilation du code importé afin de ne pas exposer de droit d’écriture au projet utilisateur
+- [x] Faire terminer la compilation seulement après la publication vérifiée de l’APK temporaire
+- [x] Conserver le ZIP seulement en mémoire jusqu’à sa récupération sécurisée par le worker, puis le supprimer
+- [x] Retirer l’adaptateur R2 inactif et ses dépendances afin de ne garder aucune configuration demandant une carte bancaire

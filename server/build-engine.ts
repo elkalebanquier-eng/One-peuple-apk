@@ -1,11 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-import { storageCreateUploadUrl, storagePut } from "./storage";
-
 const WORKER_OWNER = "elkalebanquier-eng";
 const WORKER_REPOSITORY = "one-app-build-worker";
 const WORKER_WORKFLOW = ".github/workflows/build-imported-project.yml";
+const PUBLISHER_WORKFLOW = ".github/workflows/publish-temporary-apk.yml";
 const OIDC_AUDIENCE = "one-app-build-worker";
 const MAX_SOURCE_SIZE = 50 * 1024 * 1024;
 const MAX_SUBMISSIONS_PER_HOUR = 2;
@@ -21,6 +20,7 @@ type BuildRecord = {
   projectName: string;
   projectType: ProjectType;
   sourceUrl: string;
+  sourceArchive?: Buffer;
   status: BuildState;
   message: string;
   createdAt: number;
@@ -83,11 +83,18 @@ function checkRateLimit(request: Request) {
 function cleanExpiredBuilds() {
   const threshold = Date.now() - BUILD_RETENTION_MS;
   for (const [id, job] of builds) {
-    if (job.updatedAt < threshold) builds.delete(id);
+    if (job.updatedAt < threshold) {
+      job.sourceArchive = undefined;
+      builds.delete(id);
+    }
   }
 }
 
-async function verifyWorker(request: Request) {
+async function verifyWorker(
+  request: Request,
+  allowedWorkflows: string[],
+  allowedEvents = ["schedule", "workflow_dispatch"],
+) {
   const authorization = request.get("authorization") ?? "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   if (!token) throw new BuildRequestError("Accès réservé au moteur de compilation.", 401);
@@ -98,12 +105,14 @@ async function verifyWorker(request: Request) {
       audience: OIDC_AUDIENCE,
     });
     const expectedRepository = `${WORKER_OWNER}/${WORKER_REPOSITORY}`;
-    const expectedWorkflow = `${expectedRepository}/${WORKER_WORKFLOW}@refs/heads/main`;
+    const expectedWorkflows = allowedWorkflows.map(
+      (workflow) => `${expectedRepository}/${workflow}@refs/heads/main`,
+    );
     if (
       payload.repository !== expectedRepository
       || payload.ref !== "refs/heads/main"
-      || payload.workflow_ref !== expectedWorkflow
-      || (payload.event_name !== "schedule" && payload.event_name !== "workflow_dispatch")
+      || !expectedWorkflows.includes(String(payload.workflow_ref))
+      || !allowedEvents.includes(String(payload.event_name))
     ) {
       throw new BuildRequestError("Identité du moteur de compilation non reconnue.", 403);
     }
@@ -111,6 +120,11 @@ async function verifyWorker(request: Request) {
     if (error instanceof BuildRequestError) throw error;
     throw new BuildRequestError("Identité du moteur de compilation non reconnue.", 403);
   }
+}
+
+function getReleaseDownloadUrl(buildId: string) {
+  const tag = `one-app-build-${buildId}`;
+  return `https://github.com/${WORKER_OWNER}/${WORKER_REPOSITORY}/releases/download/${tag}/one-app-${buildId}.apk`;
 }
 
 function sendJob(response: Response, job: BuildRecord) {
@@ -133,7 +147,6 @@ export function registerBuildRoutes(app: Express) {
         const buildId = parseBuildId(getHeaderValue(request, "x-one-app-build-id"));
         const projectType = parseProjectType(getHeaderValue(request, "x-one-app-project-type"));
         const projectName = getHeaderValue(request, "x-one-app-project-name").trim().slice(0, 80) || "Mon projet";
-        const sourceName = getHeaderValue(request, "x-one-app-source-name").trim().replace(/[^a-zA-Z0-9._-]/g, "_") || "projet.zip";
         const archive = request.body as Buffer;
 
         if (!Buffer.isBuffer(archive) || archive.length === 0) {
@@ -144,13 +157,13 @@ export function registerBuildRoutes(app: Express) {
         if (builds.has(buildId)) throw new BuildRequestError("Cette compilation a déjà été reçue.", 409);
         checkRateLimit(request);
 
-        const source = await storagePut(`one-app/sources/${buildId}/${sourceName}`, archive, "application/zip");
         const now = Date.now();
         const job: BuildRecord = {
           id: buildId,
           projectName,
           projectType,
-          sourceUrl: `${getPublicBaseUrl(request)}${source.url}`,
+          sourceUrl: `${getPublicBaseUrl(request)}/api/builds/${buildId}/source`,
+          sourceArchive: archive,
           status: "queued",
           message: "Votre projet a été reçu. La compilation commencera bientôt.",
           createdAt: now,
@@ -181,25 +194,46 @@ export function registerBuildRoutes(app: Express) {
     }
   });
 
+  app.get("/api/builds/:buildId/source", async (request: Request, response: Response) => {
+    try {
+      await verifyWorker(request, [WORKER_WORKFLOW]);
+      cleanExpiredBuilds();
+      const buildId = parseBuildId(request.params.buildId);
+      const job = builds.get(buildId);
+      if (!job || !job.sourceArchive) {
+        throw new BuildRequestError("Le ZIP de cette compilation n’est plus disponible.", 410);
+      }
+      const archive = job.sourceArchive;
+      job.sourceArchive = undefined;
+      job.updatedAt = Date.now();
+      response.type("application/zip");
+      response.set("Cache-Control", "no-store");
+      response.set("Content-Disposition", `attachment; filename="${job.id}.zip"`);
+      response.send(archive);
+    } catch (error) {
+      const buildError = error instanceof BuildRequestError
+        ? error
+        : new BuildRequestError("Le ZIP est indisponible.", 500);
+      response.status(buildError.statusCode).json({ message: buildError.message });
+    }
+  });
+
   app.get("/api/builds/next", async (request: Request, response: Response) => {
     try {
-      await verifyWorker(request);
+      await verifyWorker(request, [WORKER_WORKFLOW]);
       cleanExpiredBuilds();
       const job = [...builds.values()].find((candidate) => candidate.status === "queued");
       if (!job) {
         response.status(204).end();
         return;
       }
-      const output = await storageCreateUploadUrl(`one-app/apks/${job.id}.apk`);
       job.status = "building";
       job.message = "One App fabrique votre APK. Cette étape peut prendre plusieurs minutes.";
-      job.apkUrl = `${getPublicBaseUrl(request)}${output.url}`;
       job.updatedAt = Date.now();
       response.json({
         id: job.id,
         projectType: job.projectType,
         sourceUrl: job.sourceUrl,
-        outputUrl: output.uploadUrl,
       });
     } catch (error) {
       const buildError = error instanceof BuildRequestError ? error : new BuildRequestError("La file de compilation est indisponible.", 500);
@@ -212,13 +246,18 @@ export function registerBuildRoutes(app: Express) {
     require("express").json({ limit: "32kb" }),
     async (request: Request, response: Response) => {
       try {
-        await verifyWorker(request);
         const buildId = parseBuildId(request.params.buildId);
         const job = builds.get(buildId);
         if (!job) throw new BuildRequestError("Compilation introuvable.", 404);
         const outcome = request.body?.outcome;
         if (outcome !== "complete" && outcome !== "failed") {
           throw new BuildRequestError("Résultat de compilation invalide.", 400);
+        }
+        if (outcome === "complete") {
+          await verifyWorker(request, [PUBLISHER_WORKFLOW], ["workflow_run"]);
+          job.apkUrl = getReleaseDownloadUrl(buildId);
+        } else {
+          await verifyWorker(request, [WORKER_WORKFLOW, PUBLISHER_WORKFLOW]);
         }
         job.status = outcome;
         job.message = outcome === "complete"

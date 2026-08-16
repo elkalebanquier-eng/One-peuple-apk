@@ -1,43 +1,45 @@
-# One App — Plan d’interface mobile
+# One App — Direction d’interface mobile
 
-## Direction du produit
+## Intention
 
-One App est une application mobile portrait conçue pour permettre à une personne, depuis son téléphone, de déposer un projet logiciel et de demander une APK debug. L’interface cache les outils de développement : l’utilisateur choisit un type de projet, sélectionne son archive, puis suit une seule demande de compilation.
+One App devient un **atelier de compilation clair**, et non une succession de fiches techniques. Dès l’ouverture, la personne comprend une seule chose : elle peut choisir un projet, envoyer son fichier puis récupérer une APK de test. La navigation, les mots et les actions restent adaptés à un écran de téléphone et à une utilisation à une main.
 
-La direction visuelle utilise une identité One App sombre, nette et premium, centrée sur un symbole de code transformé en application. L’usage doit rester possible d’une seule main sur un écran 9:16.
+L’interface utilise la marque existante : fond graphite profond, orange One App comme action principale et contraste fort pour les états de compilation. Le design évite les faux réglages, les badges décoratifs et les informations qui ne correspondent pas au fonctionnement réel.
 
-| Élément | Choix appliqué |
-|---|---|
-| Fond | `#121317` |
-| Surfaces | `#1B1D24` |
-| Action principale | `#FF7A30` |
-| Succès | `#34D399` |
-| Erreur | `#FF5C72` |
-| Texte principal | `#FFFFFF` |
-| Texte secondaire | `rgba(255,255,255,0.64)` |
+| Rôle | Couleur | Usage |
+|---|---:|---|
+| Fond | `#121317` | Surface générale de l’application |
+| Surface élevée | `#1B1D24` | Zones de contenu et éléments sélectionnables |
+| Orange One App | `#FF7A30` | Lancer une compilation et action principale |
+| Vert résultat | `#34D399` | APK disponible et fichier reconnu |
+| Bleu progression | `#7AA7FF` | Compilation en cours |
+| Rouge action requise | `#FF5C72` | Erreur expliquée et action à corriger |
 
-## Liste des écrans
+## Écrans et composition
 
-| Écran | Contenu et fonction principale |
-|---|---|
-| **Mes builds** | Liste des projets récents avec statut : brouillon, en attente, compilation, terminé ou erreur. Bouton principal « Nouveau build ». |
-| **Choisir le type** | Trois cartes grand format : Expo / React Native, Android natif, HTML. Aucune sélection de fichier n’est possible avant ce choix. |
-| **Importer le code** | Explication adaptée au type, bouton ouvrant le sélecteur de fichiers Android et résumé du ZIP choisi. |
-| **Vérifier et envoyer** | Nom du projet, type, fichier, taille et rappel que la sortie est une APK debug. Le bouton d’envoi est activé seulement lorsque la validation passe. |
-| **Suivi du build** | Chronologie non surchargée : fichier reçu, dans la file, compilation, APK prête ou erreur claire. |
-| **Détail du résultat** | Bouton de téléchargement de l’APK debug, date d’expiration du lien et message destiné aux tests. |
-| **Aide** | Explication courte des formats acceptés et des causes habituelles de refus. |
+| Écran | Composition retenue | Action prioritaire |
+|---|---|---|
+| **Builds** | En-tête compact « One App », zone principale de démarrage et liste de builds avec un statut très lisible. L’état vide explique les trois types acceptés en une phrase. | **Créer une APK** |
+| **Nouvelle compilation** | Progression 1–2–3 fixe en haut ; choix du type sous forme de trois options larges, puis zone d’import et nom du projet. | **Choisir le type**, puis **Lancer la compilation** |
+| **Résultat dans la liste** | Pastille de statut, message humain, bouton plein format uniquement lorsque l’APK est prête et rappel de la durée de disponibilité. | **Télécharger l’APK** |
+| **Aide** | Guide court « Préparer / Choisir / Télécharger », formats réellement acceptés et avertissement sur les données secrètes. | **Créer une compilation** |
+| **Réglages** | Informations utiles uniquement : limite, format de sortie, confidentialité et version. Aucun interrupteur qui ne pilote pas une fonction réelle. | Retourner créer une compilation |
 
-## Flux utilisateur principal
+## Flux principal
 
-1. La personne ouvre **Mes builds** puis touche **Nouveau build** dans la zone basse, facile à atteindre avec le pouce.
-2. Elle choisit **Expo / React Native**, **Android natif** ou **HTML**.
-3. One App adapte l’explication, puis ouvre le sélecteur de documents afin de choisir une archive ZIP.
-4. L’écran vérifie le choix et autorise **Envoyer et compiler** uniquement si le ZIP correspond au type annoncé.
-5. L’utilisateur suit une chronologie claire et télécharge l’APK debug lorsque la compilation est terminée.
+1. L’utilisateur ouvre **Builds** et touche le grand bouton orange situé dans le bas de la zone de démarrage.
+2. Il sélectionne un seul type : **Expo / React Native**, **Android natif** ou **HTML**.
+3. La zone d’import se déverrouille et explique le fichier attendu avec des mots simples.
+4. Une fois le fichier et le nom renseignés, il touche **Lancer la compilation**.
+5. Le build affiche une étape lisible : en attente, compilation, APK prête ou action à corriger.
+6. Quand l’APK est prête, le bouton de téléchargement explique qu’elle est destinée aux tests et que le lien est temporaire.
 
-## Principes d’interaction
+## Règles d’interaction
 
-Les boutons principaux utilisent un retour d’opacité et une légère réduction à la pression. Les boutons d’action ont une hauteur minimale de 48 px. Les erreurs sont rédigées en français simple avec une solution concrète ; elles ne doivent jamais afficher de trace Gradle ou l’écran rouge Metro.
+Les boutons d’action ont une hauteur minimum de 52 px et sont placés en bas des contenus lorsque cela est possible. La sélection de type garde une zone tactile large. Une pression applique seulement une légère baisse d’opacité et une réduction à `0,98`, sans animation spectaculaire.
 
-Les éléments détaillés, comme les journaux techniques, restent masqués dans une section « Voir le détail » afin que l’écran principal reste lisible.
+Les états ne reposent jamais sur la couleur seule : chaque couleur est accompagnée d’un mot et d’une icône. Les messages évitent les noms d’outils de développement. Le code source ZIP est annoncé comme temporaire ; l’utilisateur est invité à ne jamais envoyer de mots de passe, clés ou informations privées.
+
+## Navigation
+
+La barre basse conserve trois destinations simples : **Builds**, **Nouveau** et **Aide**. Les icônes sont des pictogrammes cohérents plutôt que des caractères isolés. Le bouton central « Nouveau » est traité comme l’action la plus importante sans devenir une quatrième interface.

@@ -1,77 +1,66 @@
+import type { ComponentProps } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { PROJECT_TYPES } from "@/lib/build-store";
+import { PROJECT_TYPES, type ProjectType } from "@/lib/build-store";
+
+type IconName = ComponentProps<typeof MaterialIcons>["name"];
+const TYPE_ICONS: Record<ProjectType, IconName> = { expo: "code", android: "android", html: "language" };
 
 export default function HelpScreen() {
   const colors = useColors();
-
   return (
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Aide</Text>
-        <Text style={[styles.subtitle, { color: colors.muted }]}>Importez votre code, One App s’occupe du chemin vers l’APK debug.</Text>
+        <Text style={[styles.eyebrow, { color: colors.primary }]}>BESOIN D’AIDE ?</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>Créer une APK en 3 étapes.</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>Pas besoin de connaître les outils Android. Suivez simplement l’ordre ci-dessous.</Text>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.cardEyebrow, { color: colors.primary }]}>AVANT D’ENVOYER</Text>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Choisissez votre type de projet</Text>
-          <Text style={[styles.cardText, { color: colors.muted }]}>Le type indique au compilateur comment lire votre archive ZIP. Il ne peut pas être choisi après l’envoi.</Text>
+        <View style={styles.guideList}>
+          <View style={[styles.guideRow, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={[styles.guideNumber, { backgroundColor: colors.primary }]}><Text style={[styles.guideNumberText, { color: colors.background }]}>1</Text></View><View style={styles.guideCopy}><Text style={[styles.guideTitle, { color: colors.foreground }]}>Choisissez le type</Text><Text style={[styles.guideText, { color: colors.muted }]}>Expo, Android natif ou HTML. Ce choix explique comment lire votre code.</Text></View></View>
+          <View style={[styles.guideRow, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={[styles.guideNumber, { backgroundColor: colors.primary }]}><Text style={[styles.guideNumberText, { color: colors.background }]}>2</Text></View><View style={styles.guideCopy}><Text style={[styles.guideTitle, { color: colors.foreground }]}>Ajoutez votre fichier</Text><Text style={[styles.guideText, { color: colors.muted }]}>Un ZIP est demandé, sauf pour HTML où index.html est aussi accepté.</Text></View></View>
+          <View style={[styles.guideRow, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={[styles.guideNumber, { backgroundColor: colors.primary }]}><Text style={[styles.guideNumberText, { color: colors.background }]}>3</Text></View><View style={styles.guideCopy}><Text style={[styles.guideTitle, { color: colors.foreground }]}>Téléchargez l’APK</Text><Text style={[styles.guideText, { color: colors.muted }]}>Quand le statut devient « APK prête », téléchargez-la puis installez-la sur Android.</Text></View></View>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Formats acceptés</Text>
-        <View style={styles.formatList}>
-          {PROJECT_TYPES.map((type) => (
-            <View key={type.id} style={[styles.formatCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={styles.formatIcon}>{type.icon}</Text>
-              <View style={styles.formatCopy}>
-                <Text style={[styles.formatTitle, { color: colors.foreground }]}>{type.label}</Text>
-                <Text style={[styles.formatText, { color: colors.muted }]}>{type.expected}</Text>
-              </View>
-            </View>
-          ))}
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Fichiers acceptés</Text>
+        <View style={[styles.formatPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {PROJECT_TYPES.map((type, index) => <View key={type.id} style={[styles.formatRow, index < PROJECT_TYPES.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}><MaterialIcons color={colors.primary} name={TYPE_ICONS[type.id]} size={21} /><View style={styles.formatCopy}><Text style={[styles.formatTitle, { color: colors.foreground }]}>{type.label}</Text><Text style={[styles.formatText, { color: colors.muted }]}>{type.expected}</Text></View></View>)}
         </View>
 
-        <View style={[styles.tipCard, { backgroundColor: `${colors.primary}14`, borderColor: `${colors.primary}55` }]}>
-          <Text style={styles.tipIcon}>✦</Text>
-          <View style={styles.tipCopy}>
-            <Text style={[styles.tipTitle, { color: colors.foreground }]}>Pour éviter une erreur</Text>
-            <Text style={[styles.tipText, { color: colors.muted }]}>Envoyez un ZIP propre, sans `node_modules`, dossier `build`, clés ou mots de passe. Donnez à votre projet un nom simple.</Text>
-          </View>
-        </View>
+        <View style={[styles.warning, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}4D` }]}><MaterialIcons color={colors.primary} name="shield" size={20} /><View style={styles.warningCopy}><Text style={[styles.warningTitle, { color: colors.foreground }]}>Gardez vos informations secrètes</Text><Text style={[styles.warningText, { color: colors.muted }]}>Retirez les mots de passe, clés API et données privées avant l’envoi. N’ajoutez pas node_modules dans un ZIP.</Text></View></View>
 
-        <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/create")} style={({ pressed }) => [styles.action, { borderColor: colors.primary }, pressed && styles.pressed]}>
-          <Text style={[styles.actionText, { color: colors.primary }]}>Créer un build</Text>
-          <Text style={[styles.actionArrow, { color: colors.primary }]}>→</Text>
-        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Créer une compilation" onPress={() => router.push("/(tabs)/create")} style={({ pressed }) => [styles.action, { backgroundColor: colors.primary }, pressed && styles.pressed]}><Text style={[styles.actionText, { color: colors.background }]}>Créer une compilation</Text><MaterialIcons color={colors.background} name="arrow-forward" size={22} /></Pressable>
       </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 28 },
-  title: { fontSize: 25, fontWeight: "800", letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, lineHeight: 20, marginTop: 5, marginBottom: 23 },
-  card: { borderWidth: 1, borderRadius: 20, padding: 17, marginBottom: 26 },
-  cardEyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 1.1, marginBottom: 7 },
-  cardTitle: { fontSize: 18, fontWeight: "800" },
-  cardText: { marginTop: 7, fontSize: 13, lineHeight: 19 },
-  sectionTitle: { fontSize: 17, fontWeight: "800", marginBottom: 10 },
-  formatList: { gap: 9 },
-  formatCard: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "center" },
-  formatIcon: { fontSize: 21, width: 40, textAlign: "center", marginRight: 8 },
+  content: { paddingHorizontal: 18, paddingTop: 15, paddingBottom: 30 },
+  eyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
+  title: { marginTop: 5, fontSize: 27, lineHeight: 33, fontWeight: "800", letterSpacing: -0.8, maxWidth: 310 },
+  subtitle: { marginTop: 7, fontSize: 13, lineHeight: 19, maxWidth: 335 },
+  guideList: { gap: 9, marginTop: 23 },
+  guideRow: { borderWidth: 1, borderRadius: 18, padding: 13, flexDirection: "row", alignItems: "flex-start" },
+  guideNumber: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", marginRight: 11 },
+  guideNumberText: { fontSize: 12, fontWeight: "900" },
+  guideCopy: { flex: 1 },
+  guideTitle: { fontSize: 14, fontWeight: "800" },
+  guideText: { marginTop: 3, fontSize: 11, lineHeight: 17 },
+  sectionTitle: { marginTop: 27, marginBottom: 11, fontSize: 17, fontWeight: "800" },
+  formatPanel: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+  formatRow: { minHeight: 67, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 12 },
   formatCopy: { flex: 1 },
-  formatTitle: { fontSize: 14, fontWeight: "800" },
-  formatText: { fontSize: 12, marginTop: 3, lineHeight: 17 },
-  tipCard: { marginTop: 22, borderWidth: 1, borderRadius: 16, padding: 14, flexDirection: "row" },
-  tipIcon: { fontSize: 19, marginRight: 9 },
-  tipCopy: { flex: 1 },
-  tipTitle: { fontSize: 14, fontWeight: "800" },
-  tipText: { fontSize: 12, marginTop: 4, lineHeight: 18 },
-  action: { minHeight: 51, marginTop: 22, borderWidth: 1.5, borderRadius: 15, paddingHorizontal: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  actionText: { fontSize: 15, fontWeight: "800" },
-  actionArrow: { fontSize: 22, fontWeight: "700" },
-  pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
+  formatTitle: { fontSize: 13, fontWeight: "800" },
+  formatText: { marginTop: 2, fontSize: 11, lineHeight: 16 },
+  warning: { marginTop: 21, borderWidth: 1, borderRadius: 17, padding: 14, flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  warningCopy: { flex: 1 },
+  warningTitle: { fontSize: 13, fontWeight: "800" },
+  warningText: { marginTop: 3, fontSize: 11, lineHeight: 17 },
+  action: { minHeight: 55, marginTop: 22, paddingHorizontal: 17, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  actionText: { fontSize: 15, fontWeight: "900" },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
 });
