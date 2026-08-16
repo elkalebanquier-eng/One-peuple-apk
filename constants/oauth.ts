@@ -1,9 +1,9 @@
 import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
 
-// The public One App backend used by installed Android builds. The value can be
-// replaced at release time with EXPO_PUBLIC_API_BASE_URL without changing the UI.
-const DEFAULT_ONE_APP_API_URL = "https://3000-i4oiqd6t9mdx2qpgu4fa6-3b48ee0a.us3.manus.computer";
+// The production backend address is injected when One App is published.
+// Never embed a temporary preview address in an installable APK.
+const DEFAULT_ONE_APP_API_URL = "";
 
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"

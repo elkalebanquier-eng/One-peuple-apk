@@ -12,13 +12,18 @@ import {
   submitBuildJob,
   type ProjectType,
 } from "@/lib/build-store";
-import { MAX_SOURCE_SIZE, validateProjectArchive } from "@/lib/project-import";
+import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
+import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
+
+type SelectedSource = Pick<DocumentPicker.DocumentPickerAsset, "name" | "size" | "uri"> & {
+  preparedFromHtml?: boolean;
+};
 
 export default function NewBuildScreen() {
   const colors = useColors();
   const [projectType, setProjectType] = useState<ProjectType | null>(null);
   const [projectName, setProjectName] = useState("");
-  const [archive, setArchive] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [archive, setArchive] = useState<SelectedSource | null>(null);
   const [saving, setSaving] = useState(false);
 
   const selectedType = useMemo(
@@ -32,29 +37,48 @@ export default function NewBuildScreen() {
 
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/zip", "application/x-zip-compressed", "application/octet-stream"],
+        type: projectType === "html"
+          ? ["text/html", "application/xhtml+xml", "application/zip", "application/x-zip-compressed", "application/octet-stream"]
+          : ["application/zip", "application/x-zip-compressed", "application/octet-stream"],
         copyToCacheDirectory: true,
         multiple: false,
       });
 
       if (result.canceled) return;
       const selected = result.assets[0];
+      const selectedName = selected.name ?? "index.html";
+      const selectedSource: SelectedSource = {
+        name: selectedName,
+        size: selected.size,
+        uri: selected.uri,
+      };
 
-      const validation = validateProjectArchive(selected.name, selected.size);
+      const directHtml = projectType === "html" && isHtmlFile(selectedName);
+      const validation = directHtml
+        ? selected.size && selected.size > MAX_SOURCE_SIZE
+          ? { valid: false, reason: "Fichier trop grand" }
+          : { valid: true, reason: null }
+        : validateProjectArchive(selectedName, selected.size);
       if (!validation.valid) {
         const message = validation.reason === "Archive ZIP requise"
-          ? "Choisissez un seul fichier se terminant par .zip."
+          ? projectType === "html"
+            ? "Choisissez index.html directement, ou un fichier ZIP contenant index.html et vos images, CSS ou JavaScript."
+            : "Choisissez un seul fichier se terminant par .zip."
           : `Pour ce premier test, choisissez un ZIP de ${Math.round(MAX_SOURCE_SIZE / (1024 * 1024))} Mo maximum.`;
-        Alert.alert(validation.reason, message);
+        Alert.alert(validation.reason ?? "Import impossible", message);
         return;
       }
 
-      setArchive(selected);
+      const source: SelectedSource | PreparedHtmlSource = directHtml
+        ? await prepareDirectHtmlSource(selected)
+        : selectedSource;
+      setArchive(source);
       if (!projectName.trim()) {
-        setProjectName(selected.name.replace(/\.zip$/i, ""));
+        setProjectName(selectedName.replace(/\.(zip|html?)$/i, ""));
       }
-    } catch {
-      Alert.alert("Import impossible", "Le fichier n’a pas pu être sélectionné. Réessayez avec une archive ZIP.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Le fichier n’a pas pu être sélectionné. Réessayez.";
+      Alert.alert("Import impossible", message);
     }
   }
 
@@ -130,12 +154,12 @@ export default function NewBuildScreen() {
 
         <View style={styles.stepRow}>
           <View style={[styles.stepBadge, { backgroundColor: projectType ? colors.primary : colors.surface }]}><Text style={[styles.stepBadgeText, { color: projectType ? colors.background : colors.muted }]}>2</Text></View>
-          <View><Text style={[styles.stepLabel, { color: colors.foreground }]}>Archive du code</Text><Text style={[styles.stepHint, { color: colors.muted }]}>{selectedType ? selectedType.expected : "Choisissez d’abord le type de projet."}</Text></View>
+          <View><Text style={[styles.stepLabel, { color: colors.foreground }]}>Code du projet</Text><Text style={[styles.stepHint, { color: colors.muted }]}>{selectedType ? selectedType.expected : "Choisissez d’abord le type de projet."}</Text></View>
         </View>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Choisir une archive ZIP"
+          accessibilityLabel={projectType === "html" ? "Choisir index.html ou une archive ZIP" : "Choisir une archive ZIP"}
           disabled={!projectType || saving}
           onPress={handlePickArchive}
           style={({ pressed }) => [
@@ -146,8 +170,8 @@ export default function NewBuildScreen() {
         >
           <Text style={styles.archiveButtonIcon}>⇧</Text>
           <View style={styles.archiveButtonCopy}>
-            <Text style={[styles.archiveButtonTitle, { color: projectType ? colors.foreground : colors.muted }]}>Choisir une archive ZIP</Text>
-            <Text style={[styles.archiveButtonText, { color: colors.muted }]}>{projectType ? "50 Mo maximum pour ce premier test" : "Débloqué après le choix du type"}</Text>
+            <Text style={[styles.archiveButtonTitle, { color: projectType ? colors.foreground : colors.muted }]}>{projectType === "html" ? "Choisir index.html ou un ZIP" : "Choisir une archive ZIP"}</Text>
+            <Text style={[styles.archiveButtonText, { color: colors.muted }]}>{projectType === "html" ? "index.html seul, ou ZIP pour un site avec des fichiers" : projectType ? "50 Mo maximum pour ce premier test" : "Débloqué après le choix du type"}</Text>
           </View>
         </Pressable>
 
@@ -156,7 +180,7 @@ export default function NewBuildScreen() {
             <Text style={styles.fileIcon}>✓</Text>
             <View style={styles.fileCopy}>
               <Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text>
-              <Text style={[styles.fileSize, { color: colors.muted }]}>{formatBytes(archive.size)} · ZIP sélectionné</Text>
+              <Text style={[styles.fileSize, { color: colors.muted }]}>{formatBytes(archive.size)} · {archive.preparedFromHtml ? "HTML prêt à compiler" : "ZIP sélectionné"}</Text>
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => setArchive(null)} style={({ pressed }) => [styles.removeFile, pressed && styles.pressed]}>
               <Text style={[styles.removeFileText, { color: colors.primary }]}>Retirer</Text>
@@ -180,7 +204,7 @@ export default function NewBuildScreen() {
 
         <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={styles.infoIcon}>ⓘ</Text>
-          <Text style={[styles.infoText, { color: colors.muted }]}>One App envoie votre ZIP de façon sécurisée, fabrique l’APK, puis vous prévient ici dès qu’elle est prête.</Text>
+          <Text style={[styles.infoText, { color: colors.muted }]}>{projectType === "html" ? "Vous pouvez choisir index.html directement. Pour inclure des images, CSS ou JavaScript locaux, choisissez plutôt un ZIP contenant tous les fichiers." : "One App envoie votre ZIP de façon sécurisée, fabrique l’APK, puis vous prévient ici dès qu’elle est prête."}</Text>
         </View>
 
         <Pressable

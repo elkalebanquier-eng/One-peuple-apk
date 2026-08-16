@@ -3,6 +3,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
 import { getApiBaseUrl } from "@/constants/oauth";
+import { readBuildResponse } from "@/lib/build-response";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -92,7 +93,7 @@ async function updateJob(id: string, patch: Partial<BuildJob>) {
 function buildApiUrl(path: string) {
   const baseUrl = getApiBaseUrl();
   if (!baseUrl) {
-    throw new Error("Le service de compilation n’est pas disponible. Vérifiez votre connexion puis réessayez.");
+    throw new Error("Le service de compilation n’est pas encore prêt. Réessayez après la publication de One App.");
   }
   return `${baseUrl}${path}`;
 }
@@ -207,7 +208,7 @@ export async function refreshBuildJob(job: BuildJob) {
 
   try {
     const response = await fetch(buildApiUrl(`/api/builds/${encodeURIComponent(job.id)}/status`));
-    const payload = (await response.json()) as { status?: BuildStatus; message?: string; apkUrl?: string };
+    const payload = readBuildResponse(await response.text(), response.status) as { status?: BuildStatus; message?: string; apkUrl?: string };
     if (!response.ok || !payload.status) {
       throw new Error(payload.message || "Le statut est indisponible.");
     }

@@ -4,6 +4,10 @@ export function isZipFile(fileName: string) {
   return fileName.trim().toLowerCase().endsWith(".zip");
 }
 
+export function isHtmlFile(fileName: string) {
+  return fileName.trim().toLowerCase().endsWith(".html") || fileName.trim().toLowerCase().endsWith(".htm");
+}
+
 export function validateProjectArchive(fileName: string, size?: number | null) {
   if (!isZipFile(fileName)) {
     return { valid: false, reason: "Archive ZIP requise" } as const;

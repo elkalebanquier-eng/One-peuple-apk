@@ -221,6 +221,14 @@
 - [x] Compiler de bout en bout un index.html simple au moyen du parcours utilisateur et vérifier l’APK obtenue
 - [x] Empêcher une archive invalide de consommer une tentative gratuite de compilation
 
+## Import HTML direct
+
+- [x] Accepter directement un fichier index.html dans le sélecteur de fichiers Android
+- [x] Préparer automatiquement un index.html en archive compatible avec le moteur de compilation
+- [x] Tester la préparation index.html directe puis reconstruire l’APK One App
+- [x] Détecter une réponse HTML ou un service indisponible et montrer une erreur simple dans One App
+- [ ] Configurer l’URL du moteur publiée dans l’APK de production
+
 ## Parcours accessible aux débutants
 
 - [x] Employer des consignes simples à chaque étape sans citer GitHub, Gradle ni Metro
