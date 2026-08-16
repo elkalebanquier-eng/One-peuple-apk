@@ -258,6 +258,7 @@
 - [x] Envoyer un index.html de contrôle vers le backend publié et vérifier l’APK créée
 - [x] Corriger le téléchargement de l’artifact APK par le workflow de livraison isolé
 - [x] Corriger la configuration du bundle Android qui empêche Metro de charger ses fichiers CommonJS
+- [x] Construire et vérifier l’APK One App contenant l’adresse du moteur GitHub actif
 
 ## Parcours accessible aux débutants
 
