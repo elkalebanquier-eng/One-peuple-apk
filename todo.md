@@ -254,7 +254,7 @@
 - [x] Restaurer l’envoi sécurisé du ZIP et le suivi de compilation depuis l’APK
 - [x] Rétablir les textes « compiler » et « APK prête » dans le design One App
 - [x] Corriger le lancement du backend de compilation sans créer de site visible pour les utilisateurs
-- [ ] Intégrer l’adresse backend durable dans One App après sa disponibilité
+- [x] Intégrer l’adresse backend durable dans One App après sa disponibilité
 
 ## Parcours accessible aux débutants
 

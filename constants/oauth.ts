@@ -1,9 +1,9 @@
 import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
 
-// The production backend address is injected when One App is published.
-// Never embed a temporary preview address in an installable APK.
-const DEFAULT_ONE_APP_API_URL = "";
+// Stable backend address used only by the APK to submit and follow builds.
+// It is not displayed as a website inside One App.
+const DEFAULT_ONE_APP_API_URL = "https://kikonative-evby5xxj.manus.space";
 
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
