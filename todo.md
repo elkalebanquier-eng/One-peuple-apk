@@ -141,3 +141,10 @@
 - [x] Ne livrer aucun APK avant une compilation Android réussie
 - [x] Vérifier que l’APK produit est bien un fichier installable
 - [x] Documenter clairement tout échec de compilation au lieu de présenter une archive comme APK
+
+## Vérification distante GitHub et écran de test
+
+- [x] Cloner et inspecter la branche main du dépôt distant `elkalebanquier-eng/One-peuple-apk`
+- [ ] Créer un écran de test séparé pour diagnostiquer le comportement natif sans modifier l’interface principale KIKO
+- [ ] Lancer et surveiller un nouveau workflow GitHub Actions pour valider la compilation
+- [ ] Vérifier et livrer le nouvel APK debug certifié
