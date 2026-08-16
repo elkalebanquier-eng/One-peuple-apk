@@ -112,10 +112,10 @@
 
 - [x] Vérifier la configuration Android et la présence du SDK/Gradle
 - [x] Préparer un profil de build debug reproductible
-- [ ] Générer et tester l’APK debug installable — build local interrompu par les limites de ressources
+- [x] Générer et tester l’APK debug installable — build GitHub Actions réussi et fichier APK vérifié
 - [x] Créer une archive complète du code source
 - [x] Ajouter la documentation d’installation et de lancement
-- [ ] Livrer l’APK debug et l’archive source — archive prête, APK non généré
+- [x] Livrer l’APK debug et l’archive source — APK et archive préparés
 
 **Sécurité :** ne pas inclure les clés Firebase, Cloudinary, ImageKit ou les jetons GitHub dans l’archive source.
 
@@ -132,12 +132,12 @@
 - [x] Désactiver temporairement Firebase et les appels serveur dans l’application mobile
 - [x] Conserver l’interface et la navigation existantes sans refaire le site
 - [x] Remplacer les chargements distants par un état local minimal lorsque nécessaire
-- [ ] Retirer les dépendances et ressources inutiles du paquet Android
-- [ ] Vérifier la taille et le comportement de l’APK debug
-- [ ] Livrer le code source mis à jour et l’APK debug
+- [x] Retirer les dépendances et ressources inutiles du paquet Android
+- [x] Vérifier la taille et le comportement de l’APK debug
+- [x] Livrer le code source mis à jour et l’APK debug
 
 ## Exigence de compilation vérifiée
 
-- [ ] Ne livrer aucun APK avant une compilation Android réussie
-- [ ] Vérifier que l’APK produit est bien un fichier installable
-- [ ] Documenter clairement tout échec de compilation au lieu de présenter une archive comme APK
+- [x] Ne livrer aucun APK avant une compilation Android réussie
+- [x] Vérifier que l’APK produit est bien un fichier installable
+- [x] Documenter clairement tout échec de compilation au lieu de présenter une archive comme APK
