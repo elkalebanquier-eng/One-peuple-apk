@@ -7,7 +7,7 @@ import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, type ProjectType } from "@/lib/build-store";
+import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type ProjectType } from "@/lib/build-store";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
 
@@ -62,14 +62,15 @@ export default function NewBuildScreen() {
     }
   }
 
-  async function handleSaveLocalProject() {
+  async function handlePrepareBuild() {
     if (!projectType || !archive || !projectName.trim()) return;
     try {
       setSaving(true);
-      await createLocalBuildDraft({ projectName, projectType, sourceName: archive.name, sourceSize: archive.size, sourceUri: archive.uri });
-      Alert.alert("Projet enregistré", "Votre fichier reste sur ce téléphone. Sans publier de serveur, une APK ne peut pas être recompilée depuis l’application seule.", [{ text: "Voir mes projets", onPress: () => router.replace("/(tabs)") }]);
+      const job = await createLocalBuildDraft({ projectName, projectType, sourceName: archive.name, sourceSize: archive.size, sourceUri: archive.uri });
+      await submitBuildJob(job);
+      Alert.alert("Compilation lancée", "One App prépare votre APK. Vous verrez son avancement dans Builds.", [{ text: "Voir les builds", onPress: () => router.replace("/(tabs)") }]);
     } catch (error) {
-      Alert.alert("Enregistrement impossible", error instanceof Error ? error.message : "Le fichier n’a pas pu être enregistré sur ce téléphone.");
+      Alert.alert("Compilation non lancée", error instanceof Error ? error.message : "Vérifiez votre connexion et réessayez.");
     } finally {
       setSaving(false);
     }
@@ -79,9 +80,9 @@ export default function NewBuildScreen() {
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={[styles.headerEyebrow, { color: colors.primary }]}>MODE LOCAL</Text>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Préparez votre projet.</Text>
-          <Text style={[styles.headerText, { color: colors.muted }]}>Votre fichier est contrôlé puis enregistré sur ce téléphone. Rien n’est publié.</Text>
+          <Text style={[styles.headerEyebrow, { color: colors.primary }]}>NOUVELLE COMPILATION</Text>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Préparez votre APK.</Text>
+          <Text style={[styles.headerText, { color: colors.muted }]}>Trois petites étapes. One App vous explique le fichier attendu à chaque fois.</Text>
         </View>
 
         <View style={[styles.stepPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -155,7 +156,7 @@ export default function NewBuildScreen() {
         {archive ? (
           <View style={[styles.selectedFile, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}55` }]}>
             <View style={[styles.fileCheck, { backgroundColor: `${colors.success}22` }]}><MaterialIcons color={colors.success} name="check" size={18} /></View>
-            <View style={styles.fileCopy}><Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text><Text style={[styles.fileDetail, { color: colors.muted }]}>{formatBytes(archive.size)} · {archive.preparedFromHtml ? "HTML prêt à enregistrer" : "Fichier reconnu"}</Text></View>
+            <View style={styles.fileCopy}><Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text><Text style={[styles.fileDetail, { color: colors.muted }]}>{formatBytes(archive.size)} · {archive.preparedFromHtml ? "HTML prêt à compiler" : "Fichier reconnu"}</Text></View>
             <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => setArchive(null)} style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="close" size={20} /></Pressable>
           </View>
         ) : null}
@@ -171,8 +172,8 @@ export default function NewBuildScreen() {
           <Text style={[styles.securityText, { color: colors.muted }]}>N’ajoutez jamais de mot de passe, clé privée ou information personnelle dans votre fichier.</Text>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Enregistrer le projet sur ce téléphone" disabled={!canPrepare} onPress={handleSaveLocalProject} style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : colors.surface, borderColor: canPrepare ? colors.primary : colors.border }, pressed && canPrepare && styles.pressed]}>
-          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Enregistrement…" : "Enregistrer le projet"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : "Il reste uniquement sur ce téléphone"}</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Lancer la compilation" disabled={!canPrepare} onPress={handlePrepareBuild} style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : colors.surface, borderColor: canPrepare ? colors.primary : colors.border }, pressed && canPrepare && styles.pressed]}>
+          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : "Sortie : APK Android de test"}</Text></View>
           <MaterialIcons color={canPrepare ? colors.background : colors.muted} name="arrow-forward" size={23} />
         </Pressable>
       </ScrollView>

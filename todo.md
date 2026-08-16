@@ -247,7 +247,14 @@
 
 - [x] Désactiver le parcours de compilation distante à la demande de l’utilisateur, sans publier de backend ni de site
 - [x] Expliquer dans One App, avec un message simple, que compiler un nouveau code ne peut pas fonctionner depuis une APK seule hors ligne
-- [ ] Recréer une APK locale cohérente après le retrait du parcours de compilation distante
+- [x] Annuler la recréation d’une APK locale seule : le moteur GitHub reste nécessaire pour compiler réellement
+
+## Moteur GitHub invisible dans One App
+
+- [x] Restaurer l’envoi sécurisé du ZIP et le suivi de compilation depuis l’APK
+- [x] Rétablir les textes « compiler » et « APK prête » dans le design One App
+- [x] Corriger le lancement du backend de compilation sans créer de site visible pour les utilisateurs
+- [ ] Intégrer l’adresse backend durable dans One App après sa disponibilité
 
 ## Parcours accessible aux débutants
 

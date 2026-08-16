@@ -5,11 +5,6 @@ import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { readBuildResponse } from "@/lib/build-response";
 
-// The owner requested an installable, local-only APK.  Keep this explicit so
-// an imported archive cannot accidentally leave the phone while no build
-// service is published.
-export const LOCAL_ONLY_MODE = true;
-
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
 
@@ -155,7 +150,7 @@ export async function createLocalBuildDraft(input: {
     status: "ready",
     createdAt: now,
     updatedAt: now,
-    message: "Archive enregistrée uniquement sur cet appareil.",
+    message: "Archive enregistrée sur cet appareil. Prête pour l’envoi sécurisé.",
   };
 
   const jobs = await readJobs();
@@ -164,12 +159,6 @@ export async function createLocalBuildDraft(input: {
 }
 
 export async function submitBuildJob(job: BuildJob) {
-  if (LOCAL_ONLY_MODE) {
-    const message = "Mode local : le fichier reste sur votre téléphone. Une APK ne peut pas être recompilée sans serveur de compilation.";
-    await updateJob(job.id, { status: "ready", message });
-    throw new Error(message);
-  }
-
   await updateJob(job.id, {
     status: "queued",
     message: "Envoi sécurisé du ZIP vers le moteur de compilation…",

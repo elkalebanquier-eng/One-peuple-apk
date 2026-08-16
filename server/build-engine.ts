@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const WORKER_OWNER = "elkalebanquier-eng";
@@ -140,7 +140,7 @@ function sendJob(response: Response, job: BuildRecord) {
 export function registerBuildRoutes(app: Express) {
   app.post(
     "/api/builds/submit",
-    require("express").raw({ type: "application/octet-stream", limit: "50mb" }),
+    express.raw({ type: "application/octet-stream", limit: "50mb" }),
     async (request: Request, response: Response) => {
       try {
         cleanExpiredBuilds();
@@ -243,7 +243,7 @@ export function registerBuildRoutes(app: Express) {
 
   app.post(
     "/api/builds/:buildId/complete",
-    require("express").json({ limit: "32kb" }),
+    express.json({ limit: "32kb" }),
     async (request: Request, response: Response) => {
       try {
         const buildId = parseBuildId(request.params.buildId);

@@ -20,7 +20,7 @@ type IconName = ComponentProps<typeof MaterialIcons>["name"];
 
 const STATUS_COPY: Record<BuildStatus, { label: string; color: string; icon: IconName }> = {
   draft: { label: "À préparer", color: "#8B93A7", icon: "edit-note" },
-  ready: { label: "Sur cet appareil", color: "#FFB35C", icon: "phone-android" },
+  ready: { label: "Prêt à envoyer", color: "#FFB35C", icon: "upload-file" },
   queued: { label: "Dans la file", color: "#FFB35C", icon: "schedule" },
   building: { label: "Compilation en cours", color: "#7AA7FF", icon: "autorenew" },
   complete: { label: "APK prête", color: "#34D399", icon: "verified" },
@@ -125,7 +125,7 @@ export default function BuildsScreen() {
                 </View>
                 <View>
                   <Text style={[styles.brand, { color: colors.foreground }]}>One App</Text>
-                  <Text style={[styles.headerCaption, { color: colors.muted }]}>Atelier de projets local</Text>
+                  <Text style={[styles.headerCaption, { color: colors.muted }]}>Atelier de compilation</Text>
                 </View>
               </View>
               <Text style={[styles.localCount, { color: colors.muted }]}>{jobs.length} sur cet appareil</Text>
@@ -133,9 +133,9 @@ export default function BuildsScreen() {
 
             <View style={[styles.launchPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={[styles.orangeRule, { backgroundColor: colors.primary }]} />
-              <Text style={[styles.launchEyebrow, { color: colors.primary }]}>MODE HORS LIGNE</Text>
-              <Text style={[styles.launchTitle, { color: colors.foreground }]}>Préparez votre code sur votre téléphone.</Text>
-              <Text style={[styles.launchText, { color: colors.muted }]}>Choisissez un type de projet, ajoutez votre fichier puis gardez-le privé sur cet appareil.</Text>
+              <Text style={[styles.launchEyebrow, { color: colors.primary }]}>PRÊT À COMMENCER</Text>
+              <Text style={[styles.launchTitle, { color: colors.foreground }]}>Transformez votre code en APK.</Text>
+              <Text style={[styles.launchText, { color: colors.muted }]}>Choisissez un type de projet, ajoutez votre fichier puis suivez chaque étape sans outil compliqué.</Text>
               <View style={styles.formatPills}>
                 <View style={[styles.formatPill, { backgroundColor: colors.background }]}><MaterialIcons color={colors.primary} name="code" size={14} /><Text style={[styles.formatPillText, { color: colors.muted }]}>Expo</Text></View>
                 <View style={[styles.formatPill, { backgroundColor: colors.background }]}><MaterialIcons color={colors.primary} name="android" size={14} /><Text style={[styles.formatPillText, { color: colors.muted }]}>Android</Text></View>
@@ -143,17 +143,17 @@ export default function BuildsScreen() {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Ajouter un projet local"
+                accessibilityLabel="Créer une nouvelle APK"
                 onPress={() => router.push("/(tabs)/create")}
                 style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}
               >
-                <Text style={[styles.primaryButtonText, { color: colors.background }]}>Ajouter un projet</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.background }]}>Créer une APK</Text>
                 <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
               </Pressable>
             </View>
 
             <View style={styles.sectionTitleRow}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mes projets</Text>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mes compilations</Text>
               <Text style={[styles.sectionCount, { color: colors.muted }]}>{jobs.length === 0 ? "Aucune pour l’instant" : `${jobs.length} au total`}</Text>
             </View>
           </>
@@ -163,14 +163,14 @@ export default function BuildsScreen() {
             <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
               <MaterialIcons color={colors.primary} name="rocket-launch" size={25} />
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Votre premier projet commence ici.</Text>
-            <Text style={[styles.emptyText, { color: colors.muted }]}>Un ZIP Expo ou Android, ou directement un fichier index.html, suffit pour le conserver sur ce téléphone.</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Votre première APK commence ici.</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>Un ZIP Expo ou Android, ou directement un fichier index.html, suffit pour démarrer.</Text>
           </View>
         }
         ListFooterComponent={
           <View style={[styles.footerNote, { borderColor: colors.border }]}>
             <MaterialIcons color={colors.muted} name="info-outline" size={16} />
-            <Text style={[styles.footerNoteText, { color: colors.muted }]}>Mode local : votre fichier reste sur ce téléphone. Une nouvelle APK ne peut pas être créée sans un service de compilation.</Text>
+            <Text style={[styles.footerNoteText, { color: colors.muted }]}>Votre fichier est utilisé uniquement le temps de préparer la compilation. L’APK est une version de test Android.</Text>
           </View>
         }
       />
