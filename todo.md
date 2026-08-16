@@ -123,6 +123,6 @@
 
 - [x] Vérifier le dépôt public https://github.com/elkalebanquier-eng/One-peuple-apk.git
 - [x] Comparer son contenu avec le projet KIKO local (dépôt initialement vide)
-- [x] Synchroniser le code source — tentative bloquée par les permissions du jeton distant (403)
-- [x] Vérifier le workflow GitHub Actions — inclus dans l'archive source livrée et prêt pour publication manuelle
-- [x] Confirmer à l’utilisateur l’état de la synchronisation et fournir l'archive source complète
+- [x] Synchroniser le code source et la configuration de build — push réussi sur la branche main
+- [x] Vérifier le workflow GitHub Actions — présent dans `.github/workflows/build-debug-apk.yml`
+- [x] Confirmer à l’utilisateur l’état de la synchronisation et fournir le lien du dépôt
