@@ -18,9 +18,9 @@ export default function DiagnosticScreen() {
         const docDir = FileSystem.documentDirectory;
         let count = 0;
         if (docDir) {
-          const dirInfo = await FileSystem.getInfoAsync(docDir + "kiko-media/");
+          const dirInfo = await FileSystem.getInfoAsync(docDir + "one-app/");
           if (dirInfo.exists) {
-            const files = await FileSystem.readDirectoryAsync(docDir + "kiko-media/");
+            const files = await FileSystem.readDirectoryAsync(docDir + "one-app/");
             count = files.length;
           }
         }
@@ -37,7 +37,7 @@ export default function DiagnosticScreen() {
     <ScreenContainer className="p-6">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="gap-6">
         <View className="items-center gap-2 py-4">
-          <Text className="text-3xl font-bold text-foreground">KIKO 👑 Diagnostic</Text>
+          <Text className="text-3xl font-bold text-foreground">One App — Diagnostic</Text>
           <Text className="text-sm text-muted text-center">
             Écran de test isolé (hors navigation principale)
           </Text>

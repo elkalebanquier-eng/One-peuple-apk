@@ -155,3 +155,55 @@
 - [ ] Modifier la configuration Gradle / Expo pour forcer le bundle JS embarqué dans l’APK (mode release / bundle offline)
 - [ ] Relancer un build GitHub Actions avec packaging complet du script
 - [ ] Fournir l’importance et la valeur de l’application KIKO à l’utilisateur
+
+## APK autonome et compilation depuis téléphone
+
+- [ ] Garantir que l’APK installée ne cherche pas Metro ni localhost:8081
+- [ ] Documenter une procédure mobile GitHub pour envoyer les modifications et déclencher un nouvel APK
+- [ ] Recompiler et valider l’APK autonome sans écran de développement
+
+## KIKO Studio — plateforme de création d’applications
+
+- [x] Remplacer le concept d’application sociale par un constructeur d’applications mobile
+- [x] Créer un parcours : nouveau projet, modèle, personnalisation, aperçu et soumission au build
+- [ ] Définir un service distant sécurisé de dépôt du code et de compilation Android
+- [ ] Préparer les exigences Play Store : AAB signé, identité éditeur, politique de confidentialité et validation
+
+## KIKO Studio — import et compilation simplifiés
+
+- [ ] Permettre à un utilisateur d’importer un projet depuis son téléphone ou une adresse de dépôt
+- [x] Masquer GitHub, Gradle, Metro et Android Studio derrière un bouton de compilation simple
+- [ ] Valider et isoler les projets importés avant toute compilation distante
+- [ ] Afficher dans KIKO Studio l’état du build et proposer le téléchargement du résultat APK ou AAB
+
+## Première version : APK debug uniquement
+
+- [ ] Générer des APK debug installables pour les tests, sans préparation AAB ni publication automatique
+- [x] Informer clairement l’utilisateur que le fichier est destiné aux tests
+
+## Choix obligatoire avant import du code
+
+- [x] Afficher le choix Expo/React Native, Android natif ou HTML avant toute sélection de fichier
+- [x] Adapter les instructions et la validation du ZIP au type de projet choisi
+- [x] Empêcher l’envoi tant que le type de projet n’a pas été choisi
+
+## Renommage One App
+
+- [x] Remplacer le nom affiché KIKO Studio par One App dans les écrans et la navigation
+- [x] Mettre à jour la configuration Android et la documentation avec le nom One App
+
+## Identité visuelle One App
+
+- [x] Créer et appliquer un logo One App premium aux icônes Android, au splash screen et au favicon
+
+## Version gratuite avec GitHub Actions
+
+- [ ] Permettre une connexion GitHub gratuite une seule fois pour lancer les builds
+- [ ] Préparer un dépôt et un workflow de compilation gratuits par utilisateur
+- [ ] Indiquer les limites de la version gratuite sans demander de serveur payant
+
+## Expérience entièrement One App
+
+- [x] Retirer la connexion GitHub et toute mention GitHub du parcours utilisateur
+- [x] Présenter l’import, l’envoi et le suivi comme des fonctions internes à One App
+- [ ] Prévoir un point d’intégration interne pour le service de compilation, sans action utilisateur externe

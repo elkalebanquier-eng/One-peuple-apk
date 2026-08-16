@@ -1,4 +1,4 @@
-name: Build KIKO Android APK
+name: Build One App APK
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
         run: pnpm check
 
       - name: Generate Android project
-        run: npx expo prebuild --platform android --non-interactive
+        run: npx expo prebuild --platform android --non-interactive --clean
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -48,17 +48,17 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Bundle JavaScript for Android
-        run: npx expo export --platform android --dev=false
-
-      - name: Build debug APK
+      - name: Build offline installable APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Upload debug APK
+      - name: Name test APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/one-app-test.apk
+
+      - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: kiko-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: one-app-test-apk
+          path: android/app/build/outputs/apk/release/one-app-test.apk
           if-no-files-found: error
           retention-days: 14

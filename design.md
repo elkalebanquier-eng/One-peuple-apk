@@ -1,155 +1,43 @@
-# KIKO👑 — Design Mobile
+# One App — Plan d’interface mobile
 
-## Aperçu
-KIKO est une application de réseau social premium avec un système de flux vidéo (Buzz), des stories animées, et une section d'opportunités (emplois, formations, financement, partenariats, services).
+## Direction du produit
 
-**Palette de couleurs:**
-- **Fond principal:** #121317 (noir très foncé)
-- **Surface:** #1B1D24 (gris-noir)
-- **Accent principal:** #FF7A30 (orange doré)
-- **Accent secondaire:** #FF9D5C (orange clair)
-- **Texte principal:** #FFFFFF (blanc)
-- **Texte secondaire:** rgba(255,255,255,0.64) (blanc semi-transparent)
-- **Succès:** #34D399 (vert)
-- **Erreur:** #FF5C72 (rouge)
+One App est une application mobile portrait conçue pour permettre à une personne, depuis son téléphone, de déposer un projet logiciel et de demander une APK debug. L’interface cache les outils de développement : l’utilisateur choisit un type de projet, sélectionne son archive, puis suit une seule demande de compilation.
 
-**Typographie:**
-- **Display:** Syne (poids: 700, 800)
-- **Corps:** Inter (poids: 400, 500, 600, 700)
+La direction visuelle utilise une identité One App sombre, nette et premium, centrée sur un symbole de code transformé en application. L’usage doit rester possible d’une seule main sur un écran 9:16.
 
----
+| Élément | Choix appliqué |
+|---|---|
+| Fond | `#121317` |
+| Surfaces | `#1B1D24` |
+| Action principale | `#FF7A30` |
+| Succès | `#34D399` |
+| Erreur | `#FF5C72` |
+| Texte principal | `#FFFFFF` |
+| Texte secondaire | `rgba(255,255,255,0.64)` |
 
-## Écrans principaux
+## Liste des écrans
 
-### 1. **Home Screen** (Accueil)
-Affiche le flux social principal avec scroll vertical.
-
-**Contenu:**
-- **Hero Banner:** Image avec gradient et titre (16:9)
-- **Stories Row:** Bulles animées horizontales (68px) avec dégradé orange
-- **Video Cards:** Cartes vidéo avec actions (like, comment, share)
-- **Photo/Text Cards:** Cartes mixtes (photos + texte)
-- **Buzz Preview Row:** Aperçu horizontal des vidéos tendance
-
-**Interactions:**
-- Tap sur story → ouvre viewer plein écran
-- Tap sur video card → lecture vidéo
-- Tap sur boutons d'action → like/comment/share
-- Pull-to-refresh → recharge le feed
-
----
-
-### 2. **Buzz Screen** (Vidéos Tendance)
-Affichage plein écran des vidéos avec scroll vertical snap.
-
-**Contenu:**
-- **Vidéo plein écran** (9:16, snap scroll)
-- **Barre supérieure:** Titre "Buzz" + bouton retour
-- **Actions latérales:** Like, comment, share, profil
-- **Indicateur de temps:** Barre de progression
-- **Contrôles vidéo:** Play/pause, mute, volume
-
-**Interactions:**
-- Swipe vertical → passe à la vidéo suivante
-- Tap sur like → ajoute un like avec haptic
-- Tap sur profil → ouvre profil utilisateur
-- Pull-to-refresh → recharge le flux
-
----
-
-### 3. **Opportunities Screen** (Emplois/Formations)
-Affiche les opportunités filtrables par type et domaine.
-
-**Contenu:**
-- **Filtres horizontaux:** Tous, Emploi, Formation, Financement, Partenariat, Service
-- **Domaines:** Technologie, Agriculture, Éducation, Santé
-- **Cards d'opportunité:** Avatar + titre + description + localisation
-- **Badge type:** Couleur + emoji selon type
-- **Badge premium:** Pour les posts sponsorisés
-
-**Interactions:**
-- Tap sur filtre → change le type d'opportunité
-- Tap sur domaine → filtre par domaine
-- Tap sur card → ouvre détail
-- Tap sur "Publier" → ouvre formulaire de publication
-
----
-
-### 4. **Profile Screen** (Profil)
-Affiche le profil utilisateur avec ses posts et stats.
-
-**Contenu:**
-- **En-tête:** Avatar + nom + bio + statistiques (followers, posts)
-- **Boutons d'action:** Modifier profil, Partager, Paramètres
-- **Onglets:** Posts, Likes, Sauvegardés
-- **Grille de posts:** Vignettes des posts utilisateur
-
-**Interactions:**
-- Tap sur "Modifier profil" → édite les infos
-- Tap sur post → ouvre détail
-- Swipe pour changer d'onglet
-
----
-
-### 5. **Settings Screen** (Paramètres)
-Gestion des préférences et compte.
-
-**Contenu:**
-- **Compte:** Déconnexion, Supprimer compte
-- **Notifications:** Activer/désactiver
-- **Apparence:** Mode clair/sombre
-- **Langue:** Français/Anglais
-- **À propos:** Version, Conditions, Confidentialité
-
-**Interactions:**
-- Toggle pour activer/désactiver options
-- Tap sur option → ouvre détail ou action
-
----
+| Écran | Contenu et fonction principale |
+|---|---|
+| **Mes builds** | Liste des projets récents avec statut : brouillon, en attente, compilation, terminé ou erreur. Bouton principal « Nouveau build ». |
+| **Choisir le type** | Trois cartes grand format : Expo / React Native, Android natif, HTML. Aucune sélection de fichier n’est possible avant ce choix. |
+| **Importer le code** | Explication adaptée au type, bouton ouvrant le sélecteur de fichiers Android et résumé du ZIP choisi. |
+| **Vérifier et envoyer** | Nom du projet, type, fichier, taille et rappel que la sortie est une APK debug. Le bouton d’envoi est activé seulement lorsque la validation passe. |
+| **Suivi du build** | Chronologie non surchargée : fichier reçu, dans la file, compilation, APK prête ou erreur claire. |
+| **Détail du résultat** | Bouton de téléchargement de l’APK debug, date d’expiration du lien et message destiné aux tests. |
+| **Aide** | Explication courte des formats acceptés et des causes habituelles de refus. |
 
 ## Flux utilisateur principal
 
-1. **Lancement:** Splash screen → Home Screen
-2. **Exploration:** Scroll feed → Tap story/video → Viewer
-3. **Opportunités:** Tab bar → Opportunities Screen → Filtre → Détail
-4. **Profil:** Tab bar → Profile Screen → Modifier/Voir posts
-5. **Paramètres:** Tab bar → Settings Screen → Gérer préférences
+1. La personne ouvre **Mes builds** puis touche **Nouveau build** dans la zone basse, facile à atteindre avec le pouce.
+2. Elle choisit **Expo / React Native**, **Android natif** ou **HTML**.
+3. One App adapte l’explication, puis ouvre le sélecteur de documents afin de choisir une archive ZIP.
+4. L’écran vérifie le choix et autorise **Envoyer et compiler** uniquement si le ZIP correspond au type annoncé.
+5. L’utilisateur suit une chronologie claire et télécharge l’APK debug lorsque la compilation est terminée.
 
----
+## Principes d’interaction
 
-## Composants réutilisables
+Les boutons principaux utilisent un retour d’opacité et une légère réduction à la pression. Les boutons d’action ont une hauteur minimale de 48 px. Les erreurs sont rédigées en français simple avec une solution concrète ; elles ne doivent jamais afficher de trace Gradle ou l’écran rouge Metro.
 
-- **Card:** Surface avec ombre, border, radius
-- **Button:** Primaire (orange), secondaire (transparent)
-- **Avatar:** Cercle avec gradient border (68px ou 56px)
-- **Badge:** Petit label avec couleur de type
-- **Action Row:** Icônes avec compteurs (like, comment, share)
-- **Story Ring:** Anneau dégradé animé avec avatar
-- **Video Player:** Lecteur vidéo avec contrôles
-
----
-
-## Animations
-
-- **Story Ring:** Dégradé animé (3s loop)
-- **Press Feedback:** Scale 0.96 + opacity 0.85
-- **Transition:** Ease cubic-bezier(.22,.88,.32,1)
-- **Pull-to-refresh:** Spinner rotatif
-
----
-
-## Considérations de performance
-
-- **Lazy loading:** Images et vidéos chargées à la demande
-- **Virtual scrolling:** Pour les longs feeds
-- **Caching:** Stories et avatars en cache local
-- **Optimisation vidéo:** Compression et adaptive bitrate
-
----
-
-## Accessibilité
-
-- **Contraste:** Texte blanc sur fond sombre (WCAG AA)
-- **Haptics:** Retour tactile pour les actions principales
-- **Tailles:** Texte minimum 14px, touches minimum 44x44px
-- **Labels:** Tous les boutons ont des labels accessibles
+Les éléments détaillés, comme les journaux techniques, restent masqués dans une section « Voir le détail » afin que l’écran principal reste lisible.

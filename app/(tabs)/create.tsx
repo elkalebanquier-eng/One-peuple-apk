@@ -1,337 +1,240 @@
-import { ScrollView, Text, View, TouchableOpacity, Image, TextInput, Alert } from "react-native";
+import { useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import { router } from "expo-router";
+
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useState } from "react";
-import * as mediaPicker from "@/lib/media-picker";
-import { optimizeImageForUpload, optimizeVideoForUpload, validateMedia } from "@/lib/media-compression";
-import { addLocalPost, savePickedMediaLocally } from "@/lib/local-store";
+import {
+  createLocalBuildDraft,
+  formatBytes,
+  PROJECT_TYPES,
+  type ProjectType,
+} from "@/lib/build-store";
+import { MAX_SOURCE_SIZE, validateProjectArchive } from "@/lib/project-import";
 
-type MediaType = "photo" | "video" | null;
-
-export default function CreateScreen() {
+export default function NewBuildScreen() {
   const colors = useColors();
-  const [selectedMedia, setSelectedMedia] = useState<mediaPicker.PickedMedia | null>(null);
-  const [mediaType, setMediaType] = useState<MediaType>(null);
-  const [description, setDescription] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [projectType, setProjectType] = useState<ProjectType | null>(null);
+  const [projectName, setProjectName] = useState("");
+  const [archive, setArchive] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handlePickPhoto = async () => {
-    const hasPermission = await mediaPicker.checkMediaLibraryPermission();
-    if (!hasPermission) {
-      const granted = await mediaPicker.requestMediaLibraryPermission();
-      if (!granted) {
-        Alert.alert("Permission refusée", "Nous avons besoin de l'accès à votre galerie");
-        return;
-      }
-    }
+  const selectedType = useMemo(
+    () => PROJECT_TYPES.find((type) => type.id === projectType) ?? null,
+    [projectType],
+  );
+  const canPrepare = Boolean(projectType && archive && projectName.trim() && !saving);
 
-    const media = await mediaPicker.pickImageFromGallery();
-    if (media) {
-      setSelectedMedia(media);
-      setMediaType("photo");
-    }
-  };
-
-  const handlePickVideo = async () => {
-    const hasPermission = await mediaPicker.checkMediaLibraryPermission();
-    if (!hasPermission) {
-      const granted = await mediaPicker.requestMediaLibraryPermission();
-      if (!granted) {
-        Alert.alert("Permission refusée", "Nous avons besoin de l'accès à votre galerie");
-        return;
-      }
-    }
-
-    const media = await mediaPicker.pickVideoFromGallery();
-    if (media) {
-      setSelectedMedia(media);
-      setMediaType("video");
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    const hasPermission = await mediaPicker.checkCameraPermission();
-    if (!hasPermission) {
-      const granted = await mediaPicker.requestCameraPermission();
-      if (!granted) {
-        Alert.alert("Permission refusée", "Nous avons besoin de l'accès à votre caméra");
-        return;
-      }
-    }
-
-    const media = await mediaPicker.takeCameraPhoto();
-    if (media) {
-      setSelectedMedia(media);
-      setMediaType("photo");
-    }
-  };
-
-  const handleTakeVideo = async () => {
-    const hasPermission = await mediaPicker.checkCameraPermission();
-    if (!hasPermission) {
-      const granted = await mediaPicker.requestCameraPermission();
-      if (!granted) {
-        Alert.alert("Permission refusée", "Nous avons besoin de l'accès à votre caméra");
-        return;
-      }
-    }
-
-    const media = await mediaPicker.takeCameraVideo();
-    if (media) {
-      setSelectedMedia(media);
-      setMediaType("video");
-    }
-  };
-
-  const handlePublish = async () => {
-    if (!selectedMedia) {
-      Alert.alert("Erreur", "Veuillez sélectionner une photo ou vidéo");
-      return;
-    }
-
-    if (!description.trim()) {
-      Alert.alert("Erreur", "Veuillez ajouter une description");
-      return;
-    }
-
-    // Valider le média avant d’afficher l’état de publication.
-    const validation = validateMedia(selectedMedia);
-    if (!validation.valid) {
-      Alert.alert("Erreur", validation.errors.join("\n"));
-      return;
-    }
-    if (!mediaType) {
-      Alert.alert("Erreur", "Type de média inconnu");
-      return;
-    }
-
-    setUploading(true);
-    setUploadProgress(0);
+  async function handlePickArchive() {
+    if (!projectType) return;
 
     try {
-      let optimizedMedia = selectedMedia;
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/zip", "application/x-zip-compressed", "application/octet-stream"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
 
-      if (mediaType === "photo") {
-        setUploadProgress(10);
-        optimizedMedia = await optimizeImageForUpload(selectedMedia);
-        setUploadProgress(45);
-      } else if (mediaType === "video") {
-        setUploadProgress(10);
-        optimizedMedia = await optimizeVideoForUpload(selectedMedia);
-        setUploadProgress(45);
+      if (result.canceled) return;
+      const selected = result.assets[0];
+
+      const validation = validateProjectArchive(selected.name, selected.size);
+      if (!validation.valid) {
+        const message = validation.reason === "Archive ZIP requise"
+          ? "Choisissez un seul fichier se terminant par .zip."
+          : `Pour ce premier test, choisissez un ZIP de ${Math.round(MAX_SOURCE_SIZE / (1024 * 1024))} Mo maximum.`;
+        Alert.alert(validation.reason, message);
+        return;
       }
 
-      // Copier le fichier dans le stockage privé de l’application.
-      const localMediaUri = await savePickedMediaLocally({
-        uri: optimizedMedia.uri,
-        fileName: optimizedMedia.fileName,
-        type: optimizedMedia.type,
-      });
-      setUploadProgress(80);
-
-      await addLocalPost({
-        type: mediaType,
-        desc: description.trim(),
-        titre: description.trim(),
-        ...(mediaType === "photo" ? { photoUrls: [localMediaUri] } : { videoUrl: localMediaUri }),
-        auteur: "Utilisateur",
-        authorUid: "local-user",
-        authorAvatar: "👤",
-        likes: 0,
-        shares: 0,
-      });
-      setUploadProgress(100);
-
-      Alert.alert("Succès", "Votre post a été enregistré sur ce téléphone !");
-      setSelectedMedia(null);
-      setMediaType(null);
-      setDescription("");
-      setUploadProgress(0);
-    } catch (error) {
-      console.error("Error publishing post:", error);
-      Alert.alert("Erreur", "Une erreur est survenue lors de la publication");
-    } finally {
-      setUploading(false);
+      setArchive(selected);
+      if (!projectName.trim()) {
+        setProjectName(selected.name.replace(/\.zip$/i, ""));
+      }
+    } catch {
+      Alert.alert("Import impossible", "Le fichier n’a pas pu être sélectionné. Réessayez avec une archive ZIP.");
     }
-  };
+  }
+
+  async function handlePrepareBuild() {
+    if (!projectType || !archive || !projectName.trim()) return;
+
+    try {
+      setSaving(true);
+      await createLocalBuildDraft({
+        projectName,
+        projectType,
+        sourceName: archive.name,
+        sourceSize: archive.size,
+        sourceUri: archive.uri,
+      });
+      Alert.alert(
+        "Projet préparé",
+        "Votre archive a été copiée dans l’espace privé de One App. Elle est prête pour l’envoi sécurisé vers le service de compilation.",
+        [{ text: "Voir mes builds", onPress: () => router.replace("/(tabs)") }],
+      );
+    } catch {
+      Alert.alert("Enregistrement impossible", "Vérifiez l’espace libre de votre téléphone puis réessayez.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <ScreenContainer
-      containerClassName="flex-1"
-      className="flex-1"
-      edges={["top", "left", "right"]}
-    >
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View className="px-4 py-4 flex-row items-center justify-between border-b" style={{ borderBottomColor: colors.border }}>
-          <Text className="text-2xl font-bold" style={{ color: colors.foreground }}>
-            Créer un post
-          </Text>
-          <TouchableOpacity
-            className="px-3 py-2 rounded-lg"
-            style={{ backgroundColor: colors.primary }}
-            onPress={handlePublish}
-            disabled={uploading || !selectedMedia}
-          >
-            <Text className="text-sm font-bold" style={{ color: colors.background }}>
-              {uploading ? "⏳" : "Publier"}
-            </Text>
-          </TouchableOpacity>
+    <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Nouveau build</Text>
+          <Text style={[styles.headerText, { color: colors.muted }]}>Choisissez votre projet avant d’envoyer le code.</Text>
         </View>
 
-        {/* Media Preview */}
-        {selectedMedia ? (
-          <View className="px-4 py-4">
-            <View
-              className="rounded-2xl overflow-hidden aspect-video items-center justify-center mb-4"
-              style={{ backgroundColor: colors.surface }}
-            >
-              {mediaType === "photo" ? (
-                <Image
-                  source={{ uri: selectedMedia.uri }}
-                  className="w-full h-full"
-                  style={{ resizeMode: "cover" }}
-                />
-              ) : (
-                <View className="w-full h-full items-center justify-center" style={{ backgroundColor: colors.background }}>
-                  <Text className="text-6xl mb-2">🎬</Text>
-                  <Text className="text-sm" style={{ color: colors.muted }}>
-                    Vidéo sélectionnée
-                  </Text>
-                </View>
-              )}
-            </View>
+        <View style={styles.stepRow}>
+          <View style={[styles.stepBadge, { backgroundColor: colors.primary }]}><Text style={[styles.stepBadgeText, { color: colors.background }]}>1</Text></View>
+          <View><Text style={[styles.stepLabel, { color: colors.foreground }]}>Type de projet</Text><Text style={[styles.stepHint, { color: colors.muted }]}>Obligatoire avant l’import.</Text></View>
+        </View>
 
-            {/* Upload Progress */}
-            {uploading && (
-              <View className="mb-4">
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text style={{ color: colors.muted }}>Enregistrement local...</Text>
-                  <Text style={{ color: colors.primary }}>{uploadProgress}%</Text>
+        <View style={styles.typeList}>
+          {PROJECT_TYPES.map((type) => {
+            const selected = projectType === type.id;
+            return (
+              <Pressable
+                key={type.id}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={type.label}
+                onPress={() => { setProjectType(type.id); setArchive(null); }}
+                style={({ pressed }) => [
+                  styles.typeCard,
+                  { backgroundColor: selected ? `${colors.primary}18` : colors.surface, borderColor: selected ? colors.primary : colors.border },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.iconTile, { backgroundColor: selected ? colors.primary : colors.background }]}>
+                  <Text style={styles.iconTileText}>{type.icon}</Text>
                 </View>
-                <View className="w-full h-2 rounded-full" style={{ backgroundColor: colors.border }}>
-                  <View
-                    className="h-full rounded-full"
-                    style={{
-                      backgroundColor: colors.primary,
-                      width: `${uploadProgress}%`,
-                    }}
-                  />
+                <View style={styles.typeCopy}>
+                  <Text style={[styles.typeTitle, { color: colors.foreground }]}>{type.label}</Text>
+                  <Text style={[styles.typeDescription, { color: colors.muted }]}>{type.description}</Text>
                 </View>
-              </View>
-            )}
+                <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.border }]}>{selected ? <View style={[styles.radioInner, { backgroundColor: colors.primary }]} /> : null}</View>
+              </Pressable>
+            );
+          })}
+        </View>
 
-            {/* Description Input */}
-            <TextInput
-              placeholder="Ajoute une description..."
-              placeholderTextColor={colors.muted}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              editable={!uploading}
-              className="p-4 rounded-lg mb-4"
-              style={{
-                backgroundColor: colors.surface,
-                color: colors.foreground,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-            {/* Change Media Button */}
-            <TouchableOpacity
-              className="py-3 px-4 rounded-lg items-center"
-              style={{ backgroundColor: colors.surface }}
-              onPress={() => {
-                setSelectedMedia(null);
-                setMediaType(null);
-                setDescription("");
-              }}
-              disabled={uploading}
-            >
-              <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
-                Changer le média
-              </Text>
-            </TouchableOpacity>
+        <View style={styles.stepRow}>
+          <View style={[styles.stepBadge, { backgroundColor: projectType ? colors.primary : colors.surface }]}><Text style={[styles.stepBadgeText, { color: projectType ? colors.background : colors.muted }]}>2</Text></View>
+          <View><Text style={[styles.stepLabel, { color: colors.foreground }]}>Archive du code</Text><Text style={[styles.stepHint, { color: colors.muted }]}>{selectedType ? selectedType.expected : "Choisissez d’abord le type de projet."}</Text></View>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choisir une archive ZIP"
+          disabled={!projectType || saving}
+          onPress={handlePickArchive}
+          style={({ pressed }) => [
+            styles.archiveButton,
+            { backgroundColor: projectType ? colors.surface : `${colors.surface}88`, borderColor: projectType ? colors.border : "transparent" },
+            pressed && projectType && styles.pressed,
+          ]}
+        >
+          <Text style={styles.archiveButtonIcon}>⇧</Text>
+          <View style={styles.archiveButtonCopy}>
+            <Text style={[styles.archiveButtonTitle, { color: projectType ? colors.foreground : colors.muted }]}>Choisir une archive ZIP</Text>
+            <Text style={[styles.archiveButtonText, { color: colors.muted }]}>{projectType ? "50 Mo maximum pour ce premier test" : "Débloqué après le choix du type"}</Text>
           </View>
-        ) : (
-          <>
-            {/* Media Selection Options */}
-            <View className="px-4 py-6 gap-3">
-              <Text className="text-lg font-semibold mb-2" style={{ color: colors.foreground }}>
-                Sélectionner un média
-              </Text>
+        </Pressable>
 
-              {/* Photo Options */}
-              <View className="gap-2">
-                <Text className="text-sm font-semibold" style={{ color: colors.muted }}>
-                  📸 Photos
-                </Text>
-                <View className="flex-row gap-2">
-                  <TouchableOpacity
-                    className="flex-1 py-3 rounded-lg items-center"
-                    style={{ backgroundColor: colors.surface }}
-                    onPress={handlePickPhoto}
-                  >
-                    <Text className="text-sm font-semibold" style={{ color: colors.foreground }}>
-                      Galerie
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="flex-1 py-3 rounded-lg items-center"
-                    style={{ backgroundColor: colors.surface }}
-                    onPress={handleTakePhoto}
-                  >
-                    <Text className="text-sm font-semibold" style={{ color: colors.foreground }}>
-                      Caméra
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Video Options */}
-              <View className="gap-2">
-                <Text className="text-sm font-semibold" style={{ color: colors.muted }}>
-                  🎬 Vidéos
-                </Text>
-                <View className="flex-row gap-2">
-                  <TouchableOpacity
-                    className="flex-1 py-3 rounded-lg items-center"
-                    style={{ backgroundColor: colors.surface }}
-                    onPress={handlePickVideo}
-                  >
-                    <Text className="text-sm font-semibold" style={{ color: colors.foreground }}>
-                      Galerie
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="flex-1 py-3 rounded-lg items-center"
-                    style={{ backgroundColor: colors.surface }}
-                    onPress={handleTakeVideo}
-                  >
-                    <Text className="text-sm font-semibold" style={{ color: colors.foreground }}>
-                      Caméra
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Info */}
-              <View className="mt-4 p-3 rounded-lg" style={{ backgroundColor: colors.background }}>
-                <Text className="text-xs" style={{ color: colors.muted }}>
-                  💡 Conseil: Les photos et vidéos seront automatiquement optimisées pour une meilleure performance.
-                </Text>
-              </View>
+        {archive ? (
+          <View style={[styles.fileCard, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}55` }]}>
+            <Text style={styles.fileIcon}>✓</Text>
+            <View style={styles.fileCopy}>
+              <Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text>
+              <Text style={[styles.fileSize, { color: colors.muted }]}>{formatBytes(archive.size)} · ZIP sélectionné</Text>
             </View>
-          </>
-        )}
+            <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => setArchive(null)} style={({ pressed }) => [styles.removeFile, pressed && styles.pressed]}>
+              <Text style={[styles.removeFileText, { color: colors.primary }]}>Retirer</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View style={styles.stepRow}>
+          <View style={[styles.stepBadge, { backgroundColor: archive ? colors.primary : colors.surface }]}><Text style={[styles.stepBadgeText, { color: archive ? colors.background : colors.muted }]}>3</Text></View>
+          <View><Text style={[styles.stepLabel, { color: colors.foreground }]}>Nom du projet</Text><Text style={[styles.stepHint, { color: colors.muted }]}>Il vous aidera à retrouver votre build.</Text></View>
+        </View>
+        <TextInput
+          value={projectName}
+          onChangeText={setProjectName}
+          editable={!saving}
+          placeholder="Ex. Ma première application"
+          placeholderTextColor={colors.muted}
+          returnKeyType="done"
+          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+        />
+
+        <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={styles.infoIcon}>ⓘ</Text>
+          <Text style={[styles.infoText, { color: colors.muted }]}>One App prépare votre projet ici. La compilation distante et le téléchargement de l’APK apparaîtront dans « Mes builds » après l’envoi sécurisé.</Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Préparer mon build"
+          disabled={!canPrepare}
+          onPress={handlePrepareBuild}
+          style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : `${colors.border}99` }, pressed && canPrepare && styles.pressed]}
+        >
+          <Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Préparation…" : "Préparer mon build"}</Text>
+          <Text style={[styles.submitArrow, { color: canPrepare ? colors.background : colors.muted }]}>→</Text>
+        </Pressable>
+        <Text style={[styles.testLabel, { color: colors.muted }]}>Sortie prévue : APK debug destinée aux tests.</Text>
       </ScrollView>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 28 },
+  header: { marginBottom: 26 },
+  headerTitle: { fontSize: 25, fontWeight: "800", letterSpacing: -0.5 },
+  headerText: { marginTop: 5, fontSize: 14, lineHeight: 20 },
+  stepRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 10 },
+  stepBadge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  stepBadgeText: { fontSize: 13, fontWeight: "800" },
+  stepLabel: { fontSize: 15, fontWeight: "800" },
+  stepHint: { fontSize: 12, marginTop: 2 },
+  typeList: { gap: 9 },
+  typeCard: { borderWidth: 1, borderRadius: 17, padding: 13, flexDirection: "row", alignItems: "center" },
+  iconTile: { width: 43, height: 43, borderRadius: 13, alignItems: "center", justifyContent: "center", marginRight: 11 },
+  iconTileText: { fontSize: 20 },
+  typeCopy: { flex: 1, paddingRight: 10 },
+  typeTitle: { fontSize: 14, fontWeight: "800" },
+  typeDescription: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  radioInner: { width: 10, height: 10, borderRadius: 5 },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 26 },
+  archiveButton: { minHeight: 78, borderWidth: 1, borderRadius: 17, borderStyle: "dashed", padding: 15, flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  archiveButtonIcon: { fontSize: 24, marginRight: 12 },
+  archiveButtonCopy: { flex: 1 },
+  archiveButtonTitle: { fontSize: 14, fontWeight: "800" },
+  archiveButtonText: { fontSize: 12, marginTop: 3 },
+  fileCard: { borderWidth: 1, borderRadius: 14, minHeight: 64, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", marginBottom: 26 },
+  fileIcon: { color: "#34D399", fontSize: 20, fontWeight: "900", marginRight: 10 },
+  fileCopy: { flex: 1, minWidth: 0 },
+  fileName: { fontSize: 13, fontWeight: "800" },
+  fileSize: { fontSize: 12, marginTop: 3 },
+  removeFile: { paddingLeft: 10, paddingVertical: 8 },
+  removeFileText: { fontSize: 12, fontWeight: "800" },
+  input: { minHeight: 51, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, fontSize: 15, marginBottom: 19 },
+  infoBox: { borderWidth: 1, borderRadius: 15, padding: 13, flexDirection: "row", marginBottom: 18 },
+  infoIcon: { fontSize: 16, marginRight: 9 },
+  infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
+  submitButton: { minHeight: 54, borderRadius: 15, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  submitText: { fontSize: 15, fontWeight: "800" },
+  submitArrow: { fontSize: 22, fontWeight: "700" },
+  testLabel: { textAlign: "center", fontSize: 12, marginTop: 11 },
+  pressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
+});
