@@ -93,15 +93,15 @@
 ## GitHub et préparation du build Android
 
 - [x] Vérifier la connexion GitHub disponible
-- [ ] Identifier ou confirmer le dépôt GitHub cible — création bloquée par les permissions GitHub du compte
+- [x] Identifier ou confirmer le dépôt GitHub cible — `elkalebanquier-eng/One-peuple-apk` confirmé
 - [x] Ajouter la configuration de build Android reproductible
 - [x] Ajouter le workflow GitHub Actions pour générer un APK
-- [ ] Synchroniser le code KIKO avec GitHub — dépôt distant non créé
+- [x] Synchroniser le code KIKO avec GitHub — push réussi sur la branche `main`
 - [x] Vérifier le projet et documenter l'installation de l'APK
 
 ## Historique de la demande
 
-- [ ] Préparer un dépôt GitHub complet pour permettre la construction de l'application KIKO — permissions de création insuffisantes
+- [x] Préparer un dépôt GitHub complet pour permettre la construction de l'application KIKO — dépôt public synchronisé
 - [x] Fournir une méthode d'installation directe de l'APK sans WebView
 
 ---
