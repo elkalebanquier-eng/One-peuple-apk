@@ -1,9 +1,8 @@
-import { ScrollView, Text, View, TouchableOpacity, FlatList, Image, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useEffect, useState } from "react";
-import { subscribeToPosts, type Post } from "@/lib/firebase";
-import { getMediaUrl } from "@/lib/media-upload";
+import { subscribeToPosts, type Post } from "@/lib/local-store";
 
 // Mock data for stories
 const mockStories = [
@@ -12,40 +11,6 @@ const mockStories = [
   { id: 3, name: "Ahmed", emoji: "👨", hasNew: false },
   { id: 4, name: "Fatima", emoji: "👩", hasNew: true },
   { id: 5, name: "Mohamed", emoji: "👨", hasNew: false },
-];
-
-// Mock data for video cards
-const mockVideos = [
-  {
-    id: 1,
-    author: "Khadija",
-    avatar: "👩",
-    title: "Développement Web",
-    likes: 234,
-    comments: 45,
-    shares: 12,
-    liked: false,
-  },
-  {
-    id: 2,
-    author: "Ahmed",
-    avatar: "👨",
-    title: "Startup Tech",
-    likes: 567,
-    comments: 89,
-    shares: 34,
-    liked: false,
-  },
-  {
-    id: 3,
-    author: "Fatima",
-    avatar: "👩",
-    title: "Design UI/UX",
-    likes: 345,
-    comments: 67,
-    shares: 23,
-    liked: false,
-  },
 ];
 
 function StoryBubble({ story }: { story: (typeof mockStories)[0] }) {
@@ -177,14 +142,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = subscribeToPosts((p) => {
-      setPosts(p);
+    const unsubscribe = subscribeToPosts((localPosts) => {
+      setPosts(localPosts);
       setLoading(false);
     });
 
-    return () => {
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   return (

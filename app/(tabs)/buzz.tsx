@@ -2,8 +2,7 @@ import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Image } fr
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useEffect, useState } from "react";
-import { subscribeToVideos, type Video } from "@/lib/firebase";
-import { getMediaUrl } from "@/lib/media-upload";
+import { subscribeToVideos, type Video } from "@/lib/local-store";
 
 function BuzzVideoCard({ video }: { video: Video }) {
   const colors = useColors();
@@ -21,7 +20,7 @@ function BuzzVideoCard({ video }: { video: Video }) {
         {video.videoUrl ? (
           <>
             <Image
-              source={{ uri: getMediaUrl(video.videoUrl, "video") }}
+              source={{ uri: video.videoUrl }}
               className="w-full h-full"
               style={{ resizeMode: "cover" }}
             />
@@ -121,14 +120,12 @@ export default function BuzzScreen() {
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = subscribeToVideos((vids) => {
-      setVideos(vids);
+    const unsubscribe = subscribeToVideos((localVideos) => {
+      setVideos(localVideos);
       setLoading(false);
     });
 
-    return () => {
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   return (

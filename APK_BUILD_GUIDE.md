@@ -1,162 +1,61 @@
-# Guide de Génération APK KIKO
+# Guide APK KIKO
 
-## 🚀 Génération APK sans Expo Publish
+## Objectif
 
-Cette application KIKO est configurée pour être installée directement sur Android via APK, sans dépendre du système Expo Publish.
+KIKO est compilée comme une application Android native React Native/Expo. Il n’y a pas de WebView et cette version ne dépend pas d’une base de données distante. Les publications sont stockées localement sur le téléphone.
 
-### Prérequis
+## Méthode recommandée depuis un téléphone
 
-- **Node.js** et **pnpm** installés
-- **EAS CLI** pour la génération cloud (recommandé)
-- **Android SDK** pour la génération locale (optionnel)
-- Compte Expo (gratuit)
+Le dépôt est disponible sur [GitHub](https://github.com/elkalebanquier-eng/One-peuple-apk). Le workflow `.github/workflows/build-debug-apk.yml` génère un APK debug avec un runner GitHub Actions.
 
-### Option 1: Génération Cloud avec EAS (Recommandé) ☁️
+Depuis l’application GitHub ou le navigateur mobile :
 
-La génération cloud est plus simple et ne nécessite pas d'installation locale d'Android SDK.
+1. Ouvrir `elkalebanquier-eng/One-peuple-apk`.
+2. Ouvrir **Actions**.
+3. Choisir **Build KIKO Android APK**.
+4. Appuyer sur **Run workflow**, sélectionner `main`, puis confirmer.
+5. Attendre la fin du job **Build debug APK**.
+6. Dans l’exécution verte, ouvrir **Artifacts** et télécharger `kiko-debug-apk`.
+7. Décompresser le fichier téléchargé et ouvrir `app-debug.apk`.
+8. Si Android bloque l’installation, autoriser temporairement l’installation depuis le navigateur ou le gestionnaire de fichiers utilisé, puis relancer l’installation.
 
-#### Étapes:
+L’APK ne doit être considéré comme prêt que si le job est vert et que `app-debug.apk` est présent dans l’artefact. Un fichier ZIP de code source n’est pas un APK.
 
-1. **Installer EAS CLI:**
-   ```bash
-   npm install -g eas-cli
-   ```
+## Compilation locale sur ordinateur
 
-2. **Se connecter à Expo:**
-   ```bash
-   eas login
-   ```
-
-3. **Configurer le projet (première fois):**
-   ```bash
-   eas build:configure
-   ```
-
-4. **Générer l'APK:**
-   ```bash
-   eas build --platform android
-   ```
-
-   Ou avec plus de contrôle:
-   ```bash
-   eas build --platform android --local=false --wait
-   ```
-
-5. **Télécharger l'APK:**
-   - EAS affichera un lien pour télécharger l'APK une fois la compilation terminée
-   - L'APK sera disponible pendant 30 jours
-
-### Option 2: Génération Locale avec EAS
-
-Si vous avez Android SDK installé localement:
+Une machine locale doit disposer de Node.js 22, pnpm 9, Java 17, du SDK Android, de Platform 36, de Build Tools 36 et du NDK Expo. Les commandes sont :
 
 ```bash
-eas build --platform android --local=true
-```
-
-### Option 3: Génération Manuelle avec Expo
-
-Pour une génération complètement manuelle:
-
-```bash
-# 1. Construire le bundle
-expo prebuild --clean
-
-# 2. Générer l'APK
+pnpm install --frozen-lockfile
+pnpm check
+npx expo prebuild --platform android --no-install
 cd android
-./gradlew assembleRelease
-cd ..
+./gradlew assembleDebug --no-daemon
 ```
 
-L'APK sera dans: `android/app/build/outputs/apk/release/app-release.apk`
+Le résultat attendu est :
 
-## 📱 Installation sur Appareil
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
 
-### Via APK Direct:
+## Fonctionnement hors ligne
 
-1. **Télécharger l'APK** depuis le lien fourni par EAS
-2. **Transférer sur l'appareil** ou télécharger directement
-3. **Installer:**
-   ```bash
-   adb install app-release.apk
-   ```
-   Ou ouvrir le fichier APK sur l'appareil
+`lib/local-store.ts` initialise des données d’exemple dans `AsyncStorage`, puis conserve les nouvelles publications dans le même stockage. `expo-file-system` copie les fichiers sélectionnés dans le répertoire privé `kiko-media/`. Les écrans Home, Buzz et Opportunités lisent ces données locales.
 
-### Via ADB:
+Les médias ne sont pas envoyés vers Firebase, Cloudinary ou ImageKit. Il n’y a donc pas de synchronisation entre utilisateurs ou entre appareils. Les vidéos sont conservées sans transcodage serveur et peuvent prendre une place importante.
+
+## Configuration Android
+
+Le package Android est défini dans `app.config.ts`. L’application cible le portrait, Android API 24 minimum et les architectures ARMv7 et ARM64. Les modules audio, vidéo et notifications non utilisés ont été retirés afin de limiter la taille native ; `expo-image-picker` reste utilisé pour sélectionner ou prendre des photos et vidéos.
+
+## Diagnostic
+
+Pour contrôler le code avant le workflow :
 
 ```bash
-# Lister les appareils connectés
-adb devices
-
-# Installer l'APK
-adb install -r app-release.apk
-
-# Lancer l'app
-adb shell am start -n space.manus.kiko/space.manus.kiko.MainActivity
+pnpm check
+npx expo config --type public --json
 ```
 
-## 🔧 Configuration avant Génération
-
-Assurez-vous que `app.config.ts` est correctement configuré:
-
-```typescript
-const env = {
-  appName: "KIKO",           // Nom affiché dans le launcher
-  appSlug: "kiko-native-app", // Slug unique
-  logoUrl: "",               // URL du logo (optionnel)
-  scheme: "manusXXXXXXXXXXXX", // Scheme unique
-  iosBundleId: "space.manus.kiko.t...",
-  androidPackage: "space.manus.kiko.t...",
-};
-```
-
-## 📊 Intégrations Configurées
-
-L'APK inclut:
-
-- ✅ **Firebase Realtime Database** - Données en temps réel
-- ✅ **Cloudinary** - Upload et streaming vidéo
-- ✅ **ImageKit** - Optimisation images
-- ✅ **React Native** - UI native performante
-- ✅ **Expo SDK 54** - Accès aux APIs natives
-
-## 🎯 Taille et Performance
-
-- **Taille APK:** ~50-70 MB (dépend des dépendances)
-- **Taille installée:** ~150-200 MB
-- **Compatibilité:** Android 7.0+ (API 24+)
-- **Architectures:** ARM64 + ARMv7
-
-## 🐛 Dépannage
-
-### L'APK ne s'installe pas
-- Vérifier que l'appareil accepte les installations de sources inconnues
-- Vérifier la version Android (minimum API 24)
-- Essayer: `adb install -r app-release.apk` (forcer la réinstallation)
-
-### L'app crash au démarrage
-- Vérifier les logs: `adb logcat | grep KIKO`
-- Vérifier que Firebase est accessible
-- Vérifier les permissions dans `app.config.ts`
-
-### Erreur de signature
-- Vérifier que vous utilisez la même clé de signature
-- Supprimer l'app existante: `adb uninstall space.manus.kiko.t...`
-- Réinstaller l'APK
-
-## 📚 Ressources
-
-- [EAS Build Documentation](https://docs.expo.dev/build/setup/)
-- [Expo Config Reference](https://docs.expo.dev/versions/latest/config/app/)
-- [Android Build Guide](https://developer.android.com/build)
-- [Firebase Setup](https://firebase.google.com/docs/android/setup)
-
-## 🔐 Sécurité
-
-- Les clés API (Firebase, Cloudinary, ImageKit) sont stockées de manière sécurisée
-- Les secrets ne sont jamais committés dans le code
-- Les uploads sont chiffrés en transit (HTTPS)
-
----
-
-**Questions?** Consultez la documentation Expo ou contactez le support.
+Si le workflow échoue, ouvrir le job en erreur et lire la première erreur de compilation dans les logs. Il ne faut pas distribuer un APK tant que le job n’est pas terminé avec succès.

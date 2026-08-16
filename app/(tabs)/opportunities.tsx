@@ -1,8 +1,8 @@
-import { ScrollView, Text, View, TouchableOpacity, FlatList, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useState, useEffect } from "react";
-import { subscribeToJobPosts, type JobPost } from "@/lib/firebase";
+import { subscribeToJobPosts, type JobPost } from "@/lib/local-store";
 
 const opportunityTypes = [
   { id: "all", label: "Tous", emoji: "📋", color: "#5B8DEF" },
@@ -117,14 +117,12 @@ export default function OpportunitiesScreen() {
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = subscribeToJobPosts((posts) => {
-      setOpportunities(posts);
+    const unsubscribe = subscribeToJobPosts((localOpportunities) => {
+      setOpportunities(localOpportunities);
       setLoading(false);
     });
 
-    return () => {
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   const filteredOpps = opportunities.filter((opp) => {

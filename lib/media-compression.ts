@@ -86,14 +86,14 @@ export async function optimizeImageForUpload(media: PickedMedia): Promise<Picked
 }
 
 export async function optimizeVideoForUpload(media: PickedMedia): Promise<PickedMedia> {
-  // Pour les vidéos, on retourne le média tel quel
-  // La compression vidéo se fera côté serveur via Cloudinary
+  // Pour les vidéos, on conserve le fichier choisi puis on le copie localement.
+  // Aucun traitement serveur n’est utilisé dans cette version.
   if (media.type !== "video") return media;
 
   // Vérifier la taille
   const maxVideoSize = 500 * 1024 * 1024; // 500 MB
   if (media.fileSize && media.fileSize > maxVideoSize) {
-    console.warn("Video size exceeds 500MB, upload may fail");
+    console.warn("La vidéo dépasse 500 Mo et peut occuper beaucoup d’espace local.");
   }
 
   return media;

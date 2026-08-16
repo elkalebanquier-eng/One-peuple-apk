@@ -33,7 +33,7 @@
 - [ ] Mock data pour stories
 - [ ] Mock data pour opportunities
 - [ ] State management (Context/Zustand)
-- [ ] AsyncStorage pour persistance locale
+- [x] AsyncStorage pour persistance locale
 
 ## Optimization
 
@@ -50,7 +50,7 @@
 - [ ] Splash screen
 - [ ] Icons adaptifs Android
 
-## Firebase Integration
+## Firebase Integration (ancienne version retirée du code actif)
 
 - [x] Intégrer Firebase Realtime Database
 - [x] Charger les posts depuis Firebase (jobPosts collection)
@@ -63,7 +63,7 @@
 - [x] Charger les opportunités avec filtres
 - [ ] Synchroniser les données utilisateur (profil, bio, avatar)
 
-## Media Upload Integration
+## Media Upload Integration (ancienne version distante retirée du code actif)
 
 - [x] Intégrer Cloudinary pour les vidéos
 - [x] Intégrer ImageKit pour les images
@@ -126,3 +126,18 @@
 - [x] Synchroniser le code source et la configuration de build — push réussi sur la branche main
 - [x] Vérifier le workflow GitHub Actions — présent dans `.github/workflows/build-debug-apk.yml`
 - [x] Confirmer à l’utilisateur l’état de la synchronisation et fournir le lien du dépôt
+
+## Mode hors base de données et optimisation APK
+
+- [x] Désactiver temporairement Firebase et les appels serveur dans l’application mobile
+- [x] Conserver l’interface et la navigation existantes sans refaire le site
+- [x] Remplacer les chargements distants par un état local minimal lorsque nécessaire
+- [ ] Retirer les dépendances et ressources inutiles du paquet Android
+- [ ] Vérifier la taille et le comportement de l’APK debug
+- [ ] Livrer le code source mis à jour et l’APK debug
+
+## Exigence de compilation vérifiée
+
+- [ ] Ne livrer aucun APK avant une compilation Android réussie
+- [ ] Vérifier que l’APK produit est bien un fichier installable
+- [ ] Documenter clairement tout échec de compilation au lieu de présenter une archive comme APK

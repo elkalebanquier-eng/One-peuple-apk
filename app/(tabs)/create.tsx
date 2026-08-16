@@ -1,12 +1,10 @@
-import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator, TextInput, Alert } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, Image, TextInput, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useState } from "react";
 import * as mediaPicker from "@/lib/media-picker";
-import { uploadImageImageKit, uploadVideoCloudinary } from "@/lib/media-upload";
 import { optimizeImageForUpload, optimizeVideoForUpload, validateMedia } from "@/lib/media-compression";
-import { push, ref } from "firebase/database";
-import db from "@/lib/firebase";
+import { addLocalPost, savePickedMediaLocally } from "@/lib/local-store";
 
 type MediaType = "photo" | "video" | null;
 
@@ -97,60 +95,55 @@ export default function CreateScreen() {
       return;
     }
 
-    setUploading(true);
-    setUploadProgress(0);
-
-    // Valider le média
+    // Valider le média avant d’afficher l’état de publication.
     const validation = validateMedia(selectedMedia);
     if (!validation.valid) {
       Alert.alert("Erreur", validation.errors.join("\n"));
       return;
     }
+    if (!mediaType) {
+      Alert.alert("Erreur", "Type de média inconnu");
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
 
     try {
-      let mediaUrl = "";
       let optimizedMedia = selectedMedia;
 
       if (mediaType === "photo") {
-        // Optimiser l'image
         setUploadProgress(10);
         optimizedMedia = await optimizeImageForUpload(selectedMedia);
-        setUploadProgress(20);
-
-        // Upload photo vers ImageKit
-        mediaUrl = await uploadImageImageKit(
-          optimizedMedia as any,
-          "posts",
-          (progress) => setUploadProgress(Math.round(20 + progress * 0.7))
-        );
+        setUploadProgress(45);
       } else if (mediaType === "video") {
-        // Optimiser la vidéo
         setUploadProgress(10);
         optimizedMedia = await optimizeVideoForUpload(selectedMedia);
-        setUploadProgress(20);
-
-        // Upload vidéo vers Cloudinary
-        mediaUrl = await uploadVideoCloudinary(
-          optimizedMedia as any,
-          (progress) => setUploadProgress(Math.round(20 + progress * 0.7))
-        );
+        setUploadProgress(45);
       }
 
-      // Sauvegarder dans Firebase
-      const postsRef = ref(db, "posts");
-      await push(postsRef, {
+      // Copier le fichier dans le stockage privé de l’application.
+      const localMediaUri = await savePickedMediaLocally({
+        uri: optimizedMedia.uri,
+        fileName: optimizedMedia.fileName,
+        type: optimizedMedia.type,
+      });
+      setUploadProgress(80);
+
+      await addLocalPost({
         type: mediaType,
-        desc: description,
-        [mediaType === "photo" ? "photoUrls" : "videoUrl"]: mediaType === "photo" ? [mediaUrl] : mediaUrl,
-        auteur: "Utilisateur", // À remplacer par le vrai utilisateur
-        authorUid: "user_123", // À remplacer par le vrai UID
+        desc: description.trim(),
+        titre: description.trim(),
+        ...(mediaType === "photo" ? { photoUrls: [localMediaUri] } : { videoUrl: localMediaUri }),
+        auteur: "Utilisateur",
+        authorUid: "local-user",
         authorAvatar: "👤",
         likes: 0,
         shares: 0,
-        createdAt: Date.now(),
       });
+      setUploadProgress(100);
 
-      Alert.alert("Succès", "Votre post a été publié !");
+      Alert.alert("Succès", "Votre post a été enregistré sur ce téléphone !");
       setSelectedMedia(null);
       setMediaType(null);
       setDescription("");
@@ -218,7 +211,7 @@ export default function CreateScreen() {
             {uploading && (
               <View className="mb-4">
                 <View className="flex-row items-center justify-between mb-2">
-                  <Text style={{ color: colors.muted }}>Upload en cours...</Text>
+                  <Text style={{ color: colors.muted }}>Enregistrement local...</Text>
                   <Text style={{ color: colors.primary }}>{uploadProgress}%</Text>
                 </View>
                 <View className="w-full h-2 rounded-full" style={{ backgroundColor: colors.border }}>
