@@ -118,3 +118,11 @@
 - [ ] Livrer l’APK debug et l’archive source — archive prête, APK non généré
 
 **Sécurité :** ne pas inclure les clés Firebase, Cloudinary, ImageKit ou les jetons GitHub dans l’archive source.
+
+## Synchronisation GitHub — dépôt fourni
+
+- [ ] Vérifier le dépôt public https://github.com/elkalebanquier-eng/One-peuple-apk.git
+- [ ] Comparer son contenu avec le projet KIKO local
+- [ ] Synchroniser le code source sans écraser destructivement le contenu distant
+- [ ] Vérifier le workflow GitHub Actions de génération APK
+- [ ] Confirmer à l’utilisateur l’état de la synchronisation
