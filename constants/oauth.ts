@@ -1,9 +1,13 @@
 import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
 
+// The public One App backend used by installed Android builds. The value can be
+// replaced at release time with EXPO_PUBLIC_API_BASE_URL without changing the UI.
+const DEFAULT_ONE_APP_API_URL = "https://3000-i4oiqd6t9mdx2qpgu4fa6-3b48ee0a.us3.manus.computer";
+
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
-const bundleId = "com.app.kikonativeapp";
+const bundleId = "com.oneapp.builder";
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
 
@@ -13,7 +17,7 @@ const env = {
   appId: process.env.EXPO_PUBLIC_APP_ID ?? "",
   ownerId: process.env.EXPO_PUBLIC_OWNER_OPEN_ID ?? "",
   ownerName: process.env.EXPO_PUBLIC_OWNER_NAME ?? "",
-  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
+  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_ONE_APP_API_URL,
   deepLinkScheme: schemeFromBundleId,
 };
 

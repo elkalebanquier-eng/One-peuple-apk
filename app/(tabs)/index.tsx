@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import {
   formatBytes,
   getProjectType,
+  refreshBuildJob,
   subscribeToBuildJobs,
   type BuildJob,
   type BuildStatus,
@@ -27,15 +28,7 @@ function BuildCard({ item }: { item: BuildJob }) {
   const status = STATUS_COPY[item.status];
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Build ${item.projectName}, ${status.label}`}
-      style={({ pressed }) => [
-        styles.buildCard,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-        pressed && styles.pressed,
-      ]}
-    >
+    <View style={[styles.buildCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.cardHeader}>
         <View style={[styles.typeIcon, { backgroundColor: colors.background }]}>
           <Text style={styles.typeIconText}>{type.icon}</Text>
@@ -55,10 +48,21 @@ function BuildCard({ item }: { item: BuildJob }) {
       <View style={styles.cardFooter}>
         <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
         <Text numberOfLines={1} style={[styles.fileLabel, { color: colors.muted }]}>
-          {item.sourceName}
+          {item.message || item.sourceName}
         </Text>
       </View>
-    </Pressable>
+      {item.status === "complete" && item.apkUri ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Télécharger l’APK de ${item.projectName}`}
+          onPress={() => { void Linking.openURL(item.apkUri!); }}
+          style={({ pressed }) => [styles.downloadButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}
+        >
+          <Text style={[styles.downloadButtonText, { color: colors.background }]}>Télécharger l’APK</Text>
+          <Text style={[styles.downloadButtonArrow, { color: colors.background }]}>↓</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -67,6 +71,23 @@ export default function BuildsScreen() {
   const [jobs, setJobs] = useState<BuildJob[]>([]);
 
   useEffect(() => subscribeToBuildJobs(setJobs), []);
+
+  useEffect(() => {
+    const activeJobs = jobs.filter((job) => job.status === "queued" || job.status === "building");
+    if (activeJobs.length === 0) return;
+
+    let isActive = true;
+    const refresh = () => {
+      if (!isActive) return;
+      void Promise.all(activeJobs.map((job) => refreshBuildJob(job)));
+    };
+    refresh();
+    const interval = setInterval(refresh, 15_000);
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, [jobs]);
 
   return (
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
@@ -84,7 +105,7 @@ export default function BuildsScreen() {
                 <Text style={[styles.headerCaption, { color: colors.muted }]}>Créez des APK debug, simplement.</Text>
               </View>
               <View style={[styles.secureBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.secureBadgeText, { color: colors.muted }]}>Local</Text>
+                <Text style={[styles.secureBadgeText, { color: colors.muted }]}>Privé</Text>
               </View>
             </View>
 
@@ -120,7 +141,7 @@ export default function BuildsScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerNote}>
-            <Text style={[styles.footerNoteText, { color: colors.muted }]}>Les brouillons restent sur votre téléphone avant l’envoi au service de compilation.</Text>
+            <Text style={[styles.footerNoteText, { color: colors.muted }]}>Les ZIP sont envoyés seulement pendant la compilation. Votre APK apparaît ici dès qu’elle est prête.</Text>
           </View>
         }
       />
@@ -158,6 +179,9 @@ const styles = StyleSheet.create({
   cardFooter: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.10)", marginTop: 13, paddingTop: 11, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   statusLabel: { fontSize: 12, fontWeight: "800" },
   fileLabel: { flex: 1, textAlign: "right", fontSize: 12 },
+  downloadButton: { minHeight: 44, borderRadius: 13, marginTop: 12, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  downloadButtonText: { fontSize: 13, fontWeight: "800" },
+  downloadButtonArrow: { fontSize: 19, fontWeight: "800" },
   emptyCard: { alignItems: "center", borderWidth: 1, borderRadius: 18, paddingHorizontal: 26, paddingVertical: 30 },
   emptyIcon: { fontSize: 30, marginBottom: 8 },
   emptyTitle: { fontSize: 16, fontWeight: "800" },

@@ -9,6 +9,7 @@ import {
   createLocalBuildDraft,
   formatBytes,
   PROJECT_TYPES,
+  submitBuildJob,
   type ProjectType,
 } from "@/lib/build-store";
 import { MAX_SOURCE_SIZE, validateProjectArchive } from "@/lib/project-import";
@@ -62,20 +63,22 @@ export default function NewBuildScreen() {
 
     try {
       setSaving(true);
-      await createLocalBuildDraft({
+      const job = await createLocalBuildDraft({
         projectName,
         projectType,
         sourceName: archive.name,
         sourceSize: archive.size,
         sourceUri: archive.uri,
       });
+      await submitBuildJob(job);
       Alert.alert(
-        "Projet préparé",
-        "Votre archive a été copiée dans l’espace privé de One App. Elle est prête pour l’envoi sécurisé vers le service de compilation.",
+        "Compilation lancée",
+        "One App prépare maintenant votre APK. Vous verrez son avancement dans Mes builds.",
         [{ text: "Voir mes builds", onPress: () => router.replace("/(tabs)") }],
       );
-    } catch {
-      Alert.alert("Enregistrement impossible", "Vérifiez l’espace libre de votre téléphone puis réessayez.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Vérifiez votre connexion et l’espace libre de votre téléphone puis réessayez.";
+      Alert.alert("Compilation non lancée", message);
     } finally {
       setSaving(false);
     }
@@ -177,17 +180,17 @@ export default function NewBuildScreen() {
 
         <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={styles.infoIcon}>ⓘ</Text>
-          <Text style={[styles.infoText, { color: colors.muted }]}>One App prépare votre projet ici. La compilation distante et le téléchargement de l’APK apparaîtront dans « Mes builds » après l’envoi sécurisé.</Text>
+          <Text style={[styles.infoText, { color: colors.muted }]}>One App envoie votre ZIP de façon sécurisée, fabrique l’APK, puis vous prévient ici dès qu’elle est prête.</Text>
         </View>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Préparer mon build"
+          accessibilityLabel="Lancer la compilation"
           disabled={!canPrepare}
           onPress={handlePrepareBuild}
           style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : `${colors.border}99` }, pressed && canPrepare && styles.pressed]}
         >
-          <Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Préparation…" : "Préparer mon build"}</Text>
+          <Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi sécurisé…" : "Lancer la compilation"}</Text>
           <Text style={[styles.submitArrow, { color: canPrepare ? colors.background : colors.muted }]}>→</Text>
         </Pressable>
         <Text style={[styles.testLabel, { color: colors.muted }]}>Sortie prévue : APK debug destinée aux tests.</Text>

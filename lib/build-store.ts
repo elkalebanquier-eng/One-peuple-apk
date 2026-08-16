@@ -1,5 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+
+import { getApiBaseUrl } from "@/constants/oauth";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -77,6 +80,33 @@ async function writeJobs(jobs: BuildJob[]) {
   listeners.forEach((listener) => listener(jobs));
 }
 
+async function updateJob(id: string, patch: Partial<BuildJob>) {
+  const jobs = await readJobs();
+  const updated = jobs.map((job) => job.id === id
+    ? { ...job, ...patch, updatedAt: new Date().toISOString() }
+    : job);
+  await writeJobs(updated);
+  return updated.find((job) => job.id === id);
+}
+
+function buildApiUrl(path: string) {
+  const baseUrl = getApiBaseUrl();
+  if (!baseUrl) {
+    throw new Error("Le service de compilation n’est pas disponible. Vérifiez votre connexion puis réessayez.");
+  }
+  return `${baseUrl}${path}`;
+}
+
+function buildHeaders(job: BuildJob) {
+  return {
+    "Content-Type": "application/octet-stream",
+    "x-one-app-build-id": encodeURIComponent(job.id),
+    "x-one-app-project-type": encodeURIComponent(job.projectType),
+    "x-one-app-project-name": encodeURIComponent(job.projectName),
+    "x-one-app-source-name": encodeURIComponent(job.sourceName),
+  };
+}
+
 export async function loadBuildJobs() {
   return [...(await readJobs())].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
@@ -125,6 +155,71 @@ export async function createLocalBuildDraft(input: {
   const jobs = await readJobs();
   await writeJobs([job, ...jobs]);
   return job;
+}
+
+export async function submitBuildJob(job: BuildJob) {
+  await updateJob(job.id, {
+    status: "queued",
+    message: "Envoi sécurisé du ZIP vers le moteur de compilation…",
+  });
+
+  try {
+    const url = buildApiUrl("/api/builds/submit");
+    let responseBody = "";
+    let statusCode = 0;
+
+    if (Platform.OS === "web") {
+      const sourceResponse = await fetch(job.sourceUri);
+      if (!sourceResponse.ok) throw new Error("Le ZIP enregistré sur cet appareil ne peut pas être lu.");
+      const archive = await sourceResponse.blob();
+      const response = await fetch(url, { method: "POST", headers: buildHeaders(job), body: archive });
+      statusCode = response.status;
+      responseBody = await response.text();
+    } else {
+      const response = await FileSystem.uploadAsync(url, job.sourceUri, {
+        httpMethod: "POST",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: buildHeaders(job),
+      });
+      statusCode = response.status;
+      responseBody = response.body;
+    }
+
+    const payload = responseBody ? JSON.parse(responseBody) as { message?: string; apkUrl?: string } : {};
+    if (statusCode < 200 || statusCode >= 300) {
+      throw new Error(payload.message || "L’envoi n’a pas pu être terminé.");
+    }
+
+    return await updateJob(job.id, {
+      status: "queued",
+      message: payload.message || "Votre projet attend le démarrage de la compilation.",
+      apkUri: payload.apkUrl,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "L’envoi a échoué. Vérifiez votre connexion puis réessayez.";
+    await updateJob(job.id, { status: "failed", message });
+    throw error;
+  }
+}
+
+export async function refreshBuildJob(job: BuildJob) {
+  if (job.status !== "queued" && job.status !== "building") return job;
+
+  try {
+    const response = await fetch(buildApiUrl(`/api/builds/${encodeURIComponent(job.id)}/status`));
+    const payload = (await response.json()) as { status?: BuildStatus; message?: string; apkUrl?: string };
+    if (!response.ok || !payload.status) {
+      throw new Error(payload.message || "Le statut est indisponible.");
+    }
+    return await updateJob(job.id, {
+      status: payload.status,
+      message: payload.message || job.message,
+      apkUri: payload.apkUrl || job.apkUri,
+    });
+  } catch {
+    // A short network issue must not turn a real build into a permanent failure.
+    return job;
+  }
 }
 
 export function getProjectType(type: ProjectType) {

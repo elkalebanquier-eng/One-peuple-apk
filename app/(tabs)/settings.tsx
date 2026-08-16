@@ -73,6 +73,15 @@ export default function SettingsScreen() {
         <View className="mt-4">
           <Text className="px-4 py-2 font-semibold text-xs" style={{ color: colors.primary }}>AIDE</Text>
           <SettingRow icon="❔" label="Projets acceptés" value="Expo · Android · HTML" />
+          <View className="mx-4 mt-2 rounded-2xl border p-4" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+            <Text className="text-sm font-bold" style={{ color: colors.foreground }}>Créer une APK en 3 étapes</Text>
+            <Text className="text-xs mt-2 leading-5" style={{ color: colors.muted }}>1. Choisissez le type qui correspond à votre code.</Text>
+            <Text className="text-xs mt-1 leading-5" style={{ color: colors.muted }}>2. Sélectionnez le fichier ZIP de votre projet.</Text>
+            <Text className="text-xs mt-1 leading-5" style={{ color: colors.muted }}>3. Lancez la compilation, attendez l’état « APK prête », puis téléchargez-la.</Text>
+          </View>
+          <View className="mx-4 mt-3 rounded-2xl border p-4" style={{ backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}55` }}>
+            <Text className="text-xs leading-5" style={{ color: colors.muted }}>Une compilation peut prendre quelques minutes. Gardez simplement One App ouverte et revenez sur « Mes builds » pour voir l’avancement. La version gratuite accepte des ZIP de 50 Mo maximum et jusqu’à deux compilations par heure.</Text>
+          </View>
           <SettingRow icon="ⓘ" label="À propos" value="One App v1.0.0" />
         </View>
 

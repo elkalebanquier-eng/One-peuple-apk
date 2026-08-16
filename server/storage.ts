@@ -71,6 +71,32 @@ export async function storagePut(
   return { key, url: `/manus-storage/${key}` };
 }
 
+/**
+ * Reserves a private storage object and returns a short-lived PUT URL. This URL
+ * is passed only to the isolated build runner so that it can write the APK
+ * without receiving any One App storage credential.
+ */
+export async function storageCreateUploadUrl(
+  relKey: string,
+): Promise<{ key: string; uploadUrl: string; url: string }> {
+  const { forgeUrl, forgeKey } = getForgeConfig();
+  const key = appendHashSuffix(normalizeKey(relKey));
+  const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
+  presignUrl.searchParams.set("path", key);
+
+  const response = await fetch(presignUrl, {
+    headers: { Authorization: `Bearer ${forgeKey}` },
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Storage upload URL failed (${response.status}): ${message}`);
+  }
+
+  const { url: uploadUrl } = (await response.json()) as { url?: string };
+  if (!uploadUrl) throw new Error("Forge returned an empty APK upload URL");
+  return { key, uploadUrl, url: `/manus-storage/${key}` };
+}
+
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
   return { key, url: `/manus-storage/${key}` };

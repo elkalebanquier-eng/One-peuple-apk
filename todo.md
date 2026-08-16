@@ -166,15 +166,15 @@
 
 - [x] Remplacer le concept d’application sociale par un constructeur d’applications mobile
 - [x] Créer un parcours : nouveau projet, modèle, personnalisation, aperçu et soumission au build
-- [ ] Définir un service distant sécurisé de dépôt du code et de compilation Android
+- [x] Définir un service distant sécurisé de dépôt du code et de compilation Android
 - [ ] Préparer les exigences Play Store : AAB signé, identité éditeur, politique de confidentialité et validation
 
 ## KIKO Studio — import et compilation simplifiés
 
-- [ ] Permettre à un utilisateur d’importer un projet depuis son téléphone ou une adresse de dépôt
+- [x] Permettre à un utilisateur d’importer un projet depuis son téléphone
 - [x] Masquer GitHub, Gradle, Metro et Android Studio derrière un bouton de compilation simple
-- [ ] Valider et isoler les projets importés avant toute compilation distante
-- [ ] Afficher dans KIKO Studio l’état du build et proposer le téléchargement du résultat APK ou AAB
+- [x] Valider et isoler les projets importés avant toute compilation distante
+- [x] Afficher dans One App l’état du build et proposer le téléchargement de l’APK debug
 
 ## Première version : APK debug uniquement
 
@@ -200,14 +200,30 @@
 
 - [ ] Permettre une connexion GitHub gratuite une seule fois pour lancer les builds
 - [ ] Préparer un dépôt et un workflow de compilation gratuits par utilisateur
-- [ ] Indiquer les limites de la version gratuite sans demander de serveur payant
+- [x] Indiquer les limites de la version gratuite sans demander de serveur payant
 
 ## Expérience entièrement One App
 
 - [x] Retirer la connexion GitHub et toute mention GitHub du parcours utilisateur
 - [x] Présenter l’import, l’envoi et le suivi comme des fonctions internes à One App
-- [ ] Prévoir un point d’intégration interne pour le service de compilation, sans action utilisateur externe
+- [x] Prévoir un point d’intégration interne pour le service de compilation, sans action utilisateur externe
 
 ## Livraison transparente
 
 - [x] Présenter clairement ce que One App peut faire aujourd’hui et ce qui reste indisponible sans service de compilation
+
+## Moteur de compilation distant One App
+
+- [x] Choisir et documenter l’architecture gratuite de compilation distante adaptée aux ZIP importés
+- [x] Créer un service backend de soumission et de suivi des compilations réelles
+- [x] Déployer un environnement isolé de build pour les projets Expo, Android natif et HTML
+- [x] Ajouter dans One App les statuts réels, la récupération de l’APK et les erreurs de compilation
+
+## Parcours accessible aux débutants
+
+- [x] Employer des consignes simples à chaque étape sans citer GitHub, Gradle ni Metro
+- [x] Ajouter des explications concrètes sur le ZIP attendu pour chaque type de projet
+- [x] Convertir les erreurs de compilation en conseils courts et compréhensibles
+- [x] Présenter le téléchargement et l’installation de l’APK sous forme d’étapes guidées
+- [x] Réutiliser l’autorisation GitHub déjà connectée sans demander de jeton ou de réglage aux utilisateurs
+- [x] Remplacer le déclenchement authentifié par une file de build sécurisée ne demandant aucun jeton utilisateur
