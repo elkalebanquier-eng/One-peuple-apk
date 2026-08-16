@@ -48,6 +48,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Bundle JavaScript for Android
+        run: npx expo export --platform android --dev false --output-dir dist-android
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon --stacktrace

@@ -148,3 +148,10 @@
 - [ ] Créer un écran de test séparé pour diagnostiquer le comportement natif sans modifier l’interface principale KIKO
 - [ ] Lancer et surveiller un nouveau workflow GitHub Actions pour valider la compilation
 - [ ] Vérifier et livrer le nouvel APK debug certifié
+
+## Correction de l’erreur Unable to load script (bundle Metro vs APK autonome)
+
+- [x] Analyser la capture d’écran de l’erreur d’exécution sur le téléphone
+- [ ] Modifier la configuration Gradle / Expo pour forcer le bundle JS embarqué dans l’APK (mode release / bundle offline)
+- [ ] Relancer un build GitHub Actions avec packaging complet du script
+- [ ] Fournir l’importance et la valeur de l’application KIKO à l’utilisateur
