@@ -130,7 +130,6 @@ export function registerBuildRoutes(app: Express) {
     async (request: Request, response: Response) => {
       try {
         cleanExpiredBuilds();
-        checkRateLimit(request);
         const buildId = parseBuildId(getHeaderValue(request, "x-one-app-build-id"));
         const projectType = parseProjectType(getHeaderValue(request, "x-one-app-project-type"));
         const projectName = getHeaderValue(request, "x-one-app-project-name").trim().slice(0, 80) || "Mon projet";
@@ -143,6 +142,7 @@ export function registerBuildRoutes(app: Express) {
         if (archive.length > MAX_SOURCE_SIZE) throw new BuildRequestError("Le ZIP dépasse la limite de 50 Mo.", 413);
         if (!isZip(archive)) throw new BuildRequestError("Le fichier envoyé n’est pas une archive ZIP valide.", 400);
         if (builds.has(buildId)) throw new BuildRequestError("Cette compilation a déjà été reçue.", 409);
+        checkRateLimit(request);
 
         const source = await storagePut(`one-app/sources/${buildId}/${sourceName}`, archive, "application/zip");
         const now = Date.now();

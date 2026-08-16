@@ -218,6 +218,8 @@
 - [x] Créer un service backend de soumission et de suivi des compilations réelles
 - [x] Déployer un environnement isolé de build pour les projets Expo, Android natif et HTML
 - [x] Ajouter dans One App les statuts réels, la récupération de l’APK et les erreurs de compilation
+- [x] Compiler de bout en bout un index.html simple au moyen du parcours utilisateur et vérifier l’APK obtenue
+- [x] Empêcher une archive invalide de consommer une tentative gratuite de compilation
 
 ## Parcours accessible aux débutants
 
