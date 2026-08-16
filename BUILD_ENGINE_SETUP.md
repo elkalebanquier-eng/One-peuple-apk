@@ -1,5 +1,7 @@
 # Moteur de compilation One App
 
+> **Statut actuel — mode local demandé par le propriétaire :** l’APK distribuée conserve et vérifie les projets uniquement sur le téléphone. Le déclenchement du moteur distant est volontairement désactivé : aucun site, backend ou application n’est publié. Une APK installée seule ne peut pas compiler de nouveau code Android sans une machine de compilation accessible en ligne.
+
 ## Fonctionnement pour les utilisateurs
 
 One App cache les outils techniques. La personne choisit le type de projet, sélectionne son ZIP, lance la compilation et télécharge l’APK debug lorsqu’elle est prête. Aucun compte GitHub, jeton, commande Gradle ou installation d’Android Studio n’est demandé dans l’application.
@@ -25,7 +27,7 @@ Les ZIP sont traités comme non fiables. L’extraction bloque les liens symboli
 
 La première version produit uniquement des **APK debug**. Elles servent à installer et tester une application sur Android ; elles ne sont pas le format final de publication sur Google Play.[4] One App limite les archives à 50 Mo et les demandes à deux compilations par heure pour protéger le service gratuit.
 
-Le backend One App doit rester **publié et en ligne** : il reçoit l’archive et garde l’état de la compilation. L’adresse publique du backend est inscrite au moment de la génération de l’APK One App et dans les deux workflows du worker. Lors d’un changement d’hébergement, ces trois configurations doivent être mises à jour ensemble.
+Si le propriétaire décide un jour de réactiver le moteur de compilation, le backend One App devra rester **publié et en ligne** : il reçoit l’archive et garde l’état de la compilation. L’adresse publique du backend sera alors inscrite au moment de la génération de l’APK One App et dans les deux workflows du worker. Cette publication n’est pas réalisée dans la version locale actuelle.
 
 ## Vérification réalisée
 

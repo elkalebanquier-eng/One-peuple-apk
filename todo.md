@@ -234,8 +234,20 @@
 - [x] Préparer automatiquement un index.html en archive compatible avec le moteur de compilation
 - [x] Tester la préparation index.html directe puis reconstruire l’APK One App
 - [x] Détecter une réponse HTML ou un service indisponible et montrer une erreur simple dans One App
-- [ ] Configurer l’URL du moteur publiée dans l’APK de production
-- [ ] Vérifier le parcours complet index.html depuis la version APK installable de One App
+- [x] Ne pas configurer l’URL du moteur publiée dans l’APK de production : aucun backend ne sera publié
+- [x] Ne pas envoyer d’index.html depuis l’APK locale : cette version ne compile pas à distance
+
+## Correction du serveur de compilation
+
+- [x] Ne pas publier le backend One App, à la demande explicite de l’utilisateur
+- [x] Ne pas ajouter d’adresse publique permanente dans l’APK ni dans les workflows
+- [x] Ne pas envoyer d’index.html à distance : le mode local ne contacte aucun serveur
+
+## Mode APK local sans publication
+
+- [x] Désactiver le parcours de compilation distante à la demande de l’utilisateur, sans publier de backend ni de site
+- [x] Expliquer dans One App, avec un message simple, que compiler un nouveau code ne peut pas fonctionner depuis une APK seule hors ligne
+- [ ] Recréer une APK locale cohérente après le retrait du parcours de compilation distante
 
 ## Parcours accessible aux débutants
 
