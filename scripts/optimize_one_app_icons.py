@@ -5,10 +5,12 @@ from PIL import Image
 
 ROOT = Path("/home/ubuntu/kiko-native-app/assets/images")
 TARGETS = {
-    "icon.png": 1024,
-    "splash-icon.png": 1024,
-    "android-icon-foreground.png": 1024,
-    "favicon.png": 512,
+    "icon.png": 512,
+    "splash-icon.png": 512,
+    "android-icon-foreground.png": 512,
+    "android-icon-background.png": 512,
+    "android-icon-monochrome.png": 512,
+    "favicon.png": 256,
 }
 
 
