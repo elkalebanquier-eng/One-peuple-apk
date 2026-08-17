@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { ComponentProps } from "react";
-import { FlatList, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
+import * as FileSystem from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -33,10 +35,60 @@ const TYPE_ICONS: Record<ProjectType, IconName> = {
   html: "language",
 };
 
+const APK_MIME_TYPE = "application/vnd.android.package-archive";
+
+function makeApkFileName(projectName: string) {
+  const safeName = projectName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "one-app-build";
+  return `${safeName}-${Date.now()}.apk`;
+}
+
 function BuildCard({ item }: { item: BuildJob }) {
   const colors = useColors();
   const type = getProjectType(item.projectType);
   const status = STATUS_COPY[item.status];
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownloadAndInstall() {
+    if (!item.apkUri) return;
+    if (Platform.OS !== "android") {
+      Alert.alert("Android requis", "L’installation directe d’une APK est disponible uniquement sur Android.");
+      return;
+    }
+
+    try {
+      setDownloading(true);
+      const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+      if (!directory) throw new Error("Le dossier de téléchargement est indisponible sur ce téléphone.");
+
+      const fileUri = `${directory}${makeApkFileName(item.projectName)}`;
+      const download = await FileSystem.downloadAsync(item.apkUri, fileUri);
+      const info = await FileSystem.getInfoAsync(download.uri);
+      if (!info.exists || !info.size || info.size < 10_000) {
+        await FileSystem.deleteAsync(download.uri, { idempotent: true });
+        throw new Error("Le fichier reçu n’est pas une APK Android complète. Réessayez la compilation.");
+      }
+
+      const contentUri = await FileSystem.getContentUriAsync(download.uri);
+      await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+        data: contentUri,
+        flags: 1,
+        type: APK_MIME_TYPE,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Le téléchargement de l’APK a échoué.";
+      Alert.alert(
+        "Installation non ouverte",
+        `${message}\n\nSi Android le demande, autorisez One App à installer des applications inconnues, puis réessayez.`,
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <View style={[styles.buildCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -69,17 +121,18 @@ function BuildCard({ item }: { item: BuildJob }) {
         <>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Télécharger l’APK de ${item.projectName}`}
-            onPress={() => { void Linking.openURL(item.apkUri!); }}
-            style={({ pressed }) => [styles.downloadButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}
+            accessibilityLabel={`Télécharger et installer l’APK de ${item.projectName}`}
+            disabled={downloading}
+            onPress={() => { void handleDownloadAndInstall(); }}
+            style={({ pressed }) => [styles.downloadButton, { backgroundColor: colors.primary }, pressed && !downloading && styles.pressed]}
           >
             <View style={styles.downloadCopy}>
-              <Text style={[styles.downloadTitle, { color: colors.background }]}>Télécharger l’APK</Text>
-              <Text style={[styles.downloadHint, { color: colors.background }]}>Pour installer et tester sur Android</Text>
+              <Text style={[styles.downloadTitle, { color: colors.background }]}>{downloading ? "Téléchargement de l’APK…" : "Télécharger et installer"}</Text>
+              <Text style={[styles.downloadHint, { color: colors.background }]}>{downloading ? "Préparation du fichier Android" : "Ouvre directement l’installateur Android"}</Text>
             </View>
-            <MaterialIcons color={colors.background} name="download" size={24} />
+            <MaterialIcons color={colors.background} name={downloading ? "downloading" : "install-mobile"} size={24} />
           </Pressable>
-          <Text style={[styles.expiryNote, { color: colors.muted }]}>Le lien de téléchargement est disponible temporairement.</Text>
+          <Text style={[styles.expiryNote, { color: colors.muted }]}>L’APK est téléchargée sur le téléphone, sans navigateur. Disponible temporairement.</Text>
         </>
       ) : null}
     </View>

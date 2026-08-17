@@ -260,6 +260,13 @@
 - [x] Corriger la configuration du bundle Android qui empêche Metro de charger ses fichiers CommonJS
 - [x] Construire et vérifier l’APK One App contenant l’adresse du moteur GitHub actif
 
+## Correction du téléchargement APK
+
+- [x] Vérifier le fichier de 24 Ko : il contient AndroidManifest.xml et classes.dex, donc il s’agit bien d’une APK Android minimale
+- [ ] Télécharger l’APK dans le téléphone depuis One App sans ouvrir Brave, GitHub ou une page web
+- [x] Vérifier qu’une APK reçue contient AndroidManifest.xml et classes.dex avant de la proposer à l’installation
+- [ ] Ouvrir l’installateur Android après le téléchargement direct, avec l’autorisation système si nécessaire
+
 ## Parcours accessible aux débutants
 
 - [x] Employer des consignes simples à chaque étape sans citer GitHub, Gradle ni Metro
