@@ -3,6 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import multer from "multer";
 
 import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "../shared/app-identity";
+import { getExpectedApkUrl } from "../shared/build-delivery";
 import { getBuildTimeoutMessage } from "../shared/build-timeout";
 
 const WORKER_OWNER = "elkalebanquier-eng";
@@ -14,7 +15,9 @@ const MAX_SOURCE_SIZE = 50 * 1024 * 1024;
 const MAX_ICON_SIZE = 1024 * 1024;
 const MAX_ICON_BASE64_LENGTH = Math.ceil((MAX_ICON_SIZE * 4) / 3) + 4;
 const MAX_SUBMISSIONS_PER_HOUR = 2;
-const BUILD_RETENTION_MS = 24 * 60 * 60 * 1000;
+// APK releases remain available for 48 hours; keep the matching status record
+// for the same duration so a completed download cannot disappear early.
+const BUILD_RETENTION_MS = 48 * 60 * 60 * 1000;
 const PUBLIC_BUILD_API_URL = (process.env.ONE_APP_PUBLIC_API_URL || "https://kikonative-evby5xxj.manus.space").replace(/\/$/, "");
 const submissionTimes = new Map<string, number[]>();
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
@@ -179,18 +182,15 @@ async function verifyWorker(
   }
 }
 
-function getReleaseDownloadUrl(buildId: string) {
-  const tag = `one-app-build-${buildId}`;
-  return `https://github.com/${WORKER_OWNER}/${WORKER_REPOSITORY}/releases/download/${tag}/one-app-${buildId}.apk`;
-}
-
 function sendJob(response: Response, job: BuildRecord) {
   response.json({
     id: job.id,
     projectName: job.projectName,
     status: job.status,
     message: job.message,
-    apkUrl: job.status === "complete" ? job.apkUrl : undefined,
+    // The release path is deterministic. Returning it early lets the phone
+    // recover a completed APK if the in-memory build status vanishes.
+    apkUrl: job.apkUrl ?? getExpectedApkUrl(job.id),
   });
 }
 
@@ -349,7 +349,7 @@ export function registerBuildRoutes(app: Express) {
         }
         if (outcome === "complete") {
           await verifyWorker(request, [PUBLISHER_WORKFLOW], ["workflow_run"]);
-          job.apkUrl = getReleaseDownloadUrl(buildId);
+          job.apkUrl = getExpectedApkUrl(buildId);
         } else {
           await verifyWorker(request, [WORKER_WORKFLOW, PUBLISHER_WORKFLOW]);
         }

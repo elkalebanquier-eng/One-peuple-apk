@@ -406,3 +406,11 @@
 - [x] Afficher une confirmation simple après la copie
 - [x] Vérifier TypeScript et les tests unitaires après l’intégration du presse-papiers
 - [x] Reconstruire l’APK afin de vérifier le module natif de copie
+
+## Diagnostic d’APK non reçue
+
+- [x] Reproduire une compilation HTML simple depuis le moteur One App
+- [x] Vérifier la soumission, la file, le worker, la publication temporaire et le statut final
+- [x] Corriger toute erreur empêchant l’APK de revenir dans l’application
+- [x] Valider TypeScript et les tests de régression de livraison
+- [ ] Vérifier le téléchargement direct et l’ouverture de l’installateur Android

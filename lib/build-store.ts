@@ -6,6 +6,7 @@ import { getApiBaseUrl } from "@/constants/oauth";
 import { getUnavailableBuildMessage, readBuildResponse } from "@/lib/build-response";
 import { makeRestartBuildInput } from "@/lib/restart-build";
 import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "@/shared/app-identity";
+import { getExpectedApkUrl } from "@/shared/build-delivery";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -104,6 +105,17 @@ function buildApiUrl(path: string) {
     throw new Error("Le service de compilation n’est pas encore prêt. Réessayez après la publication de One App.");
   }
   return `${baseUrl}${path}`;
+}
+
+/** Vérifie l’APK temporaire seulement si le statut serveur a été perdu après un redémarrage. */
+async function findPublishedApk(job: BuildJob) {
+  const apkUri = job.apkUri ?? getExpectedApkUrl(job.id);
+  try {
+    const response = await fetch(apkUri, { method: "HEAD" });
+    return response.ok ? apkUri : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function buildHeaders(job: BuildJob) {
@@ -235,7 +247,7 @@ export async function submitBuildJob(job: BuildJob) {
     return await updateJob(job.id, {
       status: "queued",
       message: payload.message || "Votre projet attend le démarrage de la compilation.",
-      apkUri: payload.apkUrl,
+      apkUri: payload.apkUrl || getExpectedApkUrl(job.id),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "L’envoi a échoué. Vérifiez votre connexion puis réessayez.";
@@ -268,6 +280,14 @@ export async function refreshBuildJob(job: BuildJob) {
     const payload = readBuildResponse(await response.text(), response.status) as { status?: BuildStatus; message?: string; apkUrl?: string };
     const unavailableMessage = getUnavailableBuildMessage(response.status, payload.message);
     if (unavailableMessage) {
+      const apkUri = await findPublishedApk(job);
+      if (apkUri) {
+        return await updateJob(job.id, {
+          status: "complete",
+          apkUri,
+          message: "Votre APK est prête à être téléchargée.",
+        });
+      }
       return await updateJob(job.id, { status: "failed", message: unavailableMessage });
     }
     if (!response.ok || !payload.status) {
@@ -276,7 +296,7 @@ export async function refreshBuildJob(job: BuildJob) {
     return await updateJob(job.id, {
       status: payload.status,
       message: payload.message || job.message,
-      apkUri: payload.apkUrl || job.apkUri,
+      apkUri: payload.apkUrl || job.apkUri || getExpectedApkUrl(job.id),
     });
   } catch {
     // A short network issue must not turn a real build into a permanent failure.
