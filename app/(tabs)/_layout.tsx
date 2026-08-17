@@ -13,7 +13,7 @@ export default function TabLayout() {
   const tabBarHeight = 58 + bottomPadding;
 
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: colors.primary, tabBarInactiveTintColor: colors.muted, headerShown: false, tabBarButton: HapticTab, tabBarStyle: { paddingTop: 8, paddingBottom: bottomPadding, height: tabBarHeight, backgroundColor: colors.background, borderTopColor: colors.border, borderTopWidth: 0.5, elevation: 0 }, tabBarLabelStyle: { fontSize: 11, fontWeight: "800" }, tabBarItemStyle: { paddingTop: 1 } }}>
+    <Tabs screenOptions={{ tabBarActiveTintColor: colors.primary, tabBarInactiveTintColor: colors.muted, headerShown: false, tabBarButton: HapticTab, tabBarStyle: { paddingTop: 9, paddingBottom: bottomPadding, height: tabBarHeight, backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: 1, elevation: 0 }, tabBarLabelStyle: { fontSize: 11, fontWeight: "800", letterSpacing: 0.1 }, tabBarItemStyle: { paddingTop: 1 } }}>
       <Tabs.Screen name="index" options={{ title: "Builds", tabBarIcon: ({ color }) => <MaterialIcons color={color} name="view-list" size={24} /> }} />
       <Tabs.Screen name="create" options={{ title: "Nouveau", tabBarIcon: ({ color }) => <MaterialIcons color={color} name="add-circle-outline" size={26} /> }} />
       <Tabs.Screen name="profile" options={{ title: "Aide", tabBarIcon: ({ color }) => <MaterialIcons color={color} name="help-outline" size={24} /> }} />

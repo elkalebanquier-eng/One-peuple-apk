@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import multer from "multer";
 
+import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "../shared/app-identity";
 import { getBuildTimeoutMessage } from "../shared/build-timeout";
 
 const WORKER_OWNER = "elkalebanquier-eng";
@@ -29,6 +30,9 @@ type BuildRecord = {
   sourceArchive?: Buffer;
   iconUrl?: string;
   iconArchive?: Buffer;
+  packageName: string;
+  appVersion: string;
+  versionCode: number;
   status: BuildState;
   message: string;
   createdAt: number;
@@ -200,6 +204,11 @@ export function registerBuildRoutes(app: Express) {
         const buildId = parseBuildId(getHeaderValue(request, "x-one-app-build-id"));
         const projectType = parseProjectType(getHeaderValue(request, "x-one-app-project-type"));
         const projectName = getHeaderValue(request, "x-one-app-project-name").trim().slice(0, 80) || "Mon projet";
+        const identity = readAppIdentity(
+          getHeaderValue(request, "x-one-app-package-name") || getGeneratedPackageName(buildId),
+          getHeaderValue(request, "x-one-app-app-version") || DEFAULT_APP_VERSION,
+        );
+        if (!identity.valid) throw new BuildRequestError(identity.message, 400);
         const archive = (request.file?.buffer ?? request.body) as Buffer;
         const customIcon = getCustomIcon(request);
 
@@ -220,6 +229,9 @@ export function registerBuildRoutes(app: Express) {
           sourceArchive: archive,
           iconUrl: customIcon ? `${getPublicBaseUrl()}/api/builds/${buildId}/icon` : undefined,
           iconArchive: customIcon,
+          packageName: identity.packageName,
+          appVersion: identity.appVersion,
+          versionCode: identity.versionCode,
           status: "queued",
           message: "Votre projet a été reçu. La compilation commencera bientôt.",
           createdAt: now,
@@ -313,6 +325,9 @@ export function registerBuildRoutes(app: Express) {
         projectType: job.projectType,
         sourceUrl: job.sourceUrl,
         iconUrl: job.iconUrl,
+        packageName: job.packageName,
+        appVersion: job.appVersion,
+        versionCode: job.versionCode,
       });
     } catch (error) {
       const buildError = error instanceof BuildRequestError ? error : new BuildRequestError("La file de compilation est indisponible.", 500);

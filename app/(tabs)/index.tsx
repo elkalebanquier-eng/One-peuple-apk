@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
-import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
@@ -53,8 +53,20 @@ function BuildCard({ item }: { item: BuildJob }) {
   const type = getProjectType(item.projectType);
   const status = STATUS_COPY[item.status];
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ received: number; total: number } | null>(null);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
+  const lastDownloadUpdate = useRef(0);
   const canRestart = item.status === "complete" || item.status === "failed";
+  const receivedBytes = downloadProgress?.received ?? 0;
+  const expectedBytes = downloadProgress?.total ?? 0;
+  const progressPercent = expectedBytes > 0 ? Math.min(100, Math.round((receivedBytes / expectedBytes) * 100)) : 0;
+  const downloadHint = downloadMessage
+    ?? (expectedBytes > 0
+      ? `${progressPercent} % · ${formatBytes(receivedBytes)} sur ${formatBytes(expectedBytes)}`
+      : receivedBytes > 0
+        ? `${formatBytes(receivedBytes)} téléchargés · taille en cours de lecture`
+        : "Connexion au fichier APK…");
 
   async function handleDownloadAndInstall() {
     if (!item.apkUri) return;
@@ -65,18 +77,45 @@ function BuildCard({ item }: { item: BuildJob }) {
 
     try {
       setDownloading(true);
+      setDownloadProgress({ received: 0, total: 0 });
+      setDownloadMessage(null);
       const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
       if (!directory) throw new Error("Le dossier de téléchargement est indisponible sur ce téléphone.");
 
       const fileUri = `${directory}${makeApkFileName(item.projectName)}`;
-      const download = await FileSystem.downloadAsync(item.apkUri, fileUri);
+      const downloadTask = FileSystem.createDownloadResumable(
+        item.apkUri,
+        fileUri,
+        {},
+        ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+          const now = Date.now();
+          if (now - lastDownloadUpdate.current < 250 && totalBytesWritten !== totalBytesExpectedToWrite) return;
+          lastDownloadUpdate.current = now;
+          setDownloadProgress({ received: totalBytesWritten, total: totalBytesExpectedToWrite });
+        },
+      );
+      const download = await downloadTask.downloadAsync();
+      if (!download) throw new Error("Le téléchargement a été interrompu avant la réception du fichier APK.");
       const info = await FileSystem.getInfoAsync(download.uri);
       if (!info.exists || !info.size || info.size < 10_000) {
         await FileSystem.deleteAsync(download.uri, { idempotent: true });
         throw new Error("Le fichier reçu n’est pas une APK Android complète. Réessayez la compilation.");
       }
 
+      setDownloadProgress({ received: info.size, total: info.size });
+      setDownloadMessage("Fichier reçu · vérification de l’APK…");
+      const apkHeader = await FileSystem.readAsStringAsync(download.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+        length: 8,
+        position: 0,
+      });
+      if (!apkHeader.startsWith("UEs")) {
+        await FileSystem.deleteAsync(download.uri, { idempotent: true });
+        throw new Error("Le fichier reçu ne ressemble pas à une APK Android. Relancez la compilation.");
+      }
+
       const contentUri = await FileSystem.getContentUriAsync(download.uri);
+      setDownloadMessage("APK vérifiée · ouverture de l’installateur Android…");
       await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
         data: contentUri,
         flags: 1,
@@ -84,6 +123,7 @@ function BuildCard({ item }: { item: BuildJob }) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Le téléchargement de l’APK a échoué.";
+      setDownloadMessage("Téléchargement arrêté · vous pouvez réessayer");
       Alert.alert(
         "Installation non ouverte",
         `${message}\n\nSi Android le demande, autorisez One App à installer des applications inconnues, puis réessayez.`,
@@ -147,7 +187,12 @@ function BuildCard({ item }: { item: BuildJob }) {
           >
             <View style={styles.downloadCopy}>
               <Text style={[styles.downloadTitle, { color: colors.background }]}>{downloading ? "Téléchargement de l’APK…" : "Télécharger et installer"}</Text>
-              <Text style={[styles.downloadHint, { color: colors.background }]}>{downloading ? "Préparation du fichier Android" : "Ouvre directement l’installateur Android"}</Text>
+              <Text style={[styles.downloadHint, { color: colors.background }]}>{downloading ? downloadHint : "Ouvre directement l’installateur Android"}</Text>
+              {downloading ? (
+                <View style={[styles.downloadTrack, { backgroundColor: `${colors.background}3B` }]}>
+                  <View style={[styles.downloadFill, { backgroundColor: colors.background, width: expectedBytes > 0 ? `${Math.max(3, progressPercent)}%` : "18%" }]} />
+                </View>
+              ) : null}
             </View>
             <MaterialIcons color={colors.background} name={downloading ? "downloading" : "install-mobile"} size={24} />
           </Pressable>
@@ -210,22 +255,19 @@ export default function BuildsScreen() {
           <>
             <View style={styles.header}>
               <View style={styles.brandRow}>
-                <View style={[styles.logoMark, { backgroundColor: colors.primary }]}>
-                  <MaterialIcons color={colors.background} name="bolt" size={20} />
-                </View>
+                <Image source={require("../../assets/images/icon.png")} style={styles.logoMark} />
                 <View>
                   <Text style={[styles.brand, { color: colors.foreground }]}>One App</Text>
-                  <Text style={[styles.headerCaption, { color: colors.muted }]}>Atelier de compilation</Text>
+                  <Text style={[styles.headerCaption, { color: colors.primary }]}>ONE PEUPLE · ATELIER APK</Text>
                 </View>
               </View>
-              <Text style={[styles.localCount, { color: colors.muted }]}>{jobs.length} sur cet appareil</Text>
+              <View style={[styles.localBadge, { backgroundColor: `${colors.primary}15` }]}><MaterialIcons color={colors.primary} name="phone-android" size={14} /><Text style={[styles.localCount, { color: colors.primary }]}>{jobs.length}</Text></View>
             </View>
 
-            <View style={[styles.launchPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.orangeRule, { backgroundColor: colors.primary }]} />
-              <Text style={[styles.launchEyebrow, { color: colors.primary }]}>PRÊT À COMMENCER</Text>
-              <Text style={[styles.launchTitle, { color: colors.foreground }]}>Transformez votre code en APK.</Text>
-              <Text style={[styles.launchText, { color: colors.muted }]}>Choisissez un type de projet, ajoutez votre fichier puis suivez chaque étape sans outil compliqué.</Text>
+            <View style={[styles.launchPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+              <View style={styles.heroTopline}><View style={[styles.orangeRule, { backgroundColor: colors.primary }]} /><Text style={[styles.launchEyebrow, { color: colors.primary }]}>PRÊT À CONSTRUIRE</Text><View style={[styles.heroStatus, { backgroundColor: `${colors.success}1A` }]}><View style={[styles.heroDot, { backgroundColor: colors.success }]} /><Text style={[styles.heroStatusText, { color: colors.success }]}>SIMPLE</Text></View></View>
+              <Text style={[styles.launchTitle, { color: colors.foreground }]}>Votre code.{"\n"}Votre APK.</Text>
+              <Text style={[styles.launchText, { color: colors.muted }]}>Importez un projet, suivez la compilation et installez l’APK directement sur votre téléphone.</Text>
               <View style={styles.formatPills}>
                 <View style={[styles.formatPill, { backgroundColor: colors.background }]}><MaterialIcons color={colors.primary} name="code" size={14} /><Text style={[styles.formatPillText, { color: colors.muted }]}>Expo</Text></View>
                 <View style={[styles.formatPill, { backgroundColor: colors.background }]}><MaterialIcons color={colors.primary} name="android" size={14} /><Text style={[styles.formatPillText, { color: colors.muted }]}>Android</Text></View>
@@ -237,13 +279,13 @@ export default function BuildsScreen() {
                 onPress={() => router.push("/(tabs)/create")}
                 style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}
               >
-                <Text style={[styles.primaryButtonText, { color: colors.background }]}>Créer une APK</Text>
+                <View><Text style={[styles.primaryButtonText, { color: colors.background }]}>Nouvelle compilation</Text><Text style={[styles.primaryButtonHint, { color: colors.background }]}>Importer mon code</Text></View>
                 <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
               </Pressable>
             </View>
 
             <View style={styles.sectionTitleRow}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mes compilations</Text>
+              <View><Text style={[styles.sectionEyebrow, { color: colors.primary }]}>SUIVI</Text><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mes compilations</Text></View>
               <Text style={[styles.sectionCount, { color: colors.muted }]}>{jobs.length === 0 ? "Aucune pour l’instant" : `${jobs.length} au total`}</Text>
             </View>
           </>
@@ -270,23 +312,30 @@ export default function BuildsScreen() {
 
 const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 18, paddingBottom: 30 },
-  header: { paddingTop: 13, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  header: { paddingTop: 12, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logoMark: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  brand: { fontSize: 21, fontWeight: "800", letterSpacing: -0.5 },
-  headerCaption: { marginTop: 1, fontSize: 12, fontWeight: "600" },
-  localCount: { fontSize: 11, fontWeight: "700" },
-  launchPanel: { borderWidth: 1, borderRadius: 24, padding: 20, overflow: "hidden" },
-  orangeRule: { width: 38, height: 4, borderRadius: 3, marginBottom: 14 },
+  logoMark: { width: 42, height: 42, borderRadius: 13 },
+  brand: { fontSize: 22, fontWeight: "900", letterSpacing: -0.7 },
+  headerCaption: { marginTop: 2, fontSize: 9, fontWeight: "900", letterSpacing: 0.9 },
+  localBadge: { minWidth: 36, height: 28, paddingHorizontal: 8, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  localCount: { fontSize: 12, fontWeight: "900" },
+  launchPanel: { borderWidth: 1, borderRadius: 26, padding: 20, overflow: "hidden" },
+  heroTopline: { flexDirection: "row", alignItems: "center", gap: 8 },
+  orangeRule: { width: 30, height: 4, borderRadius: 3 },
   launchEyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.25 },
-  launchTitle: { marginTop: 8, fontSize: 29, lineHeight: 34, fontWeight: "800", letterSpacing: -1 },
-  launchText: { marginTop: 9, fontSize: 14, lineHeight: 20, maxWidth: 330 },
-  formatPills: { flexDirection: "row", gap: 7, marginTop: 16, marginBottom: 19 },
-  formatPill: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 },
+  heroStatus: { marginLeft: "auto", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 },
+  heroDot: { width: 5, height: 5, borderRadius: 3 },
+  heroStatusText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.7 },
+  launchTitle: { marginTop: 17, fontSize: 32, lineHeight: 36, fontWeight: "900", letterSpacing: -1.2 },
+  launchText: { marginTop: 10, fontSize: 13, lineHeight: 20, maxWidth: 320 },
+  formatPills: { flexDirection: "row", gap: 7, marginTop: 17, marginBottom: 19 },
+  formatPill: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 7 },
   formatPillText: { fontSize: 11, fontWeight: "700" },
-  primaryButton: { minHeight: 54, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 16 },
+  primaryButton: { minHeight: 62, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 17 },
   primaryButtonText: { fontSize: 16, fontWeight: "900" },
-  sectionTitleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 28, marginBottom: 13 },
+  primaryButtonHint: { marginTop: 1, fontSize: 10, fontWeight: "700", opacity: 0.7 },
+  sectionTitleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 30, marginBottom: 13 },
+  sectionEyebrow: { marginBottom: 3, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
   sectionTitle: { fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
   sectionCount: { fontSize: 12, fontWeight: "600" },
   buildCard: { borderWidth: 1, borderRadius: 20, padding: 14, marginBottom: 11 },
@@ -300,10 +349,12 @@ const styles = StyleSheet.create({
   statusMark: { width: 6, height: 6, borderRadius: 3 },
   statusLabel: { fontSize: 11, fontWeight: "900" },
   statusDetail: { flex: 1, fontSize: 11, textAlign: "right" },
-  downloadButton: { minHeight: 57, marginTop: 12, paddingHorizontal: 15, borderRadius: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  downloadButton: { minHeight: 68, marginTop: 12, paddingHorizontal: 15, borderRadius: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   downloadCopy: { flex: 1 },
   downloadTitle: { fontSize: 14, fontWeight: "900" },
   downloadHint: { fontSize: 11, fontWeight: "600", opacity: 0.78, marginTop: 2 },
+  downloadTrack: { height: 4, borderRadius: 4, overflow: "hidden", marginTop: 8, marginRight: 14 },
+  downloadFill: { height: 4, borderRadius: 4 },
   restartButton: { minHeight: 57, marginTop: 10, paddingHorizontal: 15, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   restartCopy: { flex: 1 },
   restartTitle: { fontSize: 14, fontWeight: "900" },

@@ -11,6 +11,8 @@ describe("makeRestartBuildInput", () => {
       sourceName: "index.html.zip",
       sourceSize: 2048,
       sourceUri: "file:///private/one-app/build-original/index.html.zip",
+      packageName: "com.onepeuple.mamoney",
+      appVersion: "2.0.0",
       status: "complete",
       createdAt: "2026-08-17T08:00:00.000Z",
       updatedAt: "2026-08-17T08:05:00.000Z",
@@ -22,6 +24,8 @@ describe("makeRestartBuildInput", () => {
       sourceName: "index.html.zip",
       sourceSize: 2048,
       sourceUri: "file:///private/one-app/build-original/index.html.zip",
+      packageName: "com.onepeuple.mamoney",
+      appVersion: "2.0.0",
     });
   });
 });

@@ -13,6 +13,7 @@ import { useColors } from "@/hooks/use-colors";
 import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type ProjectType } from "@/lib/build-store";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
+import { DEFAULT_APP_VERSION, getProjectPackageName, readAppIdentity } from "@/shared/app-identity";
 
 type IconName = ComponentProps<typeof MaterialIcons>["name"];
 type SelectedSource = Pick<DocumentPicker.DocumentPickerAsset, "name" | "size" | "uri"> & { preparedFromHtml?: boolean };
@@ -26,10 +27,13 @@ export default function NewBuildScreen() {
   const [projectName, setProjectName] = useState("");
   const [archive, setArchive] = useState<SelectedSource | null>(null);
   const [customIcon, setCustomIcon] = useState<SelectedAppIcon | null>(null);
+  const [packageName, setPackageName] = useState("com.oneapp.monapp");
+  const [appVersion, setAppVersion] = useState(DEFAULT_APP_VERSION);
   const [saving, setSaving] = useState(false);
 
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
-  const canPrepare = Boolean(projectType && archive && projectName.trim() && !saving);
+  const appIdentity = useMemo(() => readAppIdentity(packageName, appVersion), [appVersion, packageName]);
+  const canPrepare = Boolean(projectType && archive && projectName.trim() && appIdentity.valid && !saving);
 
   async function handlePickArchive() {
     if (!projectType) return;
@@ -61,7 +65,11 @@ export default function NewBuildScreen() {
       const rawSource: SelectedSource = { name: selectedName, size: selected.size, uri: selected.uri };
       const source: SelectedSource | PreparedHtmlSource = directHtml ? await prepareDirectHtmlSource(selected) : rawSource;
       setArchive(source);
-      if (!projectName.trim()) setProjectName(selectedName.replace(/\.(zip|html?)$/i, ""));
+      if (!projectName.trim()) {
+        const suggestedName = selectedName.replace(/\.(zip|html?)$/i, "");
+        setProjectName(suggestedName);
+        if (packageName === "com.oneapp.monapp") setPackageName(getProjectPackageName(suggestedName));
+      }
     } catch (error) {
       Alert.alert("Import impossible", error instanceof Error ? error.message : "Le fichier n’a pas pu être sélectionné. Réessayez.");
     }
@@ -96,6 +104,10 @@ export default function NewBuildScreen() {
 
   async function handlePrepareBuild() {
     if (!projectType || !archive || !projectName.trim()) return;
+    if (!appIdentity.valid) {
+      Alert.alert("Paramètres à corriger", appIdentity.message);
+      return;
+    }
     try {
       setSaving(true);
       const job = await createLocalBuildDraft({
@@ -107,6 +119,8 @@ export default function NewBuildScreen() {
         iconName: customIcon?.name,
         iconSize: customIcon?.size,
         iconUri: customIcon?.uri,
+        packageName: appIdentity.packageName,
+        appVersion: appIdentity.appVersion,
       });
       await submitBuildJob(job);
       Alert.alert("Compilation lancée", "One App prépare votre APK. Vous verrez son avancement dans Builds.", [{ text: "Voir les builds", onPress: () => router.replace("/(tabs)") }]);
@@ -121,9 +135,9 @@ export default function NewBuildScreen() {
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={[styles.headerEyebrow, { color: colors.primary }]}>NOUVELLE COMPILATION</Text>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Préparez votre APK.</Text>
-          <Text style={[styles.headerText, { color: colors.muted }]}>Trois petites étapes. One App vous explique le fichier attendu à chaque fois.</Text>
+          <View style={styles.headerLabel}><View style={[styles.headerLabelDot, { backgroundColor: colors.success }]} /><Text style={[styles.headerEyebrow, { color: colors.primary }]}>ONE PEUPLE · NOUVEAU PROJET</Text></View>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Construisez votre APK.</Text>
+          <Text style={[styles.headerText, { color: colors.muted }]}>Choisissez, importez, configurez. Le reste est guidé étape par étape.</Text>
         </View>
 
         <View style={[styles.stepPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -141,7 +155,7 @@ export default function NewBuildScreen() {
               );
             })}
           </View>
-          <Text style={[styles.progressText, { color: colors.muted }]}>{!projectType ? "1. Choisissez votre type de code" : !archive ? "2. Ajoutez votre fichier" : "3. Donnez un nom au projet"}</Text>
+          <Text style={[styles.progressText, { color: colors.muted }]}>{!projectType ? "Étape 1 · Choisissez votre type de code" : !archive ? "Étape 2 · Ajoutez votre fichier" : "Étape 3 · Donnez une identité à votre APK"}</Text>
         </View>
 
         <View style={styles.sectionHead}>
@@ -228,6 +242,22 @@ export default function NewBuildScreen() {
         </View>
         <TextInput value={projectName} onChangeText={setProjectName} editable={!saving} placeholder="Ex. Ma première application" placeholderTextColor={colors.muted} returnKeyType="done" style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]} />
 
+        <View style={styles.optionalHead}>
+          <View style={[styles.optionalBadge, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="settings-applications" size={17} /></View>
+          <View><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Identité de l’APK</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>Ces paramètres seront intégrés à l’application générée.</Text></View>
+        </View>
+        <View style={styles.identityFields}>
+          <View style={styles.identityField}>
+            <Text style={[styles.identityLabel, { color: colors.muted }]}>Nom du package Android</Text>
+            <TextInput value={packageName} onChangeText={setPackageName} editable={!saving} autoCapitalize="none" autoCorrect={false} placeholder="com.monentreprise.monapp" placeholderTextColor={colors.muted} style={[styles.input, { backgroundColor: colors.surface, borderColor: appIdentity.valid ? colors.border : colors.error, color: colors.foreground }]} />
+          </View>
+          <View style={styles.identityFieldSmall}>
+            <Text style={[styles.identityLabel, { color: colors.muted }]}>Version</Text>
+            <TextInput value={appVersion} onChangeText={setAppVersion} editable={!saving} autoCapitalize="none" autoCorrect={false} keyboardType="decimal-pad" placeholder="1.0.0" placeholderTextColor={colors.muted} style={[styles.input, { backgroundColor: colors.surface, borderColor: appIdentity.valid ? colors.border : colors.error, color: colors.foreground }]} />
+          </View>
+        </View>
+        {!appIdentity.valid ? <Text style={[styles.identityError, { color: colors.error }]}>{appIdentity.message}</Text> : null}
+
         <View style={[styles.securityNote, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialIcons color={colors.primary} name="shield" size={20} />
           <Text style={[styles.securityText, { color: colors.muted }]}>N’ajoutez jamais de mot de passe, clé privée ou information personnelle dans votre fichier.</Text>
@@ -243,12 +273,14 @@ export default function NewBuildScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 32 },
-  header: { marginBottom: 20 },
+  content: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 32 },
+  header: { marginBottom: 22 },
+  headerLabel: { flexDirection: "row", alignItems: "center", gap: 7 },
+  headerLabelDot: { width: 7, height: 7, borderRadius: 4 },
   headerEyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
-  headerTitle: { marginTop: 5, fontSize: 27, fontWeight: "800", letterSpacing: -0.8 },
-  headerText: { marginTop: 6, maxWidth: 335, fontSize: 13, lineHeight: 19 },
-  stepPanel: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 14, marginBottom: 27 },
+  headerTitle: { marginTop: 9, fontSize: 30, fontWeight: "900", letterSpacing: -1 },
+  headerText: { marginTop: 7, maxWidth: 335, fontSize: 13, lineHeight: 20 },
+  stepPanel: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 15, paddingVertical: 15, marginBottom: 29 },
   progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   progressItem: { flexDirection: "row", alignItems: "center" },
   stepBubble: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
@@ -261,14 +293,14 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: "800" },
   sectionHint: { fontSize: 11, marginTop: 2 },
   typeList: { gap: 9, marginBottom: 27 },
-  typeRow: { minHeight: 72, borderWidth: 1, borderRadius: 18, padding: 12, flexDirection: "row", alignItems: "center" },
+  typeRow: { minHeight: 76, borderWidth: 1, borderRadius: 19, padding: 13, flexDirection: "row", alignItems: "center" },
   typeIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 11 },
   typeCopy: { flex: 1, paddingRight: 8 },
   typeTitle: { fontSize: 14, fontWeight: "800" },
   typeDescription: { marginTop: 2, fontSize: 11, lineHeight: 16 },
   radio: { width: 21, height: 21, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
-  importZone: { minHeight: 88, borderWidth: 1, borderStyle: "dashed", borderRadius: 18, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  importZone: { minHeight: 94, borderWidth: 1, borderStyle: "dashed", borderRadius: 19, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", marginBottom: 12 },
   importIcon: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 11 },
   importCopy: { flex: 1 },
   importTitle: { fontSize: 14, fontWeight: "800" },
@@ -288,9 +320,14 @@ const styles = StyleSheet.create({
   iconPickerTitle: { fontSize: 14, fontWeight: "800" },
   iconPickerText: { marginTop: 2, fontSize: 11, lineHeight: 16 },
   input: { minHeight: 53, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, fontSize: 15, marginBottom: 16 },
+  identityFields: { flexDirection: "row", gap: 10 },
+  identityField: { flex: 1.8 },
+  identityFieldSmall: { flex: 0.9 },
+  identityLabel: { fontSize: 11, fontWeight: "700", marginBottom: 6, marginLeft: 2 },
+  identityError: { marginTop: -8, marginBottom: 16, fontSize: 11, lineHeight: 16 },
   securityNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 18 },
   securityText: { flex: 1, fontSize: 11, lineHeight: 17 },
-  submitButton: { minHeight: 60, borderRadius: 17, borderWidth: 1, paddingHorizontal: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  submitButton: { minHeight: 64, borderRadius: 18, borderWidth: 1, paddingHorizontal: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   submitTitle: { fontSize: 15, fontWeight: "900" },
   submitText: { marginTop: 2, fontSize: 11, fontWeight: "600", opacity: 0.78 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },

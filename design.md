@@ -2,16 +2,16 @@
 
 ## Intention
 
-One App devient un **atelier de compilation clair**, et non une succession de fiches techniques. Dès l’ouverture, la personne comprend une seule chose : elle peut choisir un projet, envoyer son fichier puis récupérer une APK de test. La navigation, les mots et les actions restent adaptés à un écran de téléphone et à une utilisation à une main.
+One App devient un **atelier de compilation clair et affirmé**, inspiré de l’identité One Peuple, et non une succession de fiches techniques. Dès l’ouverture, la personne comprend une seule chose : elle peut choisir un projet, envoyer son fichier puis récupérer une APK de test. La navigation, les mots et les actions restent adaptés à un écran de téléphone et à une utilisation à une main.
 
-L’interface utilise la marque existante : fond graphite profond, orange One App comme action principale et contraste fort pour les états de compilation. Le design évite les faux réglages, les badges décoratifs et les informations qui ne correspondent pas au fonctionnement réel.
+L’interface utilise une identité **noir profond, or et vert**, raccordée au logo One Peuple : l’or guide l’action, le vert confirme une réussite et le rouge attire l’attention sur une correction. Le design évite les faux réglages et les informations qui ne correspondent pas au fonctionnement réel. Les boutons de téléchargement montrent le nombre d’octets reçus et leur pourcentage réel avant d’ouvrir l’installateur Android.
 
 | Rôle | Couleur | Usage |
 |---|---:|---|
-| Fond | `#121317` | Surface générale de l’application |
-| Surface élevée | `#1B1D24` | Zones de contenu et éléments sélectionnables |
-| Orange One App | `#FF7A30` | Lancer une compilation et action principale |
-| Vert résultat | `#34D399` | APK disponible et fichier reconnu |
+| Fond | `#080C0A` | Surface générale de l’application |
+| Surface élevée | `#111915` | Zones de contenu et éléments sélectionnables |
+| Or One Peuple | `#E6BB47` | Lancer une compilation et action principale |
+| Vert résultat | `#79DF61` | APK disponible et fichier reconnu |
 | Bleu progression | `#7AA7FF` | Compilation en cours |
 | Rouge action requise | `#FF5C72` | Erreur expliquée et action à corriger |
 

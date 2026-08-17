@@ -317,3 +317,25 @@
 ## Correction de récupération du projet par le worker
 
 - [x] Fournir au worker les URL publiques sécurisées du ZIP et de l’icône, sans hôte interne
+
+## Livraison directe de l’APK sans action utilisateur
+
+- [x] Fournir directement le fichier APK installable sans demander de cliquer sur Publier
+
+## Configuration d’identité de l’APK générée
+
+- [x] Ajouter un champ de nom de package Android avec validation simple
+- [x] Ajouter un champ de version de l’application avec validation simple
+- [ ] Transmettre et appliquer package et version pendant la compilation
+- [x] Vérifier l’état de la compilation index.html récemment soumise
+
+## Progression du téléchargement APK
+
+- [x] Afficher le pourcentage et la taille réellement téléchargée dans One App
+- [x] Indiquer clairement un téléchargement bloqué et permettre de le relancer
+
+## Téléchargement fiable et nouveau design
+
+- [x] Vérifier la taille et l’ouverture de l’APK avant de lancer l’installateur Android
+- [x] Revoir le style du tableau de bord pour une lecture plus moderne et plus claire
+- [x] Revoir le style de l’écran de création pour guider chaque étape simplement

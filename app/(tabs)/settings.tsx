@@ -14,9 +14,9 @@ export default function SettingsScreen() {
   return (
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.eyebrow, { color: colors.primary }]}>À PROPOS DE ONE APP</Text>
-        <Text style={[styles.title, { color: colors.foreground }]}>Simple, même depuis un téléphone.</Text>
-        <Text style={[styles.subtitle, { color: colors.muted }]}>Ces informations décrivent les limites et la protection appliquées à la compilation.</Text>
+        <View style={styles.headerLabel}><View style={[styles.headerDot, { backgroundColor: colors.success }]} /><Text style={[styles.eyebrow, { color: colors.primary }]}>ONE PEUPLE · À PROPOS</Text></View>
+        <Text style={[styles.title, { color: colors.foreground }]}>Tout est guidé, même depuis un téléphone.</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>Les limites et protections appliquées pendant votre compilation.</Text>
 
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Votre compilation</Text>
         <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -39,18 +39,20 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 18, paddingTop: 15, paddingBottom: 30 },
+  content: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 30 },
+  headerLabel: { flexDirection: "row", alignItems: "center", gap: 7 },
+  headerDot: { width: 7, height: 7, borderRadius: 4 },
   eyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
-  title: { marginTop: 5, fontSize: 26, lineHeight: 32, fontWeight: "800", letterSpacing: -0.8, maxWidth: 310 },
-  subtitle: { marginTop: 7, fontSize: 13, lineHeight: 19 },
-  sectionTitle: { marginTop: 27, marginBottom: 11, fontSize: 17, fontWeight: "800" },
-  panel: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+  title: { marginTop: 9, fontSize: 29, lineHeight: 35, fontWeight: "900", letterSpacing: -1, maxWidth: 330 },
+  subtitle: { marginTop: 8, fontSize: 13, lineHeight: 20 },
+  sectionTitle: { marginTop: 29, marginBottom: 12, fontSize: 18, fontWeight: "900", letterSpacing: -0.3 },
+  panel: { borderWidth: 1, borderRadius: 20, overflow: "hidden" },
   infoRow: { minHeight: 75, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 11 },
   infoIcon: { width: 39, height: 39, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   infoCopy: { flex: 1 },
   infoTitle: { fontSize: 13, fontWeight: "800" },
   infoDetail: { marginTop: 3, fontSize: 11, lineHeight: 16 },
-  notice: { marginTop: 23, borderWidth: 1, borderRadius: 17, padding: 14, flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  notice: { marginTop: 23, borderWidth: 1, borderRadius: 19, padding: 14, flexDirection: "row", alignItems: "flex-start", gap: 10 },
   noticeText: { flex: 1, fontSize: 11, lineHeight: 17 },
   version: { marginTop: 23, textAlign: "center", fontSize: 11 },
 });

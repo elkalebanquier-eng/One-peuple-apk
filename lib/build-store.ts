@@ -5,6 +5,7 @@ import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { getUnavailableBuildMessage, readBuildResponse } from "@/lib/build-response";
 import { makeRestartBuildInput } from "@/lib/restart-build";
+import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "@/shared/app-identity";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -19,6 +20,9 @@ export interface BuildJob {
   iconName?: string;
   iconSize?: number | null;
   iconUri?: string;
+  packageName?: string;
+  appVersion?: string;
+  versionCode?: number;
   status: BuildStatus;
   createdAt: string;
   updatedAt: string;
@@ -108,6 +112,8 @@ function buildHeaders(job: BuildJob) {
     "x-one-app-project-type": encodeURIComponent(job.projectType),
     "x-one-app-project-name": encodeURIComponent(job.projectName),
     "x-one-app-source-name": encodeURIComponent(job.sourceName),
+    "x-one-app-package-name": encodeURIComponent(job.packageName ?? getGeneratedPackageName(job.id)),
+    "x-one-app-app-version": encodeURIComponent(job.appVersion ?? DEFAULT_APP_VERSION),
   };
 }
 
@@ -132,12 +138,19 @@ export async function createLocalBuildDraft(input: {
   iconName?: string;
   iconSize?: number;
   iconUri?: string;
+  packageName?: string;
+  appVersion?: string;
 }) {
   if (!FileSystem.documentDirectory) {
     throw new Error("Le stockage privé de l’application est indisponible.");
   }
 
   const id = makeId();
+  const identity = readAppIdentity(
+    input.packageName ?? getGeneratedPackageName(id),
+    input.appVersion ?? DEFAULT_APP_VERSION,
+  );
+  if (!identity.valid) throw new Error(identity.message);
   const directory = `${FileSystem.documentDirectory}one-app/${id}/`;
   await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
 
@@ -164,6 +177,9 @@ export async function createLocalBuildDraft(input: {
     iconName,
     iconSize: iconUri ? input.iconSize ?? null : undefined,
     iconUri,
+    packageName: identity.packageName,
+    appVersion: identity.appVersion,
+    versionCode: identity.versionCode,
     status: "ready",
     createdAt: now,
     updatedAt: now,
