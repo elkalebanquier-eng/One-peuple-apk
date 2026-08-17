@@ -357,6 +357,8 @@
 - [x] Ajouter une zone où l’utilisateur décrit l’application ou la correction souhaitée
 - [x] Générer du code HTML, Expo ou Android adapté au type de projet choisi dans le relais Workers AI
 - [x] Permettre d’utiliser le code HTML IA dans le projet avant de lancer la compilation
+- [x] Recompiler One App avec l’assistant IA et vérifier l’APK Android obtenue
+- [x] Préparer une archive source sans dépendances générées ni secrets
 
 ## Intégration Cloudflare déjà connectée
 
