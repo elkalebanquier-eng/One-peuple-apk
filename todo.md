@@ -399,3 +399,10 @@
 - [x] Prévisualiser aussi un code rouvert depuis l’historique local
 - [x] Tester le flux de prévisualisation avec TypeScript et les tests unitaires
 - [x] Reconstruire l’APK avec la prévisualisation
+
+## Copie du code prévisualisé
+
+- [x] Ajouter un bouton pour copier l’intégralité du code dans le presse-papiers
+- [x] Afficher une confirmation simple après la copie
+- [x] Vérifier TypeScript et les tests unitaires après l’intégration du presse-papiers
+- [ ] Reconstruire l’APK afin de vérifier le module natif de copie

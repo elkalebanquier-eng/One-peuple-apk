@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
@@ -43,6 +44,7 @@ export default function AssistantScreen() {
   const [history, setHistory] = useState<AiCodeHistoryEntry[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
 
   const canGenerate = Boolean(prompt.trim()) && !loading;
   const selectedType = PROJECT_TYPES.find((type) => type.id === projectType)!;
@@ -67,6 +69,7 @@ export default function AssistantScreen() {
       setError("");
       const generated = await generateAssistantCode({ prompt, projectType, context });
       setResult(generated);
+      setCopyState("idle");
       setPreviewOpen(true);
       try {
         setHistory(await saveAssistantHistory({
@@ -92,7 +95,20 @@ export default function AssistantScreen() {
     setContext("");
     setResult({ code: entry.code, explanation: entry.explanation });
     setError("");
+    setCopyState("idle");
     setPreviewOpen(true);
+  }
+
+  async function handleCopyCode() {
+    if (!result?.code || copyState === "copying") return;
+    try {
+      setCopyState("copying");
+      const copied = await Clipboard.setStringAsync(result.code);
+      if (!copied) throw new Error("clipboard-write-failed");
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
   }
 
   function confirmDeleteHistoryEntry(entry: AiCodeHistoryEntry) {
@@ -173,7 +189,7 @@ export default function AssistantScreen() {
           {PROJECT_TYPES.map((type) => {
             const selected = type.id === projectType;
             return (
-              <Pressable key={type.id} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={type.label} onPress={() => { setProjectType(type.id); setResult(null); setPreviewOpen(false); setError(""); }} style={({ pressed }) => [styles.typeRow, { backgroundColor: selected ? `${colors.primary}13` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && styles.pressed]}>
+              <Pressable key={type.id} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={type.label} onPress={() => { setProjectType(type.id); setResult(null); setPreviewOpen(false); setCopyState("idle"); setError(""); }} style={({ pressed }) => [styles.typeRow, { backgroundColor: selected ? `${colors.primary}13` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && styles.pressed]}>
                 <View style={[styles.typeIcon, { backgroundColor: selected ? colors.primary : colors.background }]}><MaterialIcons color={selected ? colors.background : colors.primary} name={TYPE_ICONS[type.id]} size={21} /></View>
                 <View style={styles.typeCopy}><Text style={[styles.typeTitle, { color: colors.foreground }]}>{type.label}</Text><Text style={[styles.typeDescription, { color: colors.muted }]}>{type.expected}</Text></View>
                 <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.border }]}>{selected ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}</View>
@@ -229,7 +245,15 @@ export default function AssistantScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="Fermer la prévisualisation" onPress={() => setPreviewOpen(false)} style={({ pressed }) => [styles.closePreview, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
             </View>
 
-            <Text style={[styles.previewInstruction, { color: colors.muted }]}>Relisez le code, puis préparez-le uniquement s’il correspond bien à votre idée.</Text>
+            <Text style={[styles.previewInstruction, { color: colors.muted }]}>Relisez le code, copiez-le si besoin, puis préparez-le uniquement s’il correspond bien à votre idée.</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Copier l’intégralité du code" accessibilityState={{ busy: copyState === "copying" }} disabled={copyState === "copying"} onPress={handleCopyCode} style={({ pressed }) => [styles.copyCodeButton, { backgroundColor: copyState === "copied" ? `${colors.success}18` : colors.surface, borderColor: copyState === "copied" ? colors.success : colors.border }, pressed && copyState !== "copying" && styles.pressed]}>
+              <View style={[styles.copyCodeIcon, { backgroundColor: copyState === "copied" ? colors.success : `${colors.primary}1A` }]}><MaterialIcons color={copyState === "copied" ? colors.background : colors.primary} name={copyState === "copied" ? "check" : "content-copy"} size={19} /></View>
+              <View style={styles.copyCodeCopy}>
+                <Text style={[styles.copyCodeTitle, { color: colors.foreground }]}>{copyState === "copying" ? "Copie en cours…" : copyState === "copied" ? "Code copié" : "Copier tout le code"}</Text>
+                <Text style={[styles.copyCodeText, { color: copyState === "error" ? colors.error : colors.muted }]}>{copyState === "error" ? "La copie a échoué. Réessayez." : copyState === "copied" ? "Le code complet est dans votre presse-papiers." : "Copie l’intégralité du code, même au-delà de l’aperçu."}</Text>
+              </View>
+              <MaterialIcons color={copyState === "copied" ? colors.success : colors.muted} name={copyState === "copying" ? "hourglass-top" : "chevron-right"} size={22} />
+            </Pressable>
             <ScrollView style={[styles.codeScroll, { backgroundColor: colors.surface, borderColor: colors.border }]} contentContainerStyle={styles.codeScrollContent} showsVerticalScrollIndicator>
               {preview?.lines.map((line, index) => <View key={`${index}-${line}`} style={styles.codeLine}><Text selectable style={[styles.codeLineNumber, { color: colors.muted }]}>{String(index + 1).padStart(3, " ")}</Text><Text selectable style={[styles.codeLineText, { color: colors.foreground }]}>{line || " "}</Text></View>)}
               {preview?.isTruncated ? <Text style={[styles.previewTruncated, { color: colors.warning }]}>Aperçu limité aux 600 premières lignes pour préserver la fluidité. Le code complet reste celui qui sera préparé.</Text> : null}
@@ -321,7 +345,12 @@ const styles = StyleSheet.create({
   previewSheetMeta: { marginTop: 3, fontSize: 11, fontWeight: "700" },
   closePreview: { width: 42, height: 42, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   previewInstruction: { marginTop: 13, fontSize: 12, lineHeight: 17 },
-  codeScroll: { flex: 1, minHeight: 270, marginTop: 14, borderWidth: 1, borderRadius: 16 },
+  copyCodeButton: { minHeight: 62, marginTop: 12, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, flexDirection: "row", alignItems: "center" },
+  copyCodeIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
+  copyCodeCopy: { flex: 1, paddingRight: 7 },
+  copyCodeTitle: { fontSize: 13, fontWeight: "900" },
+  copyCodeText: { marginTop: 2, fontSize: 10, lineHeight: 14, fontWeight: "600" },
+  codeScroll: { flex: 1, minHeight: 228, marginTop: 12, borderWidth: 1, borderRadius: 16 },
   codeScrollContent: { paddingVertical: 10, paddingRight: 12 },
   codeLine: { flexDirection: "row", alignItems: "flex-start", minHeight: 18 },
   codeLineNumber: { width: 39, paddingRight: 8, textAlign: "right", fontFamily: "monospace", fontSize: 10, lineHeight: 18 },
