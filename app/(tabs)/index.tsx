@@ -12,6 +12,7 @@ import {
   formatBytes,
   getProjectType,
   refreshBuildJob,
+  restartBuildJob,
   subscribeToBuildJobs,
   type BuildJob,
   type BuildStatus,
@@ -52,6 +53,8 @@ function BuildCard({ item }: { item: BuildJob }) {
   const type = getProjectType(item.projectType);
   const status = STATUS_COPY[item.status];
   const [downloading, setDownloading] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const canRestart = item.status === "complete" || item.status === "failed";
 
   async function handleDownloadAndInstall() {
     if (!item.apkUri) return;
@@ -87,6 +90,22 @@ function BuildCard({ item }: { item: BuildJob }) {
       );
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function handleRestart() {
+    try {
+      setRestarting(true);
+      await restartBuildJob(item);
+      Alert.alert(
+        "Compilation relancée",
+        "One App réutilise le fichier déjà enregistré sur votre téléphone. Vous pouvez suivre la nouvelle compilation ici.",
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "La compilation ne peut pas être relancée pour le moment.";
+      Alert.alert("Relance impossible", message);
+    } finally {
+      setRestarting(false);
     }
   }
 
@@ -132,7 +151,25 @@ function BuildCard({ item }: { item: BuildJob }) {
             </View>
             <MaterialIcons color={colors.background} name={downloading ? "downloading" : "install-mobile"} size={24} />
           </Pressable>
-          <Text style={[styles.expiryNote, { color: colors.muted }]}>L’APK est téléchargée sur le téléphone, sans navigateur. Disponible temporairement.</Text>
+        </>
+      ) : null}
+
+      {canRestart ? (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Relancer la compilation de ${item.projectName}`}
+            disabled={restarting || downloading}
+            onPress={() => { void handleRestart(); }}
+            style={({ pressed }) => [styles.restartButton, { borderColor: colors.border, backgroundColor: colors.background }, pressed && !restarting && !downloading && styles.pressed]}
+          >
+            <View style={styles.restartCopy}>
+              <Text style={[styles.restartTitle, { color: colors.foreground }]}>{restarting ? "Relance de la compilation…" : "Relancer"}</Text>
+              <Text style={[styles.restartHint, { color: colors.muted }]}>{restarting ? "Envoi du fichier enregistré" : "Réutilise le même fichier, sans le choisir à nouveau"}</Text>
+            </View>
+            <MaterialIcons color={colors.primary} name={restarting ? "autorenew" : "replay"} size={22} />
+          </Pressable>
+          {item.status === "complete" ? <Text style={[styles.expiryNote, { color: colors.muted }]}>L’APK est téléchargée sur le téléphone, sans navigateur. Disponible temporairement.</Text> : null}
         </>
       ) : null}
     </View>
@@ -267,6 +304,10 @@ const styles = StyleSheet.create({
   downloadCopy: { flex: 1 },
   downloadTitle: { fontSize: 14, fontWeight: "900" },
   downloadHint: { fontSize: 11, fontWeight: "600", opacity: 0.78, marginTop: 2 },
+  restartButton: { minHeight: 57, marginTop: 10, paddingHorizontal: 15, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  restartCopy: { flex: 1 },
+  restartTitle: { fontSize: 14, fontWeight: "900" },
+  restartHint: { fontSize: 11, fontWeight: "600", marginTop: 2 },
   expiryNote: { marginTop: 8, fontSize: 11, textAlign: "center" },
   emptyState: { alignItems: "center", paddingHorizontal: 28, paddingTop: 10, paddingBottom: 23 },
   emptyIcon: { width: 54, height: 54, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 13 },

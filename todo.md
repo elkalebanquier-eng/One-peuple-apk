@@ -297,3 +297,8 @@
 - [x] Faire terminer la compilation seulement après la publication vérifiée de l’APK temporaire
 - [x] Conserver le ZIP seulement en mémoire jusqu’à sa récupération sécurisée par le worker, puis le supprimer
 - [x] Retirer l’adaptateur R2 inactif et ses dépendances afin de ne garder aucune configuration demandant une carte bancaire
+
+## Relance et nouveau logo One Peuple
+
+- [x] Ajouter un bouton « Relancer » qui utilise le dernier fichier importé sans le sélectionner à nouveau
+- [x] Appliquer le logo One Peuple fourni aux icônes, au splash screen et à la configuration de One App

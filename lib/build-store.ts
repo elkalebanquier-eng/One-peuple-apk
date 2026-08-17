@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 
 import { getApiBaseUrl } from "@/constants/oauth";
 import { readBuildResponse } from "@/lib/build-response";
+import { makeRestartBuildInput } from "@/lib/restart-build";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -201,6 +202,22 @@ export async function submitBuildJob(job: BuildJob) {
     await updateJob(job.id, { status: "failed", message });
     throw error;
   }
+}
+
+/**
+ * Recrée un build à partir de la copie locale déjà conservée par One App.
+ * L’utilisateur ne doit donc pas choisir à nouveau son ZIP ou son index.html.
+ */
+export async function restartBuildJob(previousJob: BuildJob) {
+  const sourceInfo = await FileSystem.getInfoAsync(previousJob.sourceUri);
+  if (!sourceInfo.exists) {
+    throw new Error("Le fichier original n’est plus disponible sur ce téléphone. Choisissez-le à nouveau pour lancer une nouvelle compilation.");
+  }
+
+  const newJob = await createLocalBuildDraft(makeRestartBuildInput(previousJob));
+
+  await submitBuildJob(newJob);
+  return newJob;
 }
 
 export async function refreshBuildJob(job: BuildJob) {
