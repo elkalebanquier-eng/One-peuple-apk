@@ -413,4 +413,5 @@
 - [x] Vérifier la soumission, la file, le worker, la publication temporaire et le statut final
 - [x] Corriger toute erreur empêchant l’APK de revenir dans l’application
 - [x] Valider TypeScript et les tests de régression de livraison
+- [x] Corriger la transmission des métadonnées de livraison vers le publieur isolé et valider une APK prête
 - [ ] Vérifier le téléchargement direct et l’ouverture de l’installateur Android
