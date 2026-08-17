@@ -345,3 +345,32 @@
 - [x] Réduire la taille de l’APK sans retirer les fonctions de One App
 - [x] Accélérer le workflow Android avec les caches de dépendances
 - [ ] Comparer la taille et la durée de l’APK optimisée à la version actuelle
+
+## Assistant Cloudflare AI
+
+- [x] Vérifier l’accès Cloudflare AI déjà configuré pour le projet
+- [x] Ajouter un assistant qui écrit ou corrige le code et guide sa préparation
+- [x] Protéger les requêtes IA et limiter les demandes depuis One App
+
+## Assistant Cloudflare AI d’écriture de code
+
+- [x] Ajouter une zone où l’utilisateur décrit l’application ou la correction souhaitée
+- [x] Générer du code HTML, Expo ou Android adapté au type de projet choisi dans le relais Workers AI
+- [x] Permettre d’utiliser le code HTML IA dans le projet avant de lancer la compilation
+
+## Intégration Cloudflare déjà connectée
+
+- [x] Vérifier les capacités Workers AI accessibles via la connexion Cloudflare active
+- [x] Créer un relais Cloudflare Workers AI limité, sans clé exposée dans l’APK
+- [x] Vérifier une génération HTML réelle via le relais Cloudflare
+- [x] Connecter l’application One App au relais sans exposer d’accès dans l’APK
+
+## Accès gratuit Cloudflare Workers AI
+
+- [ ] Créer un compte Cloudflare gratuit et activer Workers AI
+- [ ] Créer un jeton Workers AI avec les droits minimaux
+- [ ] Enregistrer l’identifiant de compte et le jeton dans les réglages sécurisés de One App
+
+## Vérification sans carte bancaire
+
+- [x] Vérifier officiellement si Workers AI impose une carte bancaire à l’activation

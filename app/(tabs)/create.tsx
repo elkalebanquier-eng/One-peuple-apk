@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -6,10 +6,11 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { prepareAssistantHtmlSource, takeAssistantDraft } from "@/lib/ai-code-assistant";
 import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type ProjectType } from "@/lib/build-store";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
@@ -34,6 +35,28 @@ export default function NewBuildScreen() {
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
   const appIdentity = useMemo(() => readAppIdentity(packageName, appVersion), [appVersion, packageName]);
   const canPrepare = Boolean(projectType && archive && projectName.trim() && appIdentity.valid && !saving);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+
+    void (async () => {
+      const draft = await takeAssistantDraft();
+      if (!draft || !active) return;
+      try {
+        const prepared = await prepareAssistantHtmlSource(draft.code);
+        if (!active) return;
+        setProjectType("html");
+        setArchive(prepared);
+        setProjectName(draft.projectName);
+        setPackageName(getProjectPackageName(draft.projectName));
+        Alert.alert("Code IA ajouté", "Votre index.html est prêt. Vous pouvez maintenant choisir une icône et lancer la compilation.");
+      } catch (error) {
+        if (active) Alert.alert("Code IA non ajouté", error instanceof Error ? error.message : "Réessayez depuis l’assistant de code.");
+      }
+    })();
+
+    return () => { active = false; };
+  }, []));
 
   async function handlePickArchive() {
     if (!projectType) return;
@@ -138,6 +161,11 @@ export default function NewBuildScreen() {
           <View style={styles.headerLabel}><View style={[styles.headerLabelDot, { backgroundColor: colors.success }]} /><Text style={[styles.headerEyebrow, { color: colors.primary }]}>ONE PEUPLE · NOUVEAU PROJET</Text></View>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Construisez votre APK.</Text>
           <Text style={[styles.headerText, { color: colors.muted }]}>Choisissez, importez, configurez. Le reste est guidé étape par étape.</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir l’assistant de code" onPress={() => router.navigate("/(tabs)/assistant")} style={({ pressed }) => [styles.assistantLink, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}55` }, pressed && styles.pressed]}>
+            <MaterialIcons color={colors.primary} name="auto-awesome" size={18} />
+            <Text style={[styles.assistantLinkText, { color: colors.primary }]}>Besoin d’aide pour écrire votre code ?</Text>
+            <MaterialIcons color={colors.primary} name="arrow-forward-ios" size={14} />
+          </Pressable>
         </View>
 
         <View style={[styles.stepPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -280,6 +308,8 @@ const styles = StyleSheet.create({
   headerEyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
   headerTitle: { marginTop: 9, fontSize: 30, fontWeight: "900", letterSpacing: -1 },
   headerText: { marginTop: 7, maxWidth: 335, fontSize: 13, lineHeight: 20 },
+  assistantLink: { alignSelf: "flex-start", minHeight: 42, borderWidth: 1, borderRadius: 14, marginTop: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+  assistantLinkText: { fontSize: 11, fontWeight: "800" },
   stepPanel: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 15, paddingVertical: 15, marginBottom: 29 },
   progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   progressItem: { flexDirection: "row", alignItems: "center" },
