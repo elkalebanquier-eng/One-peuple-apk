@@ -398,4 +398,4 @@
 - [x] Permettre de fermer la prévisualisation ou de préparer le code depuis celle-ci
 - [x] Prévisualiser aussi un code rouvert depuis l’historique local
 - [x] Tester le flux de prévisualisation avec TypeScript et les tests unitaires
-- [ ] Reconstruire l’APK avec la prévisualisation
+- [x] Reconstruire l’APK avec la prévisualisation
