@@ -405,4 +405,4 @@
 - [x] Ajouter un bouton pour copier l’intégralité du code dans le presse-papiers
 - [x] Afficher une confirmation simple après la copie
 - [x] Vérifier TypeScript et les tests unitaires après l’intégration du presse-papiers
-- [ ] Reconstruire l’APK afin de vérifier le module natif de copie
+- [x] Reconstruire l’APK afin de vérifier le module natif de copie
