@@ -391,3 +391,11 @@
 - [x] Ajouter une explication claire, des prérequis et une liste de vérifications au résultat IA
 - [x] Tester les réponses HTML, Expo et Android avec les améliorations de qualité
 - [x] Reconstruire l’APK avec les améliorations de qualité
+
+## Prévisualisation du code IA
+
+- [x] Afficher le code généré dans une prévisualisation lisible avant la compilation
+- [x] Permettre de fermer la prévisualisation ou de préparer le code depuis celle-ci
+- [x] Prévisualiser aussi un code rouvert depuis l’historique local
+- [x] Tester le flux de prévisualisation avec TypeScript et les tests unitaires
+- [ ] Reconstruire l’APK avec la prévisualisation

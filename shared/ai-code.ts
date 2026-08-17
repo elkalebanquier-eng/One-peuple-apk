@@ -14,6 +14,28 @@ export type AiCodeHistoryEntry = AiCodeResponse & {
 };
 
 export const AI_CODE_HISTORY_LIMIT = 12;
+export const AI_CODE_PREVIEW_MAX_LINES = 600;
+
+export type AiCodePreview = {
+  lines: string[];
+  totalLines: number;
+  isTruncated: boolean;
+};
+
+/** Prépare un aperçu borné pour éviter qu’un très grand code bloque l’écran mobile. */
+export function createAiCodePreview(
+  code: string,
+  maxLines = AI_CODE_PREVIEW_MAX_LINES,
+): AiCodePreview {
+  const lines = code.replace(/\r\n?/g, "\n").split("\n");
+  const limit = Math.max(1, Math.floor(maxLines));
+
+  return {
+    lines: lines.slice(0, limit),
+    totalLines: lines.length,
+    isTruncated: lines.length > limit,
+  };
+}
 
 function isProjectType(value: unknown): value is AiCodeProjectType {
   return value === "expo" || value === "android" || value === "html";

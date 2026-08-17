@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 
@@ -13,7 +13,7 @@ import {
   saveAssistantHistory,
 } from "@/lib/ai-code-assistant";
 import { PROJECT_TYPES, type ProjectType } from "@/lib/build-store";
-import type { AiCodeHistoryEntry, AiCodeResponse } from "@/shared/ai-code";
+import { createAiCodePreview, type AiCodeHistoryEntry, type AiCodeResponse } from "@/shared/ai-code";
 
 const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>["name"]> = {
   expo: "code",
@@ -42,9 +42,11 @@ export default function AssistantScreen() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<AiCodeHistoryEntry[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const canGenerate = Boolean(prompt.trim()) && !loading;
   const selectedType = PROJECT_TYPES.find((type) => type.id === projectType)!;
+  const preview = result ? createAiCodePreview(result.code) : null;
 
   useEffect(() => {
     let active = true;
@@ -65,6 +67,7 @@ export default function AssistantScreen() {
       setError("");
       const generated = await generateAssistantCode({ prompt, projectType, context });
       setResult(generated);
+      setPreviewOpen(true);
       try {
         setHistory(await saveAssistantHistory({
           ...generated,
@@ -89,6 +92,7 @@ export default function AssistantScreen() {
     setContext("");
     setResult({ code: entry.code, explanation: entry.explanation });
     setError("");
+    setPreviewOpen(true);
   }
 
   function confirmDeleteHistoryEntry(entry: AiCodeHistoryEntry) {
@@ -113,6 +117,7 @@ export default function AssistantScreen() {
   async function handleUseHtmlCode() {
     if (!result || projectType !== "html") return;
     try {
+      setPreviewOpen(false);
       await saveAssistantDraft({
         ...result,
         projectType,
@@ -168,7 +173,7 @@ export default function AssistantScreen() {
           {PROJECT_TYPES.map((type) => {
             const selected = type.id === projectType;
             return (
-              <Pressable key={type.id} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={type.label} onPress={() => { setProjectType(type.id); setResult(null); setError(""); }} style={({ pressed }) => [styles.typeRow, { backgroundColor: selected ? `${colors.primary}13` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && styles.pressed]}>
+              <Pressable key={type.id} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={type.label} onPress={() => { setProjectType(type.id); setResult(null); setPreviewOpen(false); setError(""); }} style={({ pressed }) => [styles.typeRow, { backgroundColor: selected ? `${colors.primary}13` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && styles.pressed]}>
                 <View style={[styles.typeIcon, { backgroundColor: selected ? colors.primary : colors.background }]}><MaterialIcons color={selected ? colors.background : colors.primary} name={TYPE_ICONS[type.id]} size={21} /></View>
                 <View style={styles.typeCopy}><Text style={[styles.typeTitle, { color: colors.foreground }]}>{type.label}</Text><Text style={[styles.typeDescription, { color: colors.muted }]}>{type.expected}</Text></View>
                 <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.border }]}>{selected ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}</View>
@@ -194,11 +199,15 @@ export default function AssistantScreen() {
         {result ? (
           <View style={[styles.resultBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.resultHeader}><View style={[styles.resultBadge, { backgroundColor: `${colors.success}1A` }]}><MaterialIcons color={colors.success} name="check-circle" size={18} /></View><View style={styles.resultHeading}><Text style={[styles.resultTitle, { color: colors.foreground }]}>Code prêt</Text><Text style={[styles.resultExplanation, { color: colors.muted }]}>{result.explanation}</Text></View></View>
-            <TextInput value={result.code} editable={false} multiline selectTextOnFocus autoCapitalize="none" autoCorrect={false} textAlignVertical="top" style={[styles.codeBox, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Prévisualiser le code généré" onPress={() => setPreviewOpen(true)} style={({ pressed }) => [styles.previewButton, { backgroundColor: colors.background, borderColor: colors.border }, pressed && styles.pressed]}>
+              <View style={[styles.previewIcon, { backgroundColor: `${colors.primary}1A` }]}><MaterialIcons color={colors.primary} name="visibility" size={20} /></View>
+              <View style={styles.previewCopy}><Text style={[styles.previewTitle, { color: colors.foreground }]}>Prévisualiser le code</Text><Text style={[styles.previewText, { color: colors.muted }]}>{preview?.totalLines ?? 0} lignes · À relire avant la compilation</Text></View>
+              <MaterialIcons color={colors.muted} name="chevron-right" size={23} />
+            </Pressable>
             {result.checklist?.length ? <View style={[styles.reviewBox, { backgroundColor: `${colors.success}10`, borderColor: `${colors.success}45` }]}><View style={styles.reviewHeader}><MaterialIcons color={colors.success} name="verified" size={18} /><Text style={[styles.reviewTitle, { color: colors.foreground }]}>Vérifications avant compilation</Text></View>{result.checklist.map((item) => <View key={item} style={styles.reviewItem}><View style={[styles.reviewDot, { backgroundColor: colors.success }]} /><Text style={[styles.reviewText, { color: colors.muted }]}>{item}</Text></View>)}</View> : null}
             {projectType === "html" ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Utiliser ce code HTML pour créer une application" onPress={handleUseHtmlCode} style={({ pressed }) => [styles.useButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}>
-                <View><Text style={[styles.useTitle, { color: colors.background }]}>Utiliser ce code</Text><Text style={[styles.useText, { color: colors.background }]}>Prépare index.html pour la compilation</Text></View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Prévisualiser ce code HTML avant de le préparer" onPress={() => setPreviewOpen(true)} style={({ pressed }) => [styles.useButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}>
+                <View><Text style={[styles.useTitle, { color: colors.background }]}>Voir avant de préparer</Text><Text style={[styles.useText, { color: colors.background }]}>Relisez le code avant la compilation</Text></View>
                 <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
               </Pressable>
             ) : (
@@ -207,6 +216,34 @@ export default function AssistantScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <Modal visible={Boolean(result) && previewOpen} transparent animationType="slide" onRequestClose={() => setPreviewOpen(false)} statusBarTranslucent>
+        <View style={[styles.previewBackdrop, { backgroundColor: "#000000B8" }]}>
+          <View style={[styles.previewSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={styles.previewHeader}>
+              <View style={styles.previewHeaderCopy}>
+                <Text style={[styles.previewEyebrow, { color: colors.primary }]}>AVANT LA COMPILATION</Text>
+                <Text style={[styles.previewSheetTitle, { color: colors.foreground }]}>Prévisualisation du code</Text>
+                <Text style={[styles.previewSheetMeta, { color: colors.muted }]}>{selectedType.shortLabel} · {preview?.totalLines ?? 0} lignes</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Fermer la prévisualisation" onPress={() => setPreviewOpen(false)} style={({ pressed }) => [styles.closePreview, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
+            </View>
+
+            <Text style={[styles.previewInstruction, { color: colors.muted }]}>Relisez le code, puis préparez-le uniquement s’il correspond bien à votre idée.</Text>
+            <ScrollView style={[styles.codeScroll, { backgroundColor: colors.surface, borderColor: colors.border }]} contentContainerStyle={styles.codeScrollContent} showsVerticalScrollIndicator>
+              {preview?.lines.map((line, index) => <View key={`${index}-${line}`} style={styles.codeLine}><Text selectable style={[styles.codeLineNumber, { color: colors.muted }]}>{String(index + 1).padStart(3, " ")}</Text><Text selectable style={[styles.codeLineText, { color: colors.foreground }]}>{line || " "}</Text></View>)}
+              {preview?.isTruncated ? <Text style={[styles.previewTruncated, { color: colors.warning }]}>Aperçu limité aux 600 premières lignes pour préserver la fluidité. Le code complet reste celui qui sera préparé.</Text> : null}
+            </ScrollView>
+
+            {projectType === "html" ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Préparer ce code HTML pour la compilation" onPress={handleUseHtmlCode} style={({ pressed }) => [styles.previewUseButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}>
+                <View><Text style={[styles.useTitle, { color: colors.background }]}>Préparer ce code</Text><Text style={[styles.useText, { color: colors.background }]}>Créer index.html pour la compilation</Text></View>
+                <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
+              </Pressable>
+            ) : <View style={[styles.previewProjectNote, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}55` }]}><MaterialIcons color={colors.primary} name="info-outline" size={19} /><Text style={[styles.projectNoteText, { color: colors.muted }]}>Après votre relecture, placez ce code dans votre ZIP {projectType === "expo" ? "Expo" : "Android"} avant de le compiler.</Text></View>}
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -259,7 +296,11 @@ const styles = StyleSheet.create({
   resultHeading: { flex: 1 },
   resultTitle: { fontSize: 14, fontWeight: "900" },
   resultExplanation: { marginTop: 2, fontSize: 11, lineHeight: 16 },
-  codeBox: { height: 248, borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 14, fontFamily: "monospace", fontSize: 11, lineHeight: 17 },
+  previewButton: { minHeight: 66, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", marginTop: 14 },
+  previewIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
+  previewCopy: { flex: 1, paddingRight: 6 },
+  previewTitle: { fontSize: 13, fontWeight: "900" },
+  previewText: { marginTop: 2, fontSize: 10, lineHeight: 15, fontWeight: "600" },
   reviewBox: { borderWidth: 1, borderRadius: 15, padding: 12, marginTop: 13, gap: 7 },
   reviewHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 1 },
   reviewTitle: { fontSize: 12, fontWeight: "900" },
@@ -271,5 +312,22 @@ const styles = StyleSheet.create({
   useText: { marginTop: 2, fontSize: 10, fontWeight: "700", opacity: 0.75 },
   projectNote: { borderWidth: 1, borderRadius: 15, padding: 12, flexDirection: "row", alignItems: "flex-start", gap: 9, marginTop: 14 },
   projectNoteText: { flex: 1, fontSize: 11, lineHeight: 16 },
+  previewBackdrop: { flex: 1, justifyContent: "flex-end" },
+  previewSheet: { minHeight: 580, maxHeight: "94%", borderTopWidth: 1, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 18, paddingTop: 20, paddingBottom: 18 },
+  previewHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  previewHeaderCopy: { flex: 1, paddingRight: 12 },
+  previewEyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
+  previewSheetTitle: { marginTop: 5, fontSize: 20, fontWeight: "900", letterSpacing: -0.3 },
+  previewSheetMeta: { marginTop: 3, fontSize: 11, fontWeight: "700" },
+  closePreview: { width: 42, height: 42, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  previewInstruction: { marginTop: 13, fontSize: 12, lineHeight: 17 },
+  codeScroll: { flex: 1, minHeight: 270, marginTop: 14, borderWidth: 1, borderRadius: 16 },
+  codeScrollContent: { paddingVertical: 10, paddingRight: 12 },
+  codeLine: { flexDirection: "row", alignItems: "flex-start", minHeight: 18 },
+  codeLineNumber: { width: 39, paddingRight: 8, textAlign: "right", fontFamily: "monospace", fontSize: 10, lineHeight: 18 },
+  codeLineText: { flex: 1, fontFamily: "monospace", fontSize: 11, lineHeight: 18 },
+  previewTruncated: { paddingHorizontal: 14, paddingTop: 11, fontSize: 11, lineHeight: 16, fontWeight: "700" },
+  previewUseButton: { minHeight: 61, borderRadius: 16, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
+  previewProjectNote: { borderWidth: 1, borderRadius: 15, padding: 12, flexDirection: "row", alignItems: "flex-start", gap: 9, marginTop: 14 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
 });

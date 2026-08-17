@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   addAiCodeHistoryEntry,
   AI_CODE_HISTORY_LIMIT,
+  createAiCodePreview,
   getAiFailureMessage,
   readAiCodeHistory,
   readAiCodeResponse,
@@ -36,6 +37,14 @@ describe("réponses de l’assistant IA", () => {
   it("affiche le message français de limitation sans révéler de détail technique", () => {
     expect(getAiFailureMessage("", 429)).toBe("Vous avez beaucoup utilisé l’assistant. Attendez une heure puis réessayez.");
     expect(getAiFailureMessage('{"message":"Demande trop grande"}', 400)).toBe("Demande trop grande");
+  });
+
+  it("prépare une prévisualisation avec des lignes normalisées et bornées pour le téléphone", () => {
+    expect(createAiCodePreview("un\r\ndeux\rtrois\nquatre", 3)).toEqual({
+      lines: ["un", "deux", "trois"],
+      totalLines: 4,
+      isTruncated: true,
+    });
   });
 
   it("conserve uniquement des entrées d’historique valides, de la plus récente à la plus ancienne", () => {
