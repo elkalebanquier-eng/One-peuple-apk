@@ -302,3 +302,8 @@
 
 - [x] Ajouter un bouton « Relancer » qui utilise le dernier fichier importé sans le sélectionner à nouveau
 - [x] Appliquer le logo One Peuple fourni aux icônes, au splash screen et à la configuration de One App
+
+## Correction du statut de compilation bloqué
+
+- [x] Diagnostiquer une compilation qui reste durablement sur « Dans la file »
+- [x] Afficher un résultat clair : compilation active, erreur compréhensible ou possibilité de relancer

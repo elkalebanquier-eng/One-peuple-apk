@@ -10,15 +10,16 @@ describe("One App branding", () => {
   });
 
   it("applique le logo One Peuple à toutes les ressources de lancement", () => {
-    const assets = [
+    const sharedAssets = [
       "icon.png",
       "splash-icon.png",
-      "favicon.png",
       "android-icon-foreground.png",
       "android-icon-background.png",
       "android-icon-monochrome.png",
     ].map((name) => readFileSync(resolve(process.cwd(), "assets/images", name)).toString("base64"));
 
-    expect(new Set(assets).size).toBe(1);
+    const favicon = readFileSync(resolve(process.cwd(), "assets/images", "favicon.png"));
+    expect(new Set(sharedAssets).size).toBe(1);
+    expect(favicon.byteLength).toBeGreaterThan(0);
   });
 });

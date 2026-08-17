@@ -1,6 +1,8 @@
 import express, { type Express, type Request, type Response } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
+import { getBuildTimeoutMessage } from "../shared/build-timeout";
+
 const WORKER_OWNER = "elkalebanquier-eng";
 const WORKER_REPOSITORY = "one-app-build-worker";
 const WORKER_WORKFLOW = ".github/workflows/build-imported-project.yml";
@@ -81,8 +83,16 @@ function checkRateLimit(request: Request) {
 }
 
 function cleanExpiredBuilds() {
+  const now = Date.now();
   const threshold = Date.now() - BUILD_RETENTION_MS;
   for (const [id, job] of builds) {
+    const timeoutMessage = getBuildTimeoutMessage(job.status, job.createdAt, job.updatedAt, now);
+    if (timeoutMessage) {
+      job.status = "failed";
+      job.message = timeoutMessage;
+      job.sourceArchive = undefined;
+      job.updatedAt = now;
+    }
     if (job.updatedAt < threshold) {
       job.sourceArchive = undefined;
       builds.delete(id);

@@ -3,7 +3,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
 import { getApiBaseUrl } from "@/constants/oauth";
-import { readBuildResponse } from "@/lib/build-response";
+import { getUnavailableBuildMessage, readBuildResponse } from "@/lib/build-response";
 import { makeRestartBuildInput } from "@/lib/restart-build";
 
 export type ProjectType = "expo" | "android" | "html";
@@ -226,6 +226,10 @@ export async function refreshBuildJob(job: BuildJob) {
   try {
     const response = await fetch(buildApiUrl(`/api/builds/${encodeURIComponent(job.id)}/status`));
     const payload = readBuildResponse(await response.text(), response.status) as { status?: BuildStatus; message?: string; apkUrl?: string };
+    const unavailableMessage = getUnavailableBuildMessage(response.status, payload.message);
+    if (unavailableMessage) {
+      return await updateJob(job.id, { status: "failed", message: unavailableMessage });
+    }
     if (!response.ok || !payload.status) {
       throw new Error(payload.message || "Le statut est indisponible.");
     }
