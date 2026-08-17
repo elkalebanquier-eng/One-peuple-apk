@@ -195,6 +195,7 @@ export default function AssistantScreen() {
           <View style={[styles.resultBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.resultHeader}><View style={[styles.resultBadge, { backgroundColor: `${colors.success}1A` }]}><MaterialIcons color={colors.success} name="check-circle" size={18} /></View><View style={styles.resultHeading}><Text style={[styles.resultTitle, { color: colors.foreground }]}>Code prêt</Text><Text style={[styles.resultExplanation, { color: colors.muted }]}>{result.explanation}</Text></View></View>
             <TextInput value={result.code} editable={false} multiline selectTextOnFocus autoCapitalize="none" autoCorrect={false} textAlignVertical="top" style={[styles.codeBox, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} />
+            {result.checklist?.length ? <View style={[styles.reviewBox, { backgroundColor: `${colors.success}10`, borderColor: `${colors.success}45` }]}><View style={styles.reviewHeader}><MaterialIcons color={colors.success} name="verified" size={18} /><Text style={[styles.reviewTitle, { color: colors.foreground }]}>Vérifications avant compilation</Text></View>{result.checklist.map((item) => <View key={item} style={styles.reviewItem}><View style={[styles.reviewDot, { backgroundColor: colors.success }]} /><Text style={[styles.reviewText, { color: colors.muted }]}>{item}</Text></View>)}</View> : null}
             {projectType === "html" ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Utiliser ce code HTML pour créer une application" onPress={handleUseHtmlCode} style={({ pressed }) => [styles.useButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}>
                 <View><Text style={[styles.useTitle, { color: colors.background }]}>Utiliser ce code</Text><Text style={[styles.useText, { color: colors.background }]}>Prépare index.html pour la compilation</Text></View>
@@ -259,6 +260,12 @@ const styles = StyleSheet.create({
   resultTitle: { fontSize: 14, fontWeight: "900" },
   resultExplanation: { marginTop: 2, fontSize: 11, lineHeight: 16 },
   codeBox: { height: 248, borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 14, fontFamily: "monospace", fontSize: 11, lineHeight: 17 },
+  reviewBox: { borderWidth: 1, borderRadius: 15, padding: 12, marginTop: 13, gap: 7 },
+  reviewHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 1 },
+  reviewTitle: { fontSize: 12, fontWeight: "900" },
+  reviewItem: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  reviewDot: { width: 5, height: 5, borderRadius: 3, marginTop: 6 },
+  reviewText: { flex: 1, fontSize: 11, lineHeight: 16 },
   useButton: { minHeight: 61, borderRadius: 16, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
   useTitle: { fontSize: 14, fontWeight: "900" },
   useText: { marginTop: 2, fontSize: 10, fontWeight: "700", opacity: 0.75 },

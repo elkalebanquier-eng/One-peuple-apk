@@ -383,3 +383,11 @@
 ## Vérification sans carte bancaire
 
 - [x] Vérifier officiellement si Workers AI impose une carte bancaire à l’activation
+
+## Qualité professionnelle de l’assistant IA
+
+- [x] Définir des règles de réponse professionnelles adaptées à HTML, Expo et Android
+- [x] Exiger du code structuré, complet et directement exploitable avant la compilation
+- [x] Ajouter une explication claire, des prérequis et une liste de vérifications au résultat IA
+- [x] Tester les réponses HTML, Expo et Android avec les améliorations de qualité
+- [ ] Reconstruire l’APK avec les améliorations de qualité

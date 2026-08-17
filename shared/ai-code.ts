@@ -1,6 +1,7 @@
 export type AiCodeResponse = {
   code: string;
   explanation: string;
+  checklist?: string[];
 };
 
 export type AiCodeProjectType = "expo" | "android" | "html";
@@ -44,6 +45,9 @@ export function readAiCodeHistory(value: unknown): AiCodeHistoryEntry[] {
         explanation: typeof candidate.explanation === "string" && candidate.explanation.trim()
           ? candidate.explanation.trim().slice(0, 900)
           : "Le code est prêt. Relisez-le avant de l’utiliser.",
+        checklist: Array.isArray(candidate.checklist)
+          ? candidate.checklist.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim().slice(0, 240)).slice(0, 4)
+          : [],
         projectType: candidate.projectType,
         prompt: typeof candidate.prompt === "string" ? candidate.prompt.trim().slice(0, 3500) : "",
         createdAt: candidate.createdAt,
@@ -78,6 +82,9 @@ export function readAiCodeResponse(text: string): AiCodeResponse | null {
       explanation: typeof payload.explanation === "string" && payload.explanation.trim()
         ? payload.explanation.trim()
         : "Le code est prêt. Relisez-le avant de l’utiliser.",
+      checklist: Array.isArray(payload.checklist)
+        ? payload.checklist.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim().slice(0, 240)).slice(0, 4)
+        : [],
     };
   } catch {
     return null;

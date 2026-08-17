@@ -15,7 +15,17 @@ describe("réponses de l’assistant IA", () => {
     expect(readAiCodeResponse('{"code":"  <h1>Bonjour</h1>  "}')).toEqual({
       code: "<h1>Bonjour</h1>",
       explanation: "Le code est prêt. Relisez-le avant de l’utiliser.",
+      checklist: [],
     });
+  });
+
+  it("préserve au plus quatre vérifications professionnelles sûres", () => {
+    const response = readAiCodeResponse(JSON.stringify({
+      code: "<html><body>Bonjour</body></html>",
+      checklist: ["Vérifier le titre", "Tester le bouton", 12, "", "Relire les textes", "Cinquième élément"],
+    }));
+
+    expect(response?.checklist).toEqual(["Vérifier le titre", "Tester le bouton", "Relire les textes", "Cinquième élément"]);
   });
 
   it("refuse une réponse vide ou qui ne contient pas de code", () => {
