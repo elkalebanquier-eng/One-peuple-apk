@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response } from "express";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import multer from "multer";
 
@@ -30,6 +31,10 @@ type BuildRecord = {
   projectName: string;
   projectType: ProjectType;
   sourceUrl: string;
+  workerCompletionUrl: string;
+  publisherCompletionUrl: string;
+  workerAccessToken: string;
+  publisherAccessToken: string;
   sourceArchive?: Buffer;
   iconUrl?: string;
   iconArchive?: Buffer;
@@ -182,6 +187,24 @@ async function verifyWorker(
   }
 }
 
+function hasValidBuildToken(request: Request, expectedToken: string) {
+  const candidate = request.query.accessToken;
+  if (typeof candidate !== "string") return false;
+  const received = Buffer.from(candidate);
+  const expected = Buffer.from(expectedToken);
+  return received.length === expected.length && timingSafeEqual(received, expected);
+}
+
+async function verifyWorkerOrBuildToken(
+  request: Request,
+  token: string,
+  allowedWorkflows: string[],
+  allowedEvents?: string[],
+) {
+  if (hasValidBuildToken(request, token)) return;
+  await verifyWorker(request, allowedWorkflows, allowedEvents);
+}
+
 function sendJob(response: Response, job: BuildRecord) {
   response.json({
     id: job.id,
@@ -221,13 +244,20 @@ export function registerBuildRoutes(app: Express) {
         checkRateLimit(request);
 
         const now = Date.now();
+        const workerAccessToken = randomBytes(32).toString("base64url");
+        const publisherAccessToken = randomBytes(32).toString("base64url");
+        const buildBaseUrl = `${getPublicBaseUrl()}/api/builds/${buildId}`;
         const job: BuildRecord = {
           id: buildId,
           projectName,
           projectType,
-          sourceUrl: `${getPublicBaseUrl()}/api/builds/${buildId}/source`,
+          sourceUrl: `${buildBaseUrl}/source?accessToken=${workerAccessToken}`,
+          workerCompletionUrl: `${buildBaseUrl}/complete?accessToken=${workerAccessToken}`,
+          publisherCompletionUrl: `${buildBaseUrl}/complete?accessToken=${publisherAccessToken}`,
+          workerAccessToken,
+          publisherAccessToken,
           sourceArchive: archive,
-          iconUrl: customIcon ? `${getPublicBaseUrl()}/api/builds/${buildId}/icon` : undefined,
+          iconUrl: customIcon ? `${buildBaseUrl}/icon?accessToken=${workerAccessToken}` : undefined,
           iconArchive: customIcon,
           packageName: identity.packageName,
           appVersion: identity.appVersion,
@@ -264,13 +294,13 @@ export function registerBuildRoutes(app: Express) {
 
   app.get("/api/builds/:buildId/source", async (request: Request, response: Response) => {
     try {
-      await verifyWorker(request, [WORKER_WORKFLOW]);
       cleanExpiredBuilds();
       const buildId = parseBuildId(request.params.buildId);
       const job = builds.get(buildId);
       if (!job || !job.sourceArchive) {
         throw new BuildRequestError("Le ZIP de cette compilation n’est plus disponible.", 410);
       }
+      await verifyWorkerOrBuildToken(request, job.workerAccessToken, [WORKER_WORKFLOW]);
       const archive = job.sourceArchive;
       job.sourceArchive = undefined;
       job.updatedAt = Date.now();
@@ -288,13 +318,13 @@ export function registerBuildRoutes(app: Express) {
 
   app.get("/api/builds/:buildId/icon", async (request: Request, response: Response) => {
     try {
-      await verifyWorker(request, [WORKER_WORKFLOW]);
       cleanExpiredBuilds();
       const buildId = parseBuildId(request.params.buildId);
       const job = builds.get(buildId);
       if (!job || !job.iconArchive) {
         throw new BuildRequestError("L’icône de cette compilation n’est plus disponible.", 410);
       }
+      await verifyWorkerOrBuildToken(request, job.workerAccessToken, [WORKER_WORKFLOW]);
       const icon = job.iconArchive;
       job.iconArchive = undefined;
       job.updatedAt = Date.now();
@@ -325,10 +355,12 @@ export function registerBuildRoutes(app: Express) {
         projectType: job.projectType,
         sourceUrl: job.sourceUrl,
         iconUrl: job.iconUrl,
-        packageName: job.packageName,
-        appVersion: job.appVersion,
-        versionCode: job.versionCode,
-      });
+          packageName: job.packageName,
+          appVersion: job.appVersion,
+          versionCode: job.versionCode,
+          workerCompletionUrl: job.workerCompletionUrl,
+          publisherCompletionUrl: job.publisherCompletionUrl,
+        });
     } catch (error) {
       const buildError = error instanceof BuildRequestError ? error : new BuildRequestError("La file de compilation est indisponible.", 500);
       response.status(buildError.statusCode).json({ message: buildError.message });
@@ -348,10 +380,10 @@ export function registerBuildRoutes(app: Express) {
           throw new BuildRequestError("Résultat de compilation invalide.", 400);
         }
         if (outcome === "complete") {
-          await verifyWorker(request, [PUBLISHER_WORKFLOW], ["workflow_run"]);
+          await verifyWorkerOrBuildToken(request, job.publisherAccessToken, [PUBLISHER_WORKFLOW], ["workflow_run"]);
           job.apkUrl = getExpectedApkUrl(buildId);
         } else {
-          await verifyWorker(request, [WORKER_WORKFLOW, PUBLISHER_WORKFLOW]);
+          await verifyWorkerOrBuildToken(request, job.workerAccessToken, [WORKER_WORKFLOW, PUBLISHER_WORKFLOW]);
         }
         job.status = outcome;
         job.message = outcome === "complete"
