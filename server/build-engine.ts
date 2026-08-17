@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import multer from "multer";
 
 import { getBuildTimeoutMessage } from "../shared/build-timeout";
 
@@ -9,6 +10,8 @@ const WORKER_WORKFLOW = ".github/workflows/build-imported-project.yml";
 const PUBLISHER_WORKFLOW = ".github/workflows/publish-temporary-apk.yml";
 const OIDC_AUDIENCE = "one-app-build-worker";
 const MAX_SOURCE_SIZE = 50 * 1024 * 1024;
+const MAX_ICON_SIZE = 1024 * 1024;
+const MAX_ICON_BASE64_LENGTH = Math.ceil((MAX_ICON_SIZE * 4) / 3) + 4;
 const MAX_SUBMISSIONS_PER_HOUR = 2;
 const BUILD_RETENTION_MS = 24 * 60 * 60 * 1000;
 const submissionTimes = new Map<string, number[]>();
@@ -23,6 +26,8 @@ type BuildRecord = {
   projectType: ProjectType;
   sourceUrl: string;
   sourceArchive?: Buffer;
+  iconUrl?: string;
+  iconArchive?: Buffer;
   status: BuildState;
   message: string;
   createdAt: number;
@@ -31,6 +36,11 @@ type BuildRecord = {
 };
 
 const builds = new Map<string, BuildRecord>();
+const submissionUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_SOURCE_SIZE, files: 1, fields: 5, fieldSize: MAX_ICON_BASE64_LENGTH },
+}).single("source");
+const binarySubmission = express.raw({ type: "application/octet-stream", limit: "50mb" });
 
 class BuildRequestError extends Error {
   constructor(message: string, readonly statusCode: number) {
@@ -57,6 +67,38 @@ function getPublicBaseUrl(request: Request) {
 function isZip(buffer: Buffer) {
   if (buffer.length < 4) return false;
   return ["504b0304", "504b0506", "504b0708"].includes(buffer.subarray(0, 4).toString("hex"));
+}
+
+function isPng(buffer: Buffer) {
+  return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+}
+
+function getCustomIcon(request: Request) {
+  const value = request.body && typeof request.body.iconBase64 === "string" ? request.body.iconBase64 : "";
+  if (!value) return undefined;
+  if (value.length > MAX_ICON_BASE64_LENGTH || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
+    throw new BuildRequestError("L’icône personnalisée est invalide. Choisissez une autre image.", 400);
+  }
+  const icon = Buffer.from(value, "base64");
+  if (icon.length === 0 || icon.length > MAX_ICON_SIZE || !isPng(icon)) {
+    throw new BuildRequestError("L’icône personnalisée doit être une image PNG de 1 Mo maximum.", 400);
+  }
+  return icon;
+}
+
+function receiveBuildSubmission(request: Request, response: Response, next: () => void) {
+  const contentType = request.get("content-type") ?? "";
+  if (!contentType.includes("multipart/form-data")) {
+    binarySubmission(request, response, next);
+    return;
+  }
+  submissionUpload(request, response, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+    response.status(413).json({ message: "Le fichier ou l’icône dépasse la taille autorisée." });
+  });
 }
 
 function parseProjectType(value: string): ProjectType {
@@ -91,10 +133,12 @@ function cleanExpiredBuilds() {
       job.status = "failed";
       job.message = timeoutMessage;
       job.sourceArchive = undefined;
+      job.iconArchive = undefined;
       job.updatedAt = now;
     }
     if (job.updatedAt < threshold) {
       job.sourceArchive = undefined;
+      job.iconArchive = undefined;
       builds.delete(id);
     }
   }
@@ -150,14 +194,15 @@ function sendJob(response: Response, job: BuildRecord) {
 export function registerBuildRoutes(app: Express) {
   app.post(
     "/api/builds/submit",
-    express.raw({ type: "application/octet-stream", limit: "50mb" }),
+    receiveBuildSubmission,
     async (request: Request, response: Response) => {
       try {
         cleanExpiredBuilds();
         const buildId = parseBuildId(getHeaderValue(request, "x-one-app-build-id"));
         const projectType = parseProjectType(getHeaderValue(request, "x-one-app-project-type"));
         const projectName = getHeaderValue(request, "x-one-app-project-name").trim().slice(0, 80) || "Mon projet";
-        const archive = request.body as Buffer;
+        const archive = (request.file?.buffer ?? request.body) as Buffer;
+        const customIcon = getCustomIcon(request);
 
         if (!Buffer.isBuffer(archive) || archive.length === 0) {
           throw new BuildRequestError("Le fichier ZIP est vide ou n’a pas été reçu.", 400);
@@ -174,6 +219,8 @@ export function registerBuildRoutes(app: Express) {
           projectType,
           sourceUrl: `${getPublicBaseUrl(request)}/api/builds/${buildId}/source`,
           sourceArchive: archive,
+          iconUrl: customIcon ? `${getPublicBaseUrl(request)}/api/builds/${buildId}/icon` : undefined,
+          iconArchive: customIcon,
           status: "queued",
           message: "Votre projet a été reçu. La compilation commencera bientôt.",
           createdAt: now,
@@ -228,6 +275,28 @@ export function registerBuildRoutes(app: Express) {
     }
   });
 
+  app.get("/api/builds/:buildId/icon", async (request: Request, response: Response) => {
+    try {
+      await verifyWorker(request, [WORKER_WORKFLOW]);
+      cleanExpiredBuilds();
+      const buildId = parseBuildId(request.params.buildId);
+      const job = builds.get(buildId);
+      if (!job || !job.iconArchive) {
+        throw new BuildRequestError("L’icône de cette compilation n’est plus disponible.", 410);
+      }
+      const icon = job.iconArchive;
+      job.iconArchive = undefined;
+      job.updatedAt = Date.now();
+      response.type("image/png");
+      response.set("Cache-Control", "no-store");
+      response.set("Content-Disposition", `attachment; filename="${job.id}-icon.png"`);
+      response.send(icon);
+    } catch (error) {
+      const buildError = error instanceof BuildRequestError ? error : new BuildRequestError("L’icône est indisponible.", 500);
+      response.status(buildError.statusCode).json({ message: buildError.message });
+    }
+  });
+
   app.get("/api/builds/next", async (request: Request, response: Response) => {
     try {
       await verifyWorker(request, [WORKER_WORKFLOW]);
@@ -244,6 +313,7 @@ export function registerBuildRoutes(app: Express) {
         id: job.id,
         projectType: job.projectType,
         sourceUrl: job.sourceUrl,
+        iconUrl: job.iconUrl,
       });
     } catch (error) {
       const buildError = error instanceof BuildRequestError ? error : new BuildRequestError("La file de compilation est indisponible.", 500);

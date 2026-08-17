@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import type { ComponentProps } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
@@ -13,6 +16,7 @@ import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/proje
 
 type IconName = ComponentProps<typeof MaterialIcons>["name"];
 type SelectedSource = Pick<DocumentPicker.DocumentPickerAsset, "name" | "size" | "uri"> & { preparedFromHtml?: boolean };
+type SelectedAppIcon = { name: string; size?: number; uri: string };
 
 const TYPE_ICONS: Record<ProjectType, IconName> = { expo: "code", android: "android", html: "language" };
 
@@ -21,6 +25,7 @@ export default function NewBuildScreen() {
   const [projectType, setProjectType] = useState<ProjectType | null>(null);
   const [projectName, setProjectName] = useState("");
   const [archive, setArchive] = useState<SelectedSource | null>(null);
+  const [customIcon, setCustomIcon] = useState<SelectedAppIcon | null>(null);
   const [saving, setSaving] = useState(false);
 
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
@@ -62,11 +67,47 @@ export default function NewBuildScreen() {
     }
   }
 
+  async function handlePickCustomIcon() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+      if (result.canceled) return;
+
+      const selected = result.assets[0];
+      const normalized = await ImageManipulator.manipulateAsync(
+        selected.uri,
+        [{ resize: { width: 512, height: 512 } }],
+        { compress: 1, format: ImageManipulator.SaveFormat.PNG },
+      );
+      const info = await FileSystem.getInfoAsync(normalized.uri);
+      setCustomIcon({
+        name: "icone-personnalisee.png",
+        size: "size" in info && typeof info.size === "number" ? info.size : undefined,
+        uri: normalized.uri,
+      });
+    } catch (error) {
+      Alert.alert("Icône non sélectionnée", error instanceof Error ? error.message : "Choisissez une image carrée, puis réessayez.");
+    }
+  }
+
   async function handlePrepareBuild() {
     if (!projectType || !archive || !projectName.trim()) return;
     try {
       setSaving(true);
-      const job = await createLocalBuildDraft({ projectName, projectType, sourceName: archive.name, sourceSize: archive.size, sourceUri: archive.uri });
+      const job = await createLocalBuildDraft({
+        projectName,
+        projectType,
+        sourceName: archive.name,
+        sourceSize: archive.size,
+        sourceUri: archive.uri,
+        iconName: customIcon?.name,
+        iconSize: customIcon?.size,
+        iconUri: customIcon?.uri,
+      });
       await submitBuildJob(job);
       Alert.alert("Compilation lancée", "One App prépare votre APK. Vous verrez son avancement dans Builds.", [{ text: "Voir les builds", onPress: () => router.replace("/(tabs)") }]);
     } catch (error) {
@@ -154,12 +195,32 @@ export default function NewBuildScreen() {
         </Pressable>
 
         {archive ? (
-          <View style={[styles.selectedFile, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}55` }]}>
+          <View style={[styles.selectedFile, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}55` }]}> 
             <View style={[styles.fileCheck, { backgroundColor: `${colors.success}22` }]}><MaterialIcons color={colors.success} name="check" size={18} /></View>
             <View style={styles.fileCopy}><Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text><Text style={[styles.fileDetail, { color: colors.muted }]}>{formatBytes(archive.size)} · {archive.preparedFromHtml ? "HTML prêt à compiler" : "Fichier reconnu"}</Text></View>
             <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => setArchive(null)} style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="close" size={20} /></Pressable>
           </View>
         ) : null}
+
+        <View style={styles.optionalHead}>
+          <View style={[styles.optionalBadge, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="image" size={17} /></View>
+          <View><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Icône de l’APK</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>Optionnel. Une image carrée sera utilisée sur le téléphone.</Text></View>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choisir une icône personnalisée"
+          disabled={saving}
+          onPress={handlePickCustomIcon}
+          style={({ pressed }) => [styles.iconPicker, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}
+        >
+          {customIcon ? <Image source={{ uri: customIcon.uri }} style={styles.iconPreview} /> : <View style={[styles.iconPlaceholder, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="add-photo-alternate" size={24} /></View>}
+          <View style={styles.iconPickerCopy}>
+            <Text style={[styles.iconPickerTitle, { color: colors.foreground }]}>{customIcon ? "Icône personnalisée prête" : "Choisir une image"}</Text>
+            <Text style={[styles.iconPickerText, { color: colors.muted }]}>{customIcon ? `${formatBytes(customIcon.size)} · Formatée en PNG 512 × 512` : "Galerie du téléphone · PNG, JPG ou WebP"}</Text>
+          </View>
+          {customIcon ? <Pressable accessibilityRole="button" accessibilityLabel="Retirer l’icône personnalisée" onPress={() => setCustomIcon(null)} style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="close" size={20} /></Pressable> : <MaterialIcons color={colors.primary} name="arrow-forward-ios" size={17} />}
+        </Pressable>
 
         <View style={styles.sectionHead}>
           <View style={[styles.sectionNumber, { backgroundColor: archive ? colors.primary : colors.surface }]}><Text style={[styles.sectionNumberText, { color: archive ? colors.background : colors.muted }]}>3</Text></View>
@@ -218,6 +279,14 @@ const styles = StyleSheet.create({
   fileName: { fontSize: 13, fontWeight: "800" },
   fileDetail: { marginTop: 2, fontSize: 11 },
   removeButton: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  optionalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 9, marginBottom: 12 },
+  optionalBadge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  iconPicker: { minHeight: 78, borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", marginBottom: 27 },
+  iconPlaceholder: { width: 50, height: 50, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  iconPreview: { width: 50, height: 50, borderRadius: 14, marginRight: 11 },
+  iconPickerCopy: { flex: 1, marginLeft: 11 },
+  iconPickerTitle: { fontSize: 14, fontWeight: "800" },
+  iconPickerText: { marginTop: 2, fontSize: 11, lineHeight: 16 },
   input: { minHeight: 53, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, fontSize: 15, marginBottom: 16 },
   securityNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 18 },
   securityText: { flex: 1, fontSize: 11, lineHeight: 17 },

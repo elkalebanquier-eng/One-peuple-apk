@@ -6,6 +6,9 @@ export type RestartBuildInput = {
   sourceName: string;
   sourceSize?: number;
   sourceUri: string;
+  iconName?: string;
+  iconSize?: number;
+  iconUri?: string;
 };
 
 /** Préserve l’intégralité de la sélection initiale pour une nouvelle compilation. */
@@ -16,5 +19,8 @@ export function makeRestartBuildInput(previousJob: BuildJob): RestartBuildInput 
     sourceName: previousJob.sourceName,
     sourceSize: previousJob.sourceSize ?? undefined,
     sourceUri: previousJob.sourceUri,
+    iconName: previousJob.iconName,
+    iconSize: previousJob.iconSize ?? undefined,
+    iconUri: previousJob.iconUri,
   };
 }

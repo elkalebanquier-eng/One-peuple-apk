@@ -16,6 +16,9 @@ export interface BuildJob {
   sourceName: string;
   sourceSize: number | null;
   sourceUri: string;
+  iconName?: string;
+  iconSize?: number | null;
+  iconUri?: string;
   status: BuildStatus;
   createdAt: string;
   updatedAt: string;
@@ -101,7 +104,6 @@ function buildApiUrl(path: string) {
 
 function buildHeaders(job: BuildJob) {
   return {
-    "Content-Type": "application/octet-stream",
     "x-one-app-build-id": encodeURIComponent(job.id),
     "x-one-app-project-type": encodeURIComponent(job.projectType),
     "x-one-app-project-name": encodeURIComponent(job.projectName),
@@ -127,6 +129,9 @@ export async function createLocalBuildDraft(input: {
   sourceName: string;
   sourceSize?: number;
   sourceUri: string;
+  iconName?: string;
+  iconSize?: number;
+  iconUri?: string;
 }) {
   if (!FileSystem.documentDirectory) {
     throw new Error("Le stockage privé de l’application est indisponible.");
@@ -140,6 +145,14 @@ export async function createLocalBuildDraft(input: {
   const targetUri = `${directory}${sourceName}`;
   await FileSystem.copyAsync({ from: input.sourceUri, to: targetUri });
 
+  let iconName: string | undefined;
+  let iconUri: string | undefined;
+  if (input.iconUri) {
+    iconName = sanitizeFileName(input.iconName || "icone-personnalisee.png");
+    iconUri = `${directory}icone-${iconName}`;
+    await FileSystem.copyAsync({ from: input.iconUri, to: iconUri });
+  }
+
   const now = new Date().toISOString();
   const job: BuildJob = {
     id,
@@ -148,6 +161,9 @@ export async function createLocalBuildDraft(input: {
     sourceName,
     sourceSize: input.sourceSize ?? null,
     sourceUri: targetUri,
+    iconName,
+    iconSize: iconUri ? input.iconSize ?? null : undefined,
+    iconUri,
     status: "ready",
     createdAt: now,
     updatedAt: now,
@@ -169,18 +185,26 @@ export async function submitBuildJob(job: BuildJob) {
     const url = buildApiUrl("/api/builds/submit");
     let responseBody = "";
     let statusCode = 0;
+    const iconBase64 = job.iconUri
+      ? await FileSystem.readAsStringAsync(job.iconUri, { encoding: FileSystem.EncodingType.Base64 })
+      : undefined;
 
     if (Platform.OS === "web") {
       const sourceResponse = await fetch(job.sourceUri);
       if (!sourceResponse.ok) throw new Error("Le ZIP enregistré sur cet appareil ne peut pas être lu.");
       const archive = await sourceResponse.blob();
-      const response = await fetch(url, { method: "POST", headers: buildHeaders(job), body: archive });
+      const formData = new FormData();
+      formData.append("source", archive, job.sourceName);
+      if (iconBase64) formData.append("iconBase64", iconBase64);
+      const response = await fetch(url, { method: "POST", headers: buildHeaders(job), body: formData });
       statusCode = response.status;
       responseBody = await response.text();
     } else {
       const response = await FileSystem.uploadAsync(url, job.sourceUri, {
         httpMethod: "POST",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: "source",
+        parameters: iconBase64 ? { iconBase64 } : undefined,
         headers: buildHeaders(job),
       });
       statusCode = response.status;

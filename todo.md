@@ -307,3 +307,9 @@
 
 - [x] Diagnostiquer une compilation qui reste durablement sur « Dans la file »
 - [x] Afficher un résultat clair : compilation active, erreur compréhensible ou possibilité de relancer
+
+## Icône personnalisée de l’APK générée
+
+- [ ] Permettre de choisir une image d’icône depuis le téléphone avant la compilation
+- [ ] Conserver l’icône avec le projet envoyé et l’appliquer à l’APK générée
+- [ ] Vérifier la sélection, la transmission et la génération d’icône pour les projets Expo, Android et HTML
