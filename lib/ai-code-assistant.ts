@@ -3,11 +3,20 @@ import * as FileSystem from "expo-file-system/legacy";
 
 import { type ProjectType } from "@/lib/build-store";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
-import { getAiFailureMessage, readAiCodeResponse, type AiCodeResponse } from "@/shared/ai-code";
+import {
+  addAiCodeHistoryEntry,
+  getAiFailureMessage,
+  readAiCodeHistory,
+  readAiCodeResponse,
+  removeAiCodeHistoryEntry,
+  type AiCodeHistoryEntry,
+  type AiCodeResponse,
+} from "@/shared/ai-code";
 
 const ASSISTANT_URL = "https://one-app-ai.oneapp-kikokalok.workers.dev/api/code";
 const ASSISTANT_CLIENT_KEY = "one-app-ai-client-v1";
 const ASSISTANT_DRAFT_KEY = "one-app-ai-draft-v1";
+const ASSISTANT_HISTORY_KEY = "one-app-ai-history-v1";
 
 export type AiCodeDraft = AiCodeResponse & {
   projectType: ProjectType;
@@ -15,6 +24,8 @@ export type AiCodeDraft = AiCodeResponse & {
   prompt: string;
   createdAt: string;
 };
+
+export type NewAiHistoryEntry = Omit<AiCodeHistoryEntry, "id">;
 
 async function getAssistantClientId() {
   const saved = await AsyncStorage.getItem(ASSISTANT_CLIENT_KEY);
@@ -56,6 +67,34 @@ export async function generateAssistantCode(input: {
 
 export async function saveAssistantDraft(draft: AiCodeDraft) {
   await AsyncStorage.setItem(ASSISTANT_DRAFT_KEY, JSON.stringify(draft));
+}
+
+export async function loadAssistantHistory(): Promise<AiCodeHistoryEntry[]> {
+  const raw = await AsyncStorage.getItem(ASSISTANT_HISTORY_KEY);
+  if (!raw) return [];
+
+  try {
+    return readAiCodeHistory(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+export async function saveAssistantHistory(entry: NewAiHistoryEntry): Promise<AiCodeHistoryEntry[]> {
+  const current = await loadAssistantHistory();
+  const next = addAiCodeHistoryEntry(current, {
+    ...entry,
+    id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  });
+  await AsyncStorage.setItem(ASSISTANT_HISTORY_KEY, JSON.stringify(next));
+  return next;
+}
+
+export async function deleteAssistantHistoryEntry(id: string): Promise<AiCodeHistoryEntry[]> {
+  const current = await loadAssistantHistory();
+  const next = removeAiCodeHistoryEntry(current, id);
+  await AsyncStorage.setItem(ASSISTANT_HISTORY_KEY, JSON.stringify(next));
+  return next;
 }
 
 export async function takeAssistantDraft(): Promise<AiCodeDraft | null> {

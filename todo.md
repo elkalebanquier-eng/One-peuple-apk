@@ -360,6 +360,13 @@
 - [x] Recompiler One App avec l’assistant IA et vérifier l’APK Android obtenue
 - [x] Préparer une archive source sans dépendances générées ni secrets
 
+## Historique des codes IA
+
+- [x] Enregistrer localement chaque demande IA et le code généré sur le téléphone
+- [x] Afficher les anciennes demandes de manière lisible dans l’onglet IA Code
+- [x] Permettre de rouvrir, réutiliser ou supprimer un ancien code généré
+- [x] Tester la persistance de l’historique sans connexion et ses limites de taille
+
 ## Intégration Cloudflare déjà connectée
 
 - [x] Vérifier les capacités Workers AI accessibles via la connexion Cloudflare active

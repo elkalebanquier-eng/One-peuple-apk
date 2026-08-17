@@ -1,19 +1,36 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { generateAssistantCode, saveAssistantDraft } from "@/lib/ai-code-assistant";
+import {
+  deleteAssistantHistoryEntry,
+  generateAssistantCode,
+  loadAssistantHistory,
+  saveAssistantDraft,
+  saveAssistantHistory,
+} from "@/lib/ai-code-assistant";
 import { PROJECT_TYPES, type ProjectType } from "@/lib/build-store";
-import type { AiCodeResponse } from "@/shared/ai-code";
+import type { AiCodeHistoryEntry, AiCodeResponse } from "@/shared/ai-code";
 
 const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>["name"]> = {
   expo: "code",
   android: "android",
   html: "language",
 };
+
+function historyDate(createdAt: string) {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "Ancien code";
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
+function historyTitle(prompt: string) {
+  const compact = prompt.replace(/\s+/g, " ").trim();
+  return compact.length > 62 ? `${compact.slice(0, 62)}…` : compact || "Code généré";
+}
 
 export default function AssistantScreen() {
   const colors = useColors();
@@ -23,22 +40,74 @@ export default function AssistantScreen() {
   const [result, setResult] = useState<AiCodeResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<AiCodeHistoryEntry[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const canGenerate = Boolean(prompt.trim()) && !loading;
   const selectedType = PROJECT_TYPES.find((type) => type.id === projectType)!;
+
+  useEffect(() => {
+    let active = true;
+    void loadAssistantHistory()
+      .then((entries) => {
+        if (active) setHistory(entries);
+      })
+      .finally(() => {
+        if (active) setHistoryLoaded(true);
+      });
+    return () => { active = false; };
+  }, []);
 
   async function handleGenerate() {
     if (!canGenerate) return;
     try {
       setLoading(true);
       setError("");
-      setResult(await generateAssistantCode({ prompt, projectType, context }));
+      const generated = await generateAssistantCode({ prompt, projectType, context });
+      setResult(generated);
+      try {
+        setHistory(await saveAssistantHistory({
+          ...generated,
+          projectType,
+          prompt,
+          createdAt: new Date().toISOString(),
+        }));
+      } catch {
+        setError("Le code est prêt, mais son historique n’a pas pu être enregistré sur ce téléphone.");
+      }
     } catch (caught) {
       setResult(null);
       setError(caught instanceof Error ? caught.message : "L’assistant ne répond pas. Réessayez dans quelques instants.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function openHistoryEntry(entry: AiCodeHistoryEntry) {
+    setProjectType(entry.projectType);
+    setPrompt(entry.prompt);
+    setContext("");
+    setResult({ code: entry.code, explanation: entry.explanation });
+    setError("");
+  }
+
+  function confirmDeleteHistoryEntry(entry: AiCodeHistoryEntry) {
+    Alert.alert(
+      "Supprimer ce code ?",
+      "Cette suppression concerne seulement l’historique de ce téléphone.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: () => {
+            void deleteAssistantHistoryEntry(entry.id)
+              .then(setHistory)
+              .catch(() => setError("Cet ancien code n’a pas pu être supprimé. Réessayez."));
+          },
+        },
+      ],
+    );
   }
 
   async function handleUseHtmlCode() {
@@ -73,6 +142,25 @@ export default function AssistantScreen() {
         <View style={[styles.freeNote, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}55` }]}>
           <MaterialIcons color={colors.success} name="auto-awesome" size={20} />
           <Text style={[styles.freeNoteText, { color: colors.muted }]}>Assistant gratuit avec une limite de 20 demandes par heure pour protéger le service.</Text>
+        </View>
+
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <View><Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 2 }]}>Historique IA</Text><Text style={[styles.historyHint, { color: colors.muted }]}>Vos anciens codes restent sur ce téléphone.</Text></View>
+            <View style={[styles.historyCount, { backgroundColor: `${colors.primary}1A` }]}><Text style={[styles.historyCountText, { color: colors.primary }]}>{history.length}</Text></View>
+          </View>
+          {historyLoaded && history.length === 0 ? <Text style={[styles.emptyHistory, { color: colors.muted }]}>Vos prochains codes générés apparaîtront ici.</Text> : null}
+          <View style={styles.historyList}>
+            {history.map((entry) => (
+              <View key={entry.id} style={[styles.historyRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Ouvrir le code : ${historyTitle(entry.prompt)}`} onPress={() => openHistoryEntry(entry)} style={({ pressed }) => [styles.historyOpen, pressed && styles.pressed]}>
+                  <View style={[styles.historyIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name={TYPE_ICONS[entry.projectType]} size={18} /></View>
+                  <View style={styles.historyCopy}><Text numberOfLines={2} style={[styles.historyTitle, { color: colors.foreground }]}>{historyTitle(entry.prompt)}</Text><Text style={[styles.historyMeta, { color: colors.muted }]}>{PROJECT_TYPES.find((type) => type.id === entry.projectType)?.shortLabel} · {historyDate(entry.createdAt)}</Text></View>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Supprimer ce code de l’historique" onPress={() => confirmDeleteHistoryEntry(entry)} style={({ pressed }) => [styles.historyDelete, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="delete-outline" size={19} /></Pressable>
+              </View>
+            ))}
+          </View>
         </View>
 
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>1. Quel type de code ?</Text>
@@ -132,6 +220,20 @@ const styles = StyleSheet.create({
   headerText: { marginTop: 7, maxWidth: 340, fontSize: 13, lineHeight: 20 },
   freeNote: { borderWidth: 1, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 25 },
   freeNoteText: { flex: 1, fontSize: 11, lineHeight: 16 },
+  historySection: { marginBottom: 26 },
+  historyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  historyHint: { fontSize: 11, lineHeight: 15 },
+  historyCount: { minWidth: 28, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
+  historyCountText: { fontSize: 12, fontWeight: "900" },
+  emptyHistory: { borderWidth: 1, borderColor: "transparent", borderRadius: 15, padding: 13, fontSize: 12, lineHeight: 18 },
+  historyList: { gap: 8 },
+  historyRow: { minHeight: 68, borderWidth: 1, borderRadius: 17, flexDirection: "row", alignItems: "center" },
+  historyOpen: { minHeight: 66, paddingLeft: 11, paddingVertical: 9, paddingRight: 7, flexDirection: "row", alignItems: "center", flex: 1 },
+  historyIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
+  historyCopy: { flex: 1, paddingRight: 4 },
+  historyTitle: { fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  historyMeta: { marginTop: 3, fontSize: 10, fontWeight: "600" },
+  historyDelete: { width: 42, height: 42, borderLeftWidth: 1, alignItems: "center", justifyContent: "center" },
   sectionTitle: { fontSize: 15, fontWeight: "800", marginBottom: 11 },
   typeList: { gap: 8, marginBottom: 26 },
   typeRow: { minHeight: 68, borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, flexDirection: "row", alignItems: "center" },
