@@ -339,3 +339,9 @@
 - [x] Vérifier la taille et l’ouverture de l’APK avant de lancer l’installateur Android
 - [x] Revoir le style du tableau de bord pour une lecture plus moderne et plus claire
 - [x] Revoir le style de l’écran de création pour guider chaque étape simplement
+
+## Optimisation APK et compilation
+
+- [x] Réduire la taille de l’APK sans retirer les fonctions de One App
+- [x] Accélérer le workflow Android avec les caches de dépendances
+- [ ] Comparer la taille et la durée de l’APK optimisée à la version actuelle

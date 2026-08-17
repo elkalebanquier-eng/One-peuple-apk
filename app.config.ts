@@ -102,8 +102,14 @@ const config: ExpoConfig = {
       "expo-build-properties",
       {
         android: {
-          buildArchs: ["armeabi-v7a", "arm64-v8a"],
+          // Les téléphones Android récents utilisent arm64-v8a. Ne pas inclure
+          // l’ancienne architecture 32 bits réduit fortement le poids de l’APK.
+          buildArchs: ["arm64-v8a"],
           minSdkVersion: 24,
+          // R8 et le rétrécissement des ressources retirent le code et les
+          // images Android non utilisés de la version installable.
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
         },
       },
     ],
