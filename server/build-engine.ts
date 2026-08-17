@@ -14,6 +14,7 @@ const MAX_ICON_SIZE = 1024 * 1024;
 const MAX_ICON_BASE64_LENGTH = Math.ceil((MAX_ICON_SIZE * 4) / 3) + 4;
 const MAX_SUBMISSIONS_PER_HOUR = 2;
 const BUILD_RETENTION_MS = 24 * 60 * 60 * 1000;
+const PUBLIC_BUILD_API_URL = (process.env.ONE_APP_PUBLIC_API_URL || "https://kikonative-evby5xxj.manus.space").replace(/\/$/, "");
 const submissionTimes = new Map<string, number[]>();
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 
@@ -58,10 +59,8 @@ function getHeaderValue(request: Request, name: string) {
   }
 }
 
-function getPublicBaseUrl(request: Request) {
-  const forwardedProtocol = request.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const protocol = forwardedProtocol || request.protocol || "https";
-  return `${protocol}://${request.get("host")}`;
+function getPublicBaseUrl() {
+  return PUBLIC_BUILD_API_URL;
 }
 
 function isZip(buffer: Buffer) {
@@ -217,9 +216,9 @@ export function registerBuildRoutes(app: Express) {
           id: buildId,
           projectName,
           projectType,
-          sourceUrl: `${getPublicBaseUrl(request)}/api/builds/${buildId}/source`,
+          sourceUrl: `${getPublicBaseUrl()}/api/builds/${buildId}/source`,
           sourceArchive: archive,
-          iconUrl: customIcon ? `${getPublicBaseUrl(request)}/api/builds/${buildId}/icon` : undefined,
+          iconUrl: customIcon ? `${getPublicBaseUrl()}/api/builds/${buildId}/icon` : undefined,
           iconArchive: customIcon,
           status: "queued",
           message: "Votre projet a été reçu. La compilation commencera bientôt.",

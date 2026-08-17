@@ -313,3 +313,7 @@
 - [ ] Permettre de choisir une image d’icône depuis le téléphone avant la compilation
 - [ ] Conserver l’icône avec le projet envoyé et l’appliquer à l’APK générée
 - [ ] Vérifier la sélection, la transmission et la génération d’icône pour les projets Expo, Android et HTML
+
+## Correction de récupération du projet par le worker
+
+- [ ] Fournir au worker les URL publiques sécurisées du ZIP et de l’icône, sans hôte interne
