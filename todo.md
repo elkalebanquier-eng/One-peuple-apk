@@ -458,3 +458,9 @@
 - [x] Ajouter un bouton pour envoyer une APK téléchargée vers les applications du téléphone
 - [x] Valider TypeScript, les tests et le parcours de partage Android
 - [x] Compiler et préparer la nouvelle APK debug pour livraison directe
+
+## Génération de logo avec MIA
+
+- [x] Vérifier un modèle de génération d’image gratuit compatible avec le relais Cloudflare de MIA
+- [x] Définir le parcours mobile : décrire, générer, choisir et appliquer un logo à l’APK
+- [x] Présenter le plan d’intégration avant toute modification de MIA
