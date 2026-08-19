@@ -464,3 +464,16 @@
 - [x] Vérifier un modèle de génération d’image gratuit compatible avec le relais Cloudflare de MIA
 - [x] Définir le parcours mobile : décrire, générer, choisir et appliquer un logo à l’APK
 - [x] Présenter le plan d’intégration avant toute modification de MIA
+- [x] Créer les types, la validation et le stockage local d’un logo MIA
+- [x] Ajouter une route Cloudflare protégée pour générer le logo et limiter les demandes
+- [x] Ajouter dans MIA le formulaire, l’aperçu et les actions de validation du logo
+- [x] Utiliser le logo validé comme icône dans le formulaire de nouvelle compilation
+- [ ] Tester le relais, le stockage et le parcours de préparation d’APK
+- [ ] Déployer le relais, compiler l’APK debug et livrer les fichiers actualisés
+- [x] Ajouter une analyse MIA qui détecte les blocages probables avant compilation
+- [x] Afficher les erreurs, avertissements et corrections simples avant l’envoi du code
+- [x] Tester la vérification pour les projets HTML, Expo et Android
+- [x] Renommer l’application visible en MIA💻 sans changer le package Android
+- [x] Ajouter un choix entre MIA Cloudflare et KIA Gemini dans le chat
+- [x] Acheminer les messages et la génération de code vers Gemini sans exposer sa clé
+- [x] Conserver des conversations distinctes et locales pour chaque assistant

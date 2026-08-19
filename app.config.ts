@@ -28,7 +28,7 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "One App",
+  appName: "MIA💻",
   appSlug: "kiko-native-app",
   // Le logo est fourni avec l’application dans assets/images.
   logoUrl: "",

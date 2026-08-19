@@ -10,7 +10,7 @@ import { router, useFocusEffect } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { prepareAssistantHtmlSource, takeAssistantDraft } from "@/lib/ai-code-assistant";
+import { prepareAssistantHtmlSource, takeAssistantDraft, takeMiaLogoDraft } from "@/lib/ai-code-assistant";
 import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type BuildMode, type ProjectType } from "@/lib/build-store";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
@@ -41,18 +41,52 @@ export default function NewBuildScreen() {
     let active = true;
 
     void (async () => {
-      const draft = await takeAssistantDraft();
-      if (!draft || !active) return;
+      const [draft, miaLogo] = await Promise.all([takeAssistantDraft(), takeMiaLogoDraft()]);
+      if ((!draft && !miaLogo) || !active) return;
       try {
-        const prepared = await prepareAssistantHtmlSource(draft.code);
+        let importedCode = false;
+        let importedLogo = false;
+        if (draft) {
+          const prepared = await prepareAssistantHtmlSource(draft.code);
+          if (!active) return;
+          setProjectType("html");
+          setArchive(prepared);
+          setProjectName(draft.projectName);
+          setPackageName(getProjectPackageName(draft.projectName));
+          importedCode = true;
+        }
+
+        if (miaLogo) {
+          const normalized = await ImageManipulator.manipulateAsync(
+            miaLogo.uri,
+            [{ resize: { width: 512, height: 512 } }],
+            { compress: 1, format: ImageManipulator.SaveFormat.PNG },
+          );
+          const info = await FileSystem.getInfoAsync(normalized.uri);
+          if (!info.exists) throw new Error("Le logo MIA n’est plus disponible sur le téléphone.");
+          if (!active) return;
+          setCustomIcon({
+            name: miaLogo.name.replace(/\.(png|jpe?g|webp)$/i, "") + ".png",
+            size: "size" in info && typeof info.size === "number" ? info.size : undefined,
+            uri: normalized.uri,
+          });
+          if (!projectName.trim() && !draft) {
+            setProjectName(miaLogo.appName);
+            if (packageName === "com.oneapp.monapp") setPackageName(getProjectPackageName(miaLogo.appName));
+          }
+          importedLogo = true;
+        }
+
         if (!active) return;
-        setProjectType("html");
-        setArchive(prepared);
-        setProjectName(draft.projectName);
-        setPackageName(getProjectPackageName(draft.projectName));
-        Alert.alert("Code IA ajouté", "Votre index.html est prêt. Vous pouvez maintenant choisir une icône et lancer la compilation.");
+        if (importedCode && importedLogo) {
+          Alert.alert("Code et logo ajoutés", "Votre index.html et votre icône MIA sont prêts. Vous pouvez lancer la compilation.");
+        } else if (importedCode) {
+          Alert.alert("Code IA ajouté", "Votre index.html est prêt. Vous pouvez maintenant choisir une icône et lancer la compilation.");
+        } else if (importedLogo) {
+          Alert.alert("Logo MIA ajouté", "Votre logo est sélectionné comme icône personnalisée pour la prochaine APK.");
+        }
       } catch (error) {
-        if (active) Alert.alert("Code IA non ajouté", error instanceof Error ? error.message : "Réessayez depuis l’assistant de code.");
+        if (active) Alert.alert("Élément MIA non ajouté", error instanceof Error ? error.message : "Réessayez depuis MIA.");
       }
     })();
 

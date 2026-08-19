@@ -11,6 +11,7 @@ import {
 
 const firstConversation: MiaConversation = {
   id: "first",
+  provider: "mia",
   title: "Créer une page",
   projectType: "html",
   createdAt: "2026-08-19T08:00:00.000Z",
@@ -52,6 +53,17 @@ describe("conversation MIA", () => {
     ]);
 
     expect(conversations.map((conversation) => conversation.id)).toEqual(["new", "first"]);
+  });
+
+  it("conserve le fournisseur de chaque assistant pour séparer MIA et KIA", () => {
+    const kiaConversation: MiaConversation = {
+      ...firstConversation,
+      id: "kia",
+      provider: "kia",
+      title: "KIA corrige mon code",
+    };
+
+    expect(readMiaConversations([firstConversation, kiaConversation]).map((conversation) => conversation.provider)).toEqual(["mia", "kia"]);
   });
 
   it("place une discussion mise à jour en tête sans en créer un doublon", () => {

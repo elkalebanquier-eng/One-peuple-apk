@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,19 +21,25 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import {
   deleteMiaConversation,
+  generateMiaLogo,
   loadMiaConversations,
+  reviewMiaCode,
   saveAssistantDraft,
   saveMiaConversation,
+  saveMiaLogoDraft,
   sendMiaMessage,
 } from "@/lib/ai-code-assistant";
 import { PROJECT_TYPES, type ProjectType } from "@/lib/build-store";
 import {
   createMiaPreview,
+  type MiaProvider,
   makeMiaTitle,
   type MiaConversation,
   type MiaMessage,
 } from "@/shared/mia-chat";
 import { MIA_TYPING_INTERVAL_MS, isMiaTypingComplete, nextMiaTypingLength } from "@/shared/mia-typing";
+import type { MiaCodeReview } from "@/shared/mia-code-review";
+import type { MiaLogoDraft } from "@/shared/mia-logo";
 
 const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>["name"]> = {
   expo: "code",
@@ -61,6 +68,7 @@ export default function AssistantScreen() {
   const inputRef = useRef<TextInput>(null);
   const [conversations, setConversations] = useState<MiaConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [draftProvider, setDraftProvider] = useState<MiaProvider>("mia");
   const [draftProjectType, setDraftProjectType] = useState<ProjectType>("html");
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
@@ -71,12 +79,24 @@ export default function AssistantScreen() {
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [typingCharacterCount, setTypingCharacterCount] = useState(0);
+  const [logoOpen, setLogoOpen] = useState(false);
+  const [logoName, setLogoName] = useState("");
+  const [logoDescription, setLogoDescription] = useState("");
+  const [logoPrimaryColor, setLogoPrimaryColor] = useState("#D4AF37");
+  const [logoSecondaryColor, setLogoSecondaryColor] = useState("#0A0A0F");
+  const [logoDraft, setLogoDraft] = useState<MiaLogoDraft | null>(null);
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewCode, setReviewCode] = useState("");
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewResult, setReviewResult] = useState<MiaCodeReview | null>(null);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
     [activeConversationId, conversations],
   );
   const projectType = activeConversation?.projectType ?? draftProjectType;
+  const provider = activeConversation?.provider ?? draftProvider;
   const messages = activeConversation?.messages ?? [];
   const selectedType = PROJECT_TYPES.find((type) => type.id === projectType)!;
   const preview = useMemo(
@@ -84,6 +104,8 @@ export default function AssistantScreen() {
     [previewMessage],
   );
   const canSend = Boolean(draft.trim()) && !loading && !typingMessageId;
+  const assistantName = provider === "kia" ? "KIA" : "MIA";
+  const assistantService = provider === "kia" ? "Gemini" : "Cloudflare";
 
   useEffect(() => {
     let active = true;
@@ -140,6 +162,7 @@ export default function AssistantScreen() {
 
   function openConversation(conversation: MiaConversation) {
     setActiveConversationId(conversation.id);
+    setDraftProvider(conversation.provider);
     setDraftProjectType(conversation.projectType);
     setDraft("");
     setError("");
@@ -163,6 +186,18 @@ export default function AssistantScreen() {
     setTypePickerOpen(false);
   }
 
+  function selectProvider(nextProvider: MiaProvider) {
+    if (activeConversation) {
+      Alert.alert(
+        "Assistant enregistré",
+        `Cette discussion continue avec ${activeConversation.provider === "kia" ? "KIA Gemini" : "MIA Cloudflare"}. Lancez un nouveau chat pour choisir l’autre assistant.`,
+      );
+      return;
+    }
+    setDraftProvider(nextProvider);
+    setError("");
+  }
+
   function useQuickPrompt(value: string) {
     setDraft(value);
     setError("");
@@ -182,7 +217,8 @@ export default function AssistantScreen() {
     const now = new Date().toISOString();
     const userMessage: MiaMessage = { id: messageId("user"), role: "user", content, createdAt: now };
     const base: MiaConversation = activeConversation ?? {
-      id: `mia-conversation-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `${provider}-conversation-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      provider,
       title: makeMiaTitle(content),
       projectType,
       createdAt: now,
@@ -204,6 +240,7 @@ export default function AssistantScreen() {
         message: content,
         projectType,
         history: base.messages,
+        provider: base.provider,
       });
       const assistantMessage: MiaMessage = {
         id: messageId("assistant"),
@@ -220,7 +257,7 @@ export default function AssistantScreen() {
       });
       setTypingMessageId(assistantMessage.id);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "MIA ne répond pas. Réessayez dans quelques instants.");
+      setError(caught instanceof Error ? caught.message : `${provider === "kia" ? "KIA" : "MIA"} ne répond pas. Réessayez dans quelques instants.`);
     } finally {
       setLoading(false);
     }
@@ -260,6 +297,69 @@ export default function AssistantScreen() {
     }
   }
 
+  function openLogoCreator() {
+    setLogoName(logoDraft?.appName || activeConversation?.title || "Mon application");
+    setLogoDescription(logoDraft?.description || "");
+    setLogoPrimaryColor("#D4AF37");
+    setLogoSecondaryColor("#0A0A0F");
+    setError("");
+    setLogoOpen(true);
+  }
+
+  async function handleGenerateLogo() {
+    if (logoLoading) return;
+    setLogoLoading(true);
+    setError("");
+    try {
+      const nextLogo = await generateMiaLogo({
+        appName: logoName,
+        description: logoDescription,
+        primaryColor: logoPrimaryColor,
+        secondaryColor: logoSecondaryColor,
+      });
+      setLogoDraft(nextLogo);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "MIA ne peut pas créer ce logo pour le moment.");
+    } finally {
+      setLogoLoading(false);
+    }
+  }
+
+  async function handleUseLogoForBuild() {
+    if (!logoDraft) return;
+    try {
+      await saveMiaLogoDraft(logoDraft);
+      setLogoOpen(false);
+      Alert.alert(
+        "Logo prêt",
+        "Le logo MIA est enregistré. Le formulaire de compilation va l’utiliser comme icône de votre APK.",
+        [{ text: "Continuer", onPress: () => router.navigate("/(tabs)/create") }],
+      );
+    } catch {
+      setError("Le logo ne peut pas être conservé sur ce téléphone.");
+    }
+  }
+
+  function openCodeReview(code = "") {
+    setReviewCode(code);
+    setReviewResult(null);
+    setError("");
+    setReviewOpen(true);
+  }
+
+  async function handleCodeReview() {
+    if (reviewLoading) return;
+    setReviewLoading(true);
+    setError("");
+    try {
+      setReviewResult(await reviewMiaCode({ code: reviewCode, projectType }));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "MIA ne peut pas vérifier ce code pour le moment.");
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
   function confirmDeleteConversation(conversation: MiaConversation) {
     Alert.alert(
       "Supprimer cette discussion ?",
@@ -286,9 +386,9 @@ export default function AssistantScreen() {
     const visibleContent = typing ? item.content.slice(0, typingCharacterCount) : item.content;
     return (
       <View style={[styles.messageRow, assistant ? styles.messageRowAssistant : styles.messageRowUser]}>
-        {assistant ? <View style={[styles.miaAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.miaAvatarText, { color: colors.background }]}>M</Text></View> : null}
+        {assistant ? <View style={[styles.miaAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.miaAvatarText, { color: colors.background }]}>{provider === "kia" ? "K" : "M"}</Text></View> : null}
         <View style={[styles.messageColumn, assistant ? styles.messageColumnAssistant : styles.messageColumnUser]}>
-          {assistant ? <Text style={[styles.senderName, { color: colors.primary }]}>MIA</Text> : null}
+          {assistant ? <Text style={[styles.senderName, { color: colors.primary }]}>{assistantName}</Text> : null}
           <View style={[
             styles.messageBubble,
             assistant
@@ -297,7 +397,7 @@ export default function AssistantScreen() {
           ]}>
             <Text
               accessibilityLiveRegion={typing ? "polite" : "none"}
-              accessibilityLabel={typing ? "MIA rédige sa réponse" : undefined}
+              accessibilityLabel={typing ? `${assistantName} rédige sa réponse` : undefined}
               style={[styles.messageText, { color: assistant ? colors.foreground : colors.background }]}
             >
               {visibleContent}
@@ -310,13 +410,17 @@ export default function AssistantScreen() {
                 <View style={[styles.codeFileIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="code" size={18} /></View>
                 <View style={styles.codeAttachmentCopy}>
                   <Text style={[styles.codeFileName, { color: colors.foreground }]}>{projectType === "html" ? "index.html" : projectType === "expo" ? "App.tsx" : "Code Android"}</Text>
-                  <Text style={[styles.codeFileHint, { color: colors.muted }]}>Code préparé par MIA</Text>
+                  <Text style={[styles.codeFileHint, { color: colors.muted }]}>Code préparé par {assistantName}</Text>
                 </View>
               </View>
               <View style={styles.codeActions}>
                 <Pressable accessibilityRole="button" onPress={() => { setPreviewMessage(item); setCopyState("idle"); }} style={({ pressed }) => [styles.codeAction, { borderColor: colors.border }, pressed && styles.pressed]}>
                   <MaterialIcons color={colors.foreground} name="visibility" size={18} />
                   <Text style={[styles.codeActionText, { color: colors.foreground }]}>Voir le code</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => openCodeReview(item.code)} style={({ pressed }) => [styles.codeAction, { borderColor: `${colors.success}88` }, pressed && styles.pressed]}>
+                  <MaterialIcons color={colors.success} name="fact-check" size={18} />
+                  <Text style={[styles.codeActionText, { color: colors.foreground }]}>Vérifier</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" onPress={() => void handleCopy(item)} style={({ pressed }) => [styles.iconAction, { borderColor: colors.border }, pressed && styles.pressed]}>
                   <MaterialIcons color={copyState === "copied" ? colors.success : colors.foreground} name={copyState === "copied" ? "check" : "content-copy"} size={18} />
@@ -344,14 +448,14 @@ export default function AssistantScreen() {
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={8}>
         <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les discussions MIA" onPress={() => setHistoryOpen(true)} style={({ pressed }) => [styles.topIconButton, { borderColor: colors.border }, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les discussions MIA et KIA" onPress={() => setHistoryOpen(true)} style={({ pressed }) => [styles.topIconButton, { borderColor: colors.border }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.foreground} name="history" size={22} />
           </Pressable>
           <View style={styles.topIdentity}>
-            <View style={[styles.topAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.topAvatarText, { color: colors.background }]}>M</Text></View>
-            <View><Text style={[styles.topTitle, { color: colors.foreground }]}>MIA</Text><Text style={[styles.topSubtitle, { color: colors.success }]}>Prête à vous aider</Text></View>
+            <View style={[styles.topAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.topAvatarText, { color: colors.background }]}>{provider === "kia" ? "K" : "M"}</Text></View>
+            <View><Text style={[styles.topTitle, { color: colors.foreground }]}>{assistantName}</Text><Text style={[styles.topSubtitle, { color: colors.success }]}>{assistantService} · Prête à vous aider</Text></View>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Nouvelle discussion MIA" onPress={startNewConversation} style={({ pressed }) => [styles.topIconButton, { borderColor: colors.border }, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Nouvelle discussion avec ${assistantName}`} onPress={startNewConversation} style={({ pressed }) => [styles.topIconButton, { borderColor: colors.border }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.primary} name="add" size={24} />
           </Pressable>
         </View>
@@ -365,6 +469,25 @@ export default function AssistantScreen() {
           <Text numberOfLines={1} style={[styles.projectStripText, { color: colors.muted }]}>{activeConversation ? "Discussion enregistrée sur ce téléphone" : "Choisissez le type avant de commencer"}</Text>
         </View>
 
+        <View style={[styles.providerStrip, { borderBottomColor: colors.border }]}>
+          {(["mia", "kia"] as MiaProvider[]).map((candidate) => {
+            const selected = provider === candidate;
+            const label = candidate === "kia" ? "KIA · Gemini" : "MIA · Cloudflare";
+            return (
+              <Pressable
+                key={candidate}
+                accessibilityRole="radio"
+                accessibilityState={{ selected, disabled: Boolean(activeConversation) }}
+                onPress={() => selectProvider(candidate)}
+                style={({ pressed }) => [styles.providerChoice, { backgroundColor: selected ? `${colors.primary}16` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && !activeConversation && styles.pressed]}
+              >
+                <Text style={[styles.providerChoiceText, { color: selected ? colors.primary : colors.muted }]}>{label}</Text>
+                {selected ? <MaterialIcons color={colors.primary} name="check-circle" size={16} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+
         <FlatList
           data={messages}
           keyExtractor={(item) => item.id}
@@ -373,9 +496,9 @@ export default function AssistantScreen() {
           contentContainerStyle={[styles.messagesContent, messages.length === 0 && styles.emptyMessagesContent]}
           ListEmptyComponent={
             <View style={styles.welcome}>
-              <View style={[styles.welcomeOrb, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}55` }]}><Text style={[styles.welcomeOrbText, { color: colors.primary }]}>M</Text></View>
-              <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Bonjour, je suis MIA.</Text>
-              <Text style={[styles.welcomeText, { color: colors.muted }]}>Parlez-moi de votre idée, posez une question ou demandez-moi du code. Je vous réponds simplement et je prépare le fichier quand vous en avez besoin.</Text>
+              <View style={[styles.welcomeOrb, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}55` }]}><Text style={[styles.welcomeOrbText, { color: colors.primary }]}>{provider === "kia" ? "K" : "M"}</Text></View>
+              <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Bonjour, je suis {assistantName}.</Text>
+              <Text style={[styles.welcomeText, { color: colors.muted }]}>Je travaille avec {assistantService}. Parlez-moi de votre idée, posez une question ou demandez-moi du code. Je vous réponds simplement et je prépare le fichier quand vous en avez besoin.</Text>
               <View style={styles.quickPromptList}>
                 {QUICK_PROMPTS.map((quick) => (
                   <Pressable key={quick.label} accessibilityRole="button" onPress={() => useQuickPrompt(quick.value)} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
@@ -384,14 +507,24 @@ export default function AssistantScreen() {
                     <MaterialIcons color={colors.muted} name="arrow-upward" size={17} />
                   </Pressable>
                 ))}
+                <Pressable accessibilityRole="button" onPress={openLogoCreator} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}66` }, pressed && styles.pressed]}>
+                  <MaterialIcons color={colors.primary} name="brush" size={18} />
+                  <Text style={[styles.quickPromptText, { color: colors.foreground }]}>Créer un logo</Text>
+                  <MaterialIcons color={colors.primary} name="auto-awesome" size={17} />
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => openCodeReview()} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: `${colors.success}0E`, borderColor: `${colors.success}66` }, pressed && styles.pressed]}>
+                  <MaterialIcons color={colors.success} name="fact-check" size={18} />
+                  <Text style={[styles.quickPromptText, { color: colors.foreground }]}>Vérifier mon code</Text>
+                  <MaterialIcons color={colors.success} name="arrow-upward" size={17} />
+                </Pressable>
               </View>
-              <Text style={[styles.localNote, { color: colors.muted }]}>Vos discussions restent sur votre téléphone. MIA reçoit seulement les derniers messages nécessaires pour répondre.</Text>
+              <Text style={[styles.localNote, { color: colors.muted }]}>Vos discussions restent sur votre téléphone. {assistantName} reçoit seulement les derniers messages nécessaires pour répondre.</Text>
             </View>
           }
           ListFooterComponent={loading ? (
             <View style={[styles.messageRow, styles.messageRowAssistant]}>
-              <View style={[styles.miaAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.miaAvatarText, { color: colors.background }]}>M</Text></View>
-              <View style={[styles.typingBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}><ActivityIndicator color={colors.primary} size="small" /><Text style={[styles.typingText, { color: colors.muted }]}>MIA prépare sa réponse…</Text></View>
+              <View style={[styles.miaAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.miaAvatarText, { color: colors.background }]}>{provider === "kia" ? "K" : "M"}</Text></View>
+              <View style={[styles.typingBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}><ActivityIndicator color={colors.primary} size="small" /><Text style={[styles.typingText, { color: colors.muted }]}>{assistantName} prépare sa réponse…</Text></View>
             </View>
           ) : null}
         />
@@ -407,24 +540,24 @@ export default function AssistantScreen() {
               editable={!loading}
               multiline
               maxLength={3500}
-              placeholder={`Écrivez à MIA…`}
+              placeholder={`Écrivez à ${assistantName}…`}
               placeholderTextColor={colors.muted}
               textAlignVertical="top"
               style={[styles.composerInput, { color: colors.foreground }]}
-              accessibilityLabel="Message à MIA"
+              accessibilityLabel={`Message à ${assistantName}`}
             />
-            <Pressable accessibilityRole="button" accessibilityLabel="Envoyer le message à MIA" disabled={!canSend} onPress={() => void handleSend()} style={({ pressed }) => [styles.sendButton, { backgroundColor: canSend ? colors.primary : colors.background }, pressed && canSend && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Envoyer le message à ${assistantName}`} disabled={!canSend} onPress={() => void handleSend()} style={({ pressed }) => [styles.sendButton, { backgroundColor: canSend ? colors.primary : colors.background }, pressed && canSend && styles.pressed]}>
               <MaterialIcons color={canSend ? colors.background : colors.muted} name="arrow-upward" size={22} />
             </Pressable>
           </View>
-          <Text style={[styles.composerHint, { color: colors.muted }]}>MIA peut expliquer, créer ou corriger du code. 20 demandes par heure.</Text>
+          <Text style={[styles.composerHint, { color: colors.muted }]}>{assistantName} peut expliquer, créer ou corriger du code. 20 demandes par heure.</Text>
         </View>
       </KeyboardAvoidingView>
 
       <Modal visible={historyOpen} animationType="slide" onRequestClose={() => setHistoryOpen(false)}>
         <ScreenContainer className="flex-1" edges={["top", "bottom", "left", "right"]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Discussions MIA</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Conservées uniquement sur ce téléphone</Text></View>
+            <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Discussions MIA et KIA</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Conservées uniquement sur ce téléphone</Text></View>
             <Pressable accessibilityRole="button" onPress={() => setHistoryOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={22} /></Pressable>
           </View>
           <Pressable accessibilityRole="button" onPress={startNewConversation} style={({ pressed }) => [styles.newChatButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}><MaterialIcons color={colors.background} name="add" size={21} /><Text style={[styles.newChatText, { color: colors.background }]}>Nouvelle discussion</Text></Pressable>
@@ -432,12 +565,12 @@ export default function AssistantScreen() {
             data={conversations}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.conversationList}
-            ListEmptyComponent={<Text style={[styles.emptyConversationText, { color: colors.muted }]}>Vos nouvelles discussions avec MIA apparaîtront ici.</Text>}
+            ListEmptyComponent={<Text style={[styles.emptyConversationText, { color: colors.muted }]}>Vos nouvelles discussions avec MIA ou KIA apparaîtront ici.</Text>}
             renderItem={({ item }) => (
               <View style={[styles.conversationRow, { backgroundColor: item.id === activeConversationId ? `${colors.primary}12` : colors.surface, borderColor: item.id === activeConversationId ? colors.primary : colors.border }]}>
                 <Pressable accessibilityRole="button" onPress={() => openConversation(item)} style={({ pressed }) => [styles.conversationOpen, pressed && styles.pressed]}>
                   <View style={[styles.conversationIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name={TYPE_ICONS[item.projectType]} size={19} /></View>
-                  <View style={styles.conversationCopy}><Text numberOfLines={2} style={[styles.conversationTitle, { color: colors.foreground }]}>{item.title}</Text><Text style={[styles.conversationMeta, { color: colors.muted }]}>{item.messages.length} messages · {dateLabel(item.updatedAt)}</Text></View>
+                  <View style={styles.conversationCopy}><Text numberOfLines={2} style={[styles.conversationTitle, { color: colors.foreground }]}>{item.title}</Text><Text style={[styles.conversationMeta, { color: colors.muted }]}>{item.provider === "kia" ? "KIA Gemini" : "MIA Cloudflare"} · {item.messages.length} messages · {dateLabel(item.updatedAt)}</Text></View>
                 </Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="Supprimer cette discussion" onPress={() => confirmDeleteConversation(item)} style={({ pressed }) => [styles.conversationDelete, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="delete-outline" size={20} /></Pressable>
               </View>
@@ -456,6 +589,65 @@ export default function AssistantScreen() {
             })}
           </View>
         </View>
+      </Modal>
+
+      <Modal visible={logoOpen} animationType="slide" onRequestClose={() => setLogoOpen(false)}>
+        <ScreenContainer className="flex-1" edges={["top", "bottom", "left", "right"]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Créer un logo</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Une icône carrée, prête pour une APK.</Text></View>
+            <Pressable accessibilityRole="button" onPress={() => setLogoOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={22} /></Pressable>
+          </View>
+          <FlatList
+            data={["logo-form"]}
+            keyExtractor={(item) => item}
+            contentContainerStyle={styles.aiToolContent}
+            renderItem={() => (
+              <View style={styles.aiToolForm}>
+                <Text style={[styles.toolLead, { color: colors.foreground }]}>Décrivez un symbole simple. Évitez le texte très petit : il est moins lisible comme icône.</Text>
+                <Text style={[styles.toolLabel, { color: colors.foreground }]}>Nom de l’application</Text>
+                <TextInput value={logoName} onChangeText={setLogoName} maxLength={48} placeholder="Ex. Ma boutique" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
+                <Text style={[styles.toolLabel, { color: colors.foreground }]}>Description du logo</Text>
+                <TextInput value={logoDescription} onChangeText={setLogoDescription} maxLength={600} multiline textAlignVertical="top" placeholder="Ex. un sac moderne, symbole central, style simple…" placeholderTextColor={colors.muted} style={[styles.toolTextArea, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
+                <View style={styles.colorRow}>
+                  <View style={styles.colorField}><Text style={[styles.toolLabel, { color: colors.foreground }]}>Couleur 1</Text><TextInput value={logoPrimaryColor} onChangeText={setLogoPrimaryColor} autoCapitalize="characters" maxLength={7} placeholder="#D4AF37" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} /></View>
+                  <View style={styles.colorField}><Text style={[styles.toolLabel, { color: colors.foreground }]}>Couleur 2</Text><TextInput value={logoSecondaryColor} onChangeText={setLogoSecondaryColor} autoCapitalize="characters" maxLength={7} placeholder="#0A0A0F" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} /></View>
+                </View>
+                {logoDraft ? <View style={[styles.logoPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}><Image accessibilityLabel="Aperçu du logo créé par MIA" source={{ uri: logoDraft.uri }} style={styles.logoPreviewImage} /><Text style={[styles.logoPreviewName, { color: colors.foreground }]}>{logoDraft.appName}</Text><Text style={[styles.logoPreviewHint, { color: colors.muted }]}>{logoDraft.description}</Text></View> : null}
+                <Pressable accessibilityRole="button" disabled={logoLoading} onPress={() => void handleGenerateLogo()} style={({ pressed }) => [styles.toolPrimaryButton, { backgroundColor: colors.primary }, (pressed || logoLoading) && styles.pressed]}>{logoLoading ? <ActivityIndicator color={colors.background} /> : <MaterialIcons color={colors.background} name="auto-awesome" size={19} />}<Text style={[styles.toolPrimaryText, { color: colors.background }]}>{logoDraft ? "Regénérer le logo" : "Créer le logo"}</Text></Pressable>
+                {logoDraft ? <Pressable accessibilityRole="button" onPress={() => void handleUseLogoForBuild()} style={({ pressed }) => [styles.toolSecondaryButton, { borderColor: colors.success, backgroundColor: `${colors.success}12` }, pressed && styles.pressed]}><MaterialIcons color={colors.success} name="check-circle" size={19} /><Text style={[styles.toolSecondaryText, { color: colors.success }]}>Utiliser comme icône de l’APK</Text></Pressable> : null}
+                <Text style={[styles.toolNote, { color: colors.muted }]}>Maximum trois logos par heure. L’image choisie reste uniquement sur votre téléphone.</Text>
+              </View>
+            )}
+          />
+        </ScreenContainer>
+      </Modal>
+
+      <Modal visible={reviewOpen} animationType="slide" onRequestClose={() => setReviewOpen(false)}>
+        <ScreenContainer className="flex-1" edges={["top", "bottom", "left", "right"]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Vérifier avant l’APK</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>MIA cherche les blocages probables sans lancer de compilation.</Text></View>
+            <Pressable accessibilityRole="button" onPress={() => setReviewOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={22} /></Pressable>
+          </View>
+          <FlatList
+            data={["review-form"]}
+            keyExtractor={(item) => item}
+            contentContainerStyle={styles.aiToolContent}
+            renderItem={() => (
+              <View style={styles.aiToolForm}>
+                <Text style={[styles.toolLead, { color: colors.foreground }]}>Collez le code à contrôler. MIA adapte son diagnostic au type de projet {selectedType.shortLabel}.</Text>
+                <TextInput value={reviewCode} onChangeText={setReviewCode} maxLength={60000} multiline textAlignVertical="top" placeholder="Collez votre code ici…" placeholderTextColor={colors.muted} style={[styles.reviewCodeInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
+                <Pressable accessibilityRole="button" disabled={reviewLoading} onPress={() => void handleCodeReview()} style={({ pressed }) => [styles.toolPrimaryButton, { backgroundColor: colors.success }, (pressed || reviewLoading) && styles.pressed]}>{reviewLoading ? <ActivityIndicator color={colors.background} /> : <MaterialIcons color={colors.background} name="fact-check" size={19} />}<Text style={[styles.toolPrimaryText, { color: colors.background }]}>{reviewLoading ? "Vérification…" : "Vérifier le code"}</Text></Pressable>
+                {reviewResult ? <View style={styles.reviewResults}>
+                  <View style={[styles.reviewSummary, { backgroundColor: reviewResult.blockers.length ? `${colors.error}12` : `${colors.success}12`, borderColor: reviewResult.blockers.length ? `${colors.error}66` : `${colors.success}66` }]}><MaterialIcons color={reviewResult.blockers.length ? colors.error : colors.success} name={reviewResult.blockers.length ? "error-outline" : "check-circle"} size={20} /><Text style={[styles.reviewSummaryText, { color: colors.foreground }]}>{reviewResult.summary}</Text></View>
+                  {reviewResult.blockers.map((item, index) => <View key={`blocker-${index}`} style={[styles.reviewItem, { borderColor: `${colors.error}66`, backgroundColor: `${colors.error}0A` }]}><MaterialIcons color={colors.error} name="block" size={17} /><View style={styles.reviewCopy}><Text style={[styles.reviewItemTitle, { color: colors.error }]}>{item.title}{item.line ? ` · ligne ${item.line}` : ""}</Text><Text style={[styles.reviewItemText, { color: colors.foreground }]}>{item.detail}</Text></View></View>)}
+                  {reviewResult.warnings.map((item, index) => <View key={`warning-${index}`} style={[styles.reviewItem, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0A` }]}><MaterialIcons color={colors.primary} name="warning-amber" size={17} /><View style={styles.reviewCopy}><Text style={[styles.reviewItemTitle, { color: colors.primary }]}>{item.title}{item.line ? ` · ligne ${item.line}` : ""}</Text><Text style={[styles.reviewItemText, { color: colors.foreground }]}>{item.detail}</Text></View></View>)}
+                  {reviewResult.fixes.length ? <View style={[styles.fixBox, { borderColor: `${colors.success}66`, backgroundColor: `${colors.success}0A` }]}><Text style={[styles.fixTitle, { color: colors.success }]}>À corriger avant d’envoyer</Text>{reviewResult.fixes.map((fix) => <View key={fix} style={styles.fixRow}><MaterialIcons color={colors.success} name="check-circle" size={15} /><Text style={[styles.fixText, { color: colors.foreground }]}>{fix}</Text></View>)}</View> : null}
+                </View> : null}
+                <Text style={[styles.toolNote, { color: colors.muted }]}>MIA repère des risques probables. La compilation reste la confirmation finale.</Text>
+              </View>
+            )}
+          />
+        </ScreenContainer>
       </Modal>
 
       <Modal visible={Boolean(previewMessage)} animationType="slide" onRequestClose={() => setPreviewMessage(null)}>
@@ -492,6 +684,9 @@ const styles = StyleSheet.create({
   topSubtitle: { fontSize: 11, fontWeight: "700", lineHeight: 15 },
   topIconButton: { width: 40, height: 40, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   projectStrip: { minHeight: 46, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16 },
+  providerStrip: { minHeight: 52, flexDirection: "row", gap: 8, borderBottomWidth: 1, paddingHorizontal: 16, paddingBottom: 8 },
+  providerChoice: { flex: 1, minHeight: 36, borderWidth: 1, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 8 },
+  providerChoiceText: { fontSize: 11, fontWeight: "800" },
   projectChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
   projectChipText: { fontSize: 12, fontWeight: "800" },
   projectStripText: { flex: 1, fontSize: 11, fontWeight: "600" },
@@ -575,4 +770,33 @@ const styles = StyleSheet.create({
   copyButtonText: { fontSize: 12, fontWeight: "800" },
   previewPrepareButton: { flex: 1, minHeight: 46, borderRadius: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   previewPrepareText: { fontSize: 12, fontWeight: "900" },
+  aiToolContent: { padding: 16, paddingBottom: 32 },
+  aiToolForm: { gap: 12 },
+  toolLead: { fontSize: 13, fontWeight: "600", lineHeight: 20, marginBottom: 3 },
+  toolLabel: { fontSize: 12, fontWeight: "800", marginTop: 2 },
+  toolInput: { minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 14, fontWeight: "600" },
+  toolTextArea: { minHeight: 104, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, fontWeight: "500", lineHeight: 20 },
+  colorRow: { flexDirection: "row", gap: 10 },
+  colorField: { flex: 1, gap: 7 },
+  logoPreview: { alignItems: "center", borderWidth: 1, borderRadius: 18, padding: 16, gap: 7 },
+  logoPreviewImage: { width: 148, height: 148, borderRadius: 28 },
+  logoPreviewName: { marginTop: 2, fontSize: 15, fontWeight: "900", textAlign: "center" },
+  logoPreviewHint: { fontSize: 11, lineHeight: 16, textAlign: "center" },
+  toolPrimaryButton: { minHeight: 50, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 2 },
+  toolPrimaryText: { fontSize: 14, fontWeight: "900" },
+  toolSecondaryButton: { minHeight: 50, borderWidth: 1, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  toolSecondaryText: { fontSize: 13, fontWeight: "900" },
+  toolNote: { fontSize: 11, lineHeight: 16, textAlign: "center", paddingHorizontal: 8, paddingTop: 2 },
+  reviewCodeInput: { minHeight: 168, maxHeight: 380, borderWidth: 1, borderRadius: 12, padding: 12, fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }), fontSize: 12, lineHeight: 18 },
+  reviewResults: { gap: 10, marginTop: 2 },
+  reviewSummary: { borderWidth: 1, borderRadius: 14, flexDirection: "row", alignItems: "flex-start", gap: 9, padding: 12 },
+  reviewSummaryText: { flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 19 },
+  reviewItem: { borderWidth: 1, borderRadius: 13, flexDirection: "row", alignItems: "flex-start", gap: 9, padding: 11 },
+  reviewCopy: { flex: 1 },
+  reviewItemTitle: { fontSize: 12, fontWeight: "900", lineHeight: 17 },
+  reviewItemText: { marginTop: 3, fontSize: 12, fontWeight: "500", lineHeight: 18 },
+  fixBox: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 7 },
+  fixTitle: { fontSize: 12, fontWeight: "900" },
+  fixRow: { flexDirection: "row", alignItems: "flex-start", gap: 7 },
+  fixText: { flex: 1, fontSize: 12, fontWeight: "600", lineHeight: 17 },
 });

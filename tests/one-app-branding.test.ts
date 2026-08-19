@@ -4,9 +4,9 @@ import { resolve } from "node:path";
 
 import config from "../app.config";
 
-describe("One App branding", () => {
-  it("expose One App as the application name", () => {
-    expect(config.name).toBe("One App");
+describe("MIA branding", () => {
+  it("expose MIA💻 as the visible application name", () => {
+    expect(config.name).toBe("MIA💻");
   });
 
   it("applique le logo One Peuple à toutes les ressources de lancement", () => {

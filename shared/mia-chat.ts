@@ -4,6 +4,8 @@ export const MIA_CONVERSATION_LIMIT = 10;
 export const MIA_MESSAGES_PER_CONVERSATION_LIMIT = 30;
 export const MIA_MESSAGE_CONTENT_LIMIT = 8_000;
 
+export const MIA_PROVIDERS = ["mia", "kia"] as const;
+export type MiaProvider = (typeof MIA_PROVIDERS)[number];
 export type MiaMessageRole = "user" | "assistant";
 
 export type MiaMessage = {
@@ -17,6 +19,7 @@ export type MiaMessage = {
 
 export type MiaConversation = {
   id: string;
+  provider: MiaProvider;
   title: string;
   projectType: AiCodeProjectType;
   createdAt: string;
@@ -29,6 +32,10 @@ export type MiaChatResponse = {
   code?: string;
   checklist?: string[];
 };
+
+export function isMiaProvider(value: unknown): value is MiaProvider {
+  return value === "mia" || value === "kia";
+}
 
 function isProjectType(value: unknown): value is AiCodeProjectType {
   return value === "expo" || value === "android" || value === "html";
@@ -112,6 +119,8 @@ export function readMiaConversations(value: unknown): MiaConversation[] {
     if (!messages.length) return [];
     return [{
       id: candidate.id.trim().slice(0, 90),
+      // Existing MIA conversations remain available after adding KIA.
+      provider: isMiaProvider(candidate.provider) ? candidate.provider : "mia",
       title: candidate.title.trim().slice(0, 90),
       projectType: candidate.projectType,
       createdAt: candidate.createdAt,
