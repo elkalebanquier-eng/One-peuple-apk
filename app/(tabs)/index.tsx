@@ -55,7 +55,7 @@ function makeApkFileName(projectName: string, buildId: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .toLowerCase() || "one-app-build";
+    .toLowerCase() || "mia-build";
   return `${safeName}-${buildId.slice(-8)}.apk`;
 }
 
@@ -65,7 +65,7 @@ function makeKeyBackupFileName(projectName: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .toLowerCase() || "one-app";
+    .toLowerCase() || "mia";
   return `${safeName}-cle-de-signature.zip`;
 }
 
@@ -179,7 +179,7 @@ function BuildCard({ item }: { item: BuildJob }) {
       setDownloadMessage("Téléchargement arrêté · vous pouvez réessayer");
       Alert.alert(
         "Installation non ouverte",
-        `${message}\n\nSi Android le demande, autorisez One App à installer des applications inconnues, puis réessayez.`,
+        `${message}\n\nSi Android le demande, autorisez MIA💻 à installer des applications inconnues, puis réessayez.`,
       );
     } finally {
       setDownloading(false);
@@ -226,7 +226,7 @@ function BuildCard({ item }: { item: BuildJob }) {
       await restartBuildJob(item);
       Alert.alert(
         "Compilation relancée",
-        "One App réutilise le fichier déjà enregistré sur votre téléphone. Vous pouvez suivre la nouvelle compilation ici.",
+        "MIA💻 réutilise le fichier déjà enregistré sur votre téléphone. Vous pouvez suivre la nouvelle compilation ici.",
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "La compilation ne peut pas être relancée pour le moment.";
@@ -369,7 +369,7 @@ function BuildCard({ item }: { item: BuildJob }) {
               <View style={[styles.keyBackupIcon, { backgroundColor: `${colors.success}20` }]}><MaterialIcons color={colors.success} name={savingKey ? "downloading" : "key"} size={21} /></View>
               <View style={styles.keyBackupCopy}>
                 <Text style={[styles.keyBackupTitle, { color: colors.foreground }]}>{savingKey ? "Préparation de la clé…" : "Sauvegarder ma clé"}</Text>
-                <Text style={[styles.keyBackupHint, { color: colors.muted }]}>{savingKey ? "Ne fermez pas One App" : "Une seule fois · indispensable pour les mises à jour"}</Text>
+                <Text style={[styles.keyBackupHint, { color: colors.muted }]}>{savingKey ? "Ne fermez pas MIA💻" : "Une seule fois · indispensable pour les mises à jour"}</Text>
               </View>
               <MaterialIcons color={colors.success} name="ios-share" size={20} />
             </Pressable>
@@ -444,8 +444,8 @@ export default function BuildsScreen() {
               <View style={styles.brandRow}>
                 <Image source={require("../../assets/images/icon.png")} style={styles.logoMark} />
                 <View>
-                  <Text style={[styles.brand, { color: colors.foreground }]}>One App</Text>
-                  <Text style={[styles.headerCaption, { color: colors.primary }]}>ONE PEUPLE · ATELIER APK</Text>
+                  <Text style={[styles.brand, { color: colors.foreground }]}>MIA💻</Text>
+                  <Text style={[styles.headerCaption, { color: colors.primary }]}>ASSISTANT · ATELIER APK</Text>
                 </View>
               </View>
               <View style={[styles.localBadge, { backgroundColor: `${colors.primary}15` }]}><MaterialIcons color={colors.primary} name="phone-android" size={14} /><Text style={[styles.localCount, { color: colors.primary }]}>{jobs.length}</Text></View>

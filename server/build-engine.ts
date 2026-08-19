@@ -438,7 +438,7 @@ export function registerBuildRoutes(app: Express) {
         return;
       }
       job.status = "building";
-      job.message = "One App fabrique votre APK. Cette étape peut prendre plusieurs minutes.";
+      job.message = "MIA💻 fabrique votre APK. Cette étape peut prendre plusieurs minutes.";
       job.updatedAt = Date.now();
       response.json({
         id: job.id,
@@ -495,7 +495,7 @@ export function registerBuildRoutes(app: Express) {
         job.status = outcome;
         job.message = outcome === "complete"
           ? "Votre APK est prête à être téléchargée."
-          : "One App n’a pas pu créer l’APK. Vérifiez que le ZIP correspond bien au type choisi.";
+          : "MIA💻 n’a pas pu créer l’APK. Vérifiez que le ZIP correspond bien au type choisi.";
         job.updatedAt = Date.now();
         sendJob(response, job);
       } catch (error) {

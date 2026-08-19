@@ -289,7 +289,7 @@ export default function AssistantScreen() {
       setPreviewMessage(null);
       Alert.alert(
         "Code HTML prêt",
-        "MIA a préparé le fichier. One App va ouvrir la compilation avec votre code déjà placé.",
+        "MIA a préparé le fichier. MIA💻 va ouvrir la compilation avec votre code déjà placé.",
         [{ text: "Continuer", onPress: () => router.navigate("/(tabs)/create") }],
       );
     } catch {

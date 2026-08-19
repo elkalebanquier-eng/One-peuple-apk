@@ -14,14 +14,14 @@ export default function SettingsScreen() {
   return (
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerLabel}><View style={[styles.headerDot, { backgroundColor: colors.success }]} /><Text style={[styles.eyebrow, { color: colors.primary }]}>ONE PEUPLE · À PROPOS</Text></View>
+        <View style={styles.headerLabel}><View style={[styles.headerDot, { backgroundColor: colors.success }]} /><Text style={[styles.eyebrow, { color: colors.primary }]}>MIA💻 · À PROPOS</Text></View>
         <Text style={[styles.title, { color: colors.foreground }]}>Tout est guidé, même depuis un téléphone.</Text>
         <Text style={[styles.subtitle, { color: colors.muted }]}>Les limites et protections appliquées pendant votre compilation.</Text>
 
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Votre compilation</Text>
         <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <InfoRow icon="inventory-2" title="Fichiers acceptés" detail="ZIP Expo, Android natif ou HTML" border={colors.border} />
-          <InfoRow icon="timer" title="Limite gratuite" detail="2 compilations par heure · 50 Mo maximum" border={colors.border} />
+          <InfoRow icon="timer" title="Limite gratuite" detail="6 compilations par heure · 50 Mo maximum" border={colors.border} />
           <InfoRow icon="info-outline" title="Résultat" detail="APK Android destinée aux tests" />
         </View>
 
@@ -32,7 +32,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={[styles.notice, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}4D` }]}><MaterialIcons color={colors.primary} name="lightbulb-outline" size={21} /><Text style={[styles.noticeText, { color: colors.muted }]}>Pour éviter un refus, envoyez un fichier propre : pas de node_modules, pas de dossier build et aucune clé secrète.</Text></View>
-        <Text style={[styles.version, { color: colors.muted }]}>One App · Version 1.0.0</Text>
+        <Text style={[styles.version, { color: colors.muted }]}>MIA💻 · Version 1.0.0</Text>
       </ScrollView>
     </ScreenContainer>
   );

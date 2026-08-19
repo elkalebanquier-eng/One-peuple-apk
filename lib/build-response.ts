@@ -19,7 +19,7 @@ export function readBuildResponse(body: string, statusCode: number): BuildRespon
     }
     throw new Error(statusCode >= 500
       ? "Le moteur de compilation est momentanément indisponible. Réessayez dans quelques minutes."
-      : "One App n’a pas reçu une réponse utilisable. Réessayez après avoir vérifié votre connexion.");
+      : "MIA💻 n’a pas reçu une réponse utilisable. Réessayez après avoir vérifié votre connexion.");
   }
 }
 

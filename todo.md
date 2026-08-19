@@ -473,7 +473,7 @@
 - [x] Ajouter une analyse MIA qui détecte les blocages probables avant compilation
 - [x] Afficher les erreurs, avertissements et corrections simples avant l’envoi du code
 - [x] Tester la vérification pour les projets HTML, Expo et Android
-- [x] Renommer l’application visible en MIA💻 sans changer le package Android
+- [x] Renommer l’application visible en MIA💻 sans changer le package Android et synchroniser les textes visibles de l’interface
 - [x] Ajouter un choix entre MIA Cloudflare et KIA Gemini dans le chat
 - [x] Acheminer les messages et la génération de code vers Gemini sans exposer sa clé
 - [x] Conserver des conversations distinctes et locales pour chaque assistant

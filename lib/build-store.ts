@@ -131,7 +131,7 @@ async function updateJob(id: string, patch: Partial<BuildJob>) {
 function buildApiUrl(path: string) {
   const baseUrl = getApiBaseUrl();
   if (!baseUrl) {
-    throw new Error("Le service de compilation n’est pas encore prêt. Réessayez après la publication de One App.");
+    throw new Error("Le service de compilation n’est pas encore prêt. Réessayez dans quelques minutes.");
   }
   return `${baseUrl}${path}`;
 }

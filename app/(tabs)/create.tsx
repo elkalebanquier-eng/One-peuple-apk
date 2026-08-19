@@ -185,9 +185,9 @@ export default function NewBuildScreen() {
       Alert.alert(
         "Compilation lancée",
         buildMode === "signed"
-          ? "One App prépare une APK signée. Quand elle sera prête, téléchargez aussi la sauvegarde de clé une seule fois depuis Builds."
-          : "One App prépare votre APK de test. Vous verrez son avancement dans Builds.",
-        [{ text: "Voir les builds", onPress: () => router.replace("/(tabs)") }],
+          ? "MIA💻 prépare une APK signée. Quand elle sera prête, téléchargez aussi la sauvegarde de clé une seule fois depuis Mes APK."
+          : "MIA💻 prépare votre APK de test. Vous verrez son avancement dans Mes APK.",
+        [{ text: "Voir mes APK", onPress: () => router.replace("/(tabs)") }],
       );
     } catch (error) {
       Alert.alert("Compilation non lancée", error instanceof Error ? error.message : "Vérifiez votre connexion et réessayez.");
