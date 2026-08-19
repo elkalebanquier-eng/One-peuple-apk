@@ -451,3 +451,10 @@
 - [x] Compiler une APK release signée et préparer une sauvegarde temporaire de la clé `.jks`
 - [x] Permettre le téléchargement de l’APK signée et de la clé uniquement depuis le téléphone
 - [x] Tester les protections, la compilation release et la remise des fichiers
+
+## Jauge et partage direct d’APK
+
+- [x] Ajouter une jauge circulaire lisible pour le nombre de compilations restantes
+- [x] Ajouter un bouton pour envoyer une APK téléchargée vers les applications du téléphone
+- [x] Valider TypeScript, les tests et le parcours de partage Android
+- [ ] Compiler et préparer la nouvelle APK debug pour livraison directe

@@ -6,6 +6,7 @@ import { router, useFocusEffect } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
+import Svg, { Circle } from "react-native-svg";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -43,15 +44,19 @@ const TYPE_ICONS: Record<ProjectType, IconName> = {
 };
 
 const APK_MIME_TYPE = "application/vnd.android.package-archive";
+const QUOTA_RING_SIZE = 66;
+const QUOTA_RING_STROKE = 6;
+const QUOTA_RING_RADIUS = (QUOTA_RING_SIZE - QUOTA_RING_STROKE) / 2;
+const QUOTA_RING_CIRCUMFERENCE = 2 * Math.PI * QUOTA_RING_RADIUS;
 
-function makeApkFileName(projectName: string) {
+function makeApkFileName(projectName: string, buildId: string) {
   const safeName = projectName
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase() || "one-app-build";
-  return `${safeName}-${Date.now()}.apk`;
+  return `${safeName}-${buildId.slice(-8)}.apk`;
 }
 
 function makeKeyBackupFileName(projectName: string) {
@@ -73,6 +78,8 @@ function BuildCard({ item }: { item: BuildJob }) {
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
+  const [sharingApk, setSharingApk] = useState(false);
+  const [savedApkUri, setSavedApkUri] = useState<string | null>(null);
   const lastDownloadUpdate = useRef(0);
   const canRestart = item.status === "complete" || item.status === "failed";
   const receivedBytes = downloadProgress?.received ?? 0;
@@ -85,6 +92,69 @@ function BuildCard({ item }: { item: BuildJob }) {
         ? `${formatBytes(receivedBytes)} téléchargés · taille en cours de lecture`
         : "Connexion au fichier APK…");
 
+  useEffect(() => {
+    let active = true;
+    const findSavedApk = async () => {
+      const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+      if (!directory) return;
+      const fileUri = `${directory}${makeApkFileName(item.projectName, item.id)}`;
+      const info = await FileSystem.getInfoAsync(fileUri);
+      if (active && info.exists && info.size && info.size >= 10_000) setSavedApkUri(fileUri);
+    };
+    void findSavedApk();
+    return () => {
+      active = false;
+    };
+  }, [item.id, item.projectName]);
+
+  async function downloadApkToPhone() {
+    if (!item.apkUri) throw new Error("L’adresse de téléchargement de cette APK est indisponible.");
+    const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+    if (!directory) throw new Error("Le dossier de téléchargement est indisponible sur ce téléphone.");
+
+    const fileUri = `${directory}${makeApkFileName(item.projectName, item.id)}`;
+    const existing = await FileSystem.getInfoAsync(fileUri);
+    if (existing.exists && existing.size && existing.size >= 10_000) {
+      setDownloadProgress({ received: existing.size, total: existing.size });
+      setSavedApkUri(fileUri);
+      return fileUri;
+    }
+    if (existing.exists) await FileSystem.deleteAsync(fileUri, { idempotent: true });
+
+    const downloadTask = FileSystem.createDownloadResumable(
+      item.apkUri,
+      fileUri,
+      {},
+      ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+        const now = Date.now();
+        if (now - lastDownloadUpdate.current < 250 && totalBytesWritten !== totalBytesExpectedToWrite) return;
+        lastDownloadUpdate.current = now;
+        setDownloadProgress({ received: totalBytesWritten, total: totalBytesExpectedToWrite });
+      },
+    );
+    const download = await downloadTask.downloadAsync();
+    if (!download) throw new Error("Le téléchargement a été interrompu avant la réception du fichier APK.");
+    const info = await FileSystem.getInfoAsync(download.uri);
+    if (!info.exists || !info.size || info.size < 10_000) {
+      await FileSystem.deleteAsync(download.uri, { idempotent: true });
+      throw new Error("Le fichier reçu n’est pas une APK Android complète. Réessayez la compilation.");
+    }
+
+    setDownloadProgress({ received: info.size, total: info.size });
+    setDownloadMessage("Fichier reçu · vérification de l’APK…");
+    const apkHeader = await FileSystem.readAsStringAsync(download.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+      length: 8,
+      position: 0,
+    });
+    if (!apkHeader.startsWith("UEs")) {
+      await FileSystem.deleteAsync(download.uri, { idempotent: true });
+      throw new Error("Le fichier reçu ne ressemble pas à une APK Android. Relancez la compilation.");
+    }
+    setSavedApkUri(download.uri);
+    return download.uri;
+  }
+
   async function handleDownloadAndInstall() {
     if (!item.apkUri) return;
     if (Platform.OS !== "android") {
@@ -96,42 +166,8 @@ function BuildCard({ item }: { item: BuildJob }) {
       setDownloading(true);
       setDownloadProgress({ received: 0, total: 0 });
       setDownloadMessage(null);
-      const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
-      if (!directory) throw new Error("Le dossier de téléchargement est indisponible sur ce téléphone.");
-
-      const fileUri = `${directory}${makeApkFileName(item.projectName)}`;
-      const downloadTask = FileSystem.createDownloadResumable(
-        item.apkUri,
-        fileUri,
-        {},
-        ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
-          const now = Date.now();
-          if (now - lastDownloadUpdate.current < 250 && totalBytesWritten !== totalBytesExpectedToWrite) return;
-          lastDownloadUpdate.current = now;
-          setDownloadProgress({ received: totalBytesWritten, total: totalBytesExpectedToWrite });
-        },
-      );
-      const download = await downloadTask.downloadAsync();
-      if (!download) throw new Error("Le téléchargement a été interrompu avant la réception du fichier APK.");
-      const info = await FileSystem.getInfoAsync(download.uri);
-      if (!info.exists || !info.size || info.size < 10_000) {
-        await FileSystem.deleteAsync(download.uri, { idempotent: true });
-        throw new Error("Le fichier reçu n’est pas une APK Android complète. Réessayez la compilation.");
-      }
-
-      setDownloadProgress({ received: info.size, total: info.size });
-      setDownloadMessage("Fichier reçu · vérification de l’APK…");
-      const apkHeader = await FileSystem.readAsStringAsync(download.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-        length: 8,
-        position: 0,
-      });
-      if (!apkHeader.startsWith("UEs")) {
-        await FileSystem.deleteAsync(download.uri, { idempotent: true });
-        throw new Error("Le fichier reçu ne ressemble pas à une APK Android. Relancez la compilation.");
-      }
-
-      const contentUri = await FileSystem.getContentUriAsync(download.uri);
+      const fileUri = await downloadApkToPhone();
+      const contentUri = await FileSystem.getContentUriAsync(fileUri);
       setDownloadMessage("APK vérifiée · ouverture de l’installateur Android…");
       await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
         data: contentUri,
@@ -146,6 +182,40 @@ function BuildCard({ item }: { item: BuildJob }) {
         `${message}\n\nSi Android le demande, autorisez One App à installer des applications inconnues, puis réessayez.`,
       );
     } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleShareApk() {
+    try {
+      setSharingApk(true);
+      let fileUri = savedApkUri;
+      if (fileUri) {
+        const savedInfo = await FileSystem.getInfoAsync(fileUri);
+        if (!savedInfo.exists || !savedInfo.size || savedInfo.size < 10_000) {
+          fileUri = null;
+          setSavedApkUri(null);
+        }
+      }
+      if (!fileUri) {
+        setDownloading(true);
+        setDownloadProgress({ received: 0, total: 0 });
+        setDownloadMessage("Téléchargement de l’APK avant l’envoi…");
+        fileUri = await downloadApkToPhone();
+      }
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error("Le partage de fichiers est indisponible sur ce téléphone.");
+      }
+      await Sharing.shareAsync(fileUri, {
+        dialogTitle: `Envoyer l’APK ${item.projectName}`,
+        mimeType: APK_MIME_TYPE,
+      });
+      setDownloadMessage("APK prête à être envoyée depuis votre téléphone");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "L’envoi de l’APK a échoué.";
+      Alert.alert("Envoi non terminé", message);
+    } finally {
+      setSharingApk(false);
       setDownloading(false);
     }
   }
@@ -272,6 +342,22 @@ function BuildCard({ item }: { item: BuildJob }) {
             </View>
             <MaterialIcons color={colors.background} name={downloading ? "downloading" : "install-mobile"} size={24} />
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Envoyer l’APK de ${item.projectName}`}
+            disabled={downloading || sharingApk}
+            onPress={() => { void handleShareApk(); }}
+            style={({ pressed }) => [styles.shareApkButton, { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}66` }, pressed && !downloading && !sharingApk && styles.pressed]}
+          >
+            <View style={[styles.shareApkIcon, { backgroundColor: `${colors.primary}22` }]}>
+              <MaterialIcons color={colors.primary} name={sharingApk ? "downloading" : "ios-share"} size={21} />
+            </View>
+            <View style={styles.shareApkCopy}>
+              <Text style={[styles.shareApkTitle, { color: colors.foreground }]}>{sharingApk ? "Préparation de l’envoi…" : "Envoyer l’APK"}</Text>
+              <Text style={[styles.shareApkHint, { color: colors.muted }]}>{savedApkUri ? "Choisir WhatsApp, Bluetooth ou Fichiers" : "Télécharge puis ouvre les applications de partage"}</Text>
+            </View>
+            <MaterialIcons color={colors.primary} name="arrow-forward" size={20} />
+          </Pressable>
           {item.buildMode === "signed" && item.keyBackupAvailable ? (
             <Pressable
               accessibilityRole="button"
@@ -317,6 +403,9 @@ export default function BuildsScreen() {
   const colors = useColors();
   const [jobs, setJobs] = useState<BuildJob[]>([]);
   const [quota, setQuota] = useState<BuildQuota | null>(null);
+  const quotaProgress = quota ? Math.max(0, Math.min(1, quota.remaining / quota.max)) : 0;
+  const quotaWarning = quota !== null && quota.remaining <= 1;
+  const quotaColor = quotaWarning ? colors.error : colors.primary;
 
   useEffect(() => subscribeToBuildJobs(setJobs), []);
   useEffect(() => subscribeToBuildQuota(setQuota), []);
@@ -362,21 +451,56 @@ export default function BuildsScreen() {
               <View style={[styles.localBadge, { backgroundColor: `${colors.primary}15` }]}><MaterialIcons color={colors.primary} name="phone-android" size={14} /><Text style={[styles.localCount, { color: colors.primary }]}>{jobs.length}</Text></View>
             </View>
 
-            <View style={[
-              styles.quotaBadge,
-              {
-                backgroundColor: quota && quota.remaining <= 1 ? `${colors.error}14` : `${colors.primary}14`,
-                borderColor: quota && quota.remaining <= 1 ? `${colors.error}55` : `${colors.primary}55`,
-              },
-            ]}>
-              <MaterialIcons color={quota && quota.remaining <= 1 ? colors.error : colors.primary} name="bolt" size={17} />
-              <Text style={[styles.quotaText, { color: quota && quota.remaining <= 1 ? colors.error : colors.primary }]}>
-                {quota
-                  ? quota.remaining === 0
-                    ? "Limite atteinte · réessayez dans moins d’une heure"
-                    : `${quota.remaining}/${quota.max} compilations restantes cette heure`
-                  : "Vérification des compilations restantes…"}
-              </Text>
+            <View style={[styles.quotaPanel, { backgroundColor: `${quotaColor}12`, borderColor: `${quotaColor}4D` }]}>
+              <View style={styles.quotaGauge}>
+                <Svg width={QUOTA_RING_SIZE} height={QUOTA_RING_SIZE}>
+                  <Circle
+                    cx={QUOTA_RING_SIZE / 2}
+                    cy={QUOTA_RING_SIZE / 2}
+                    r={QUOTA_RING_RADIUS}
+                    stroke={`${quotaColor}26`}
+                    strokeWidth={QUOTA_RING_STROKE}
+                    fill="none"
+                  />
+                  <Circle
+                    cx={QUOTA_RING_SIZE / 2}
+                    cy={QUOTA_RING_SIZE / 2}
+                    r={QUOTA_RING_RADIUS}
+                    stroke={quotaColor}
+                    strokeWidth={QUOTA_RING_STROKE}
+                    strokeLinecap="round"
+                    fill="none"
+                    strokeDasharray={`${QUOTA_RING_CIRCUMFERENCE}`}
+                    strokeDashoffset={QUOTA_RING_CIRCUMFERENCE * (1 - quotaProgress)}
+                    rotation="-90"
+                    origin={`${QUOTA_RING_SIZE / 2}, ${QUOTA_RING_SIZE / 2}`}
+                  />
+                </Svg>
+                <View style={styles.quotaGaugeLabel}>
+                  <Text style={[styles.quotaNumber, { color: quotaColor }]}>{quota ? quota.remaining : "—"}</Text>
+                  <Text style={[styles.quotaUnit, { color: quotaColor }]}>RESTE</Text>
+                </View>
+              </View>
+              <View style={styles.quotaCopy}>
+                <Text style={[styles.quotaEyebrow, { color: quotaColor }]}>COMPILATIONS GRATUITES</Text>
+                <Text style={[styles.quotaTitle, { color: colors.foreground }]}>
+                  {quota
+                    ? quota.remaining === 0
+                      ? "Limite atteinte"
+                      : `${quota.remaining} compilation${quota.remaining > 1 ? "s" : ""} disponible${quota.remaining > 1 ? "s" : ""}`
+                    : "Vérification en cours"}
+                </Text>
+                <Text style={[styles.quotaDetail, { color: colors.muted }]}>
+                  {quota
+                    ? quota.remaining === 0
+                      ? "Réessayez dans moins d’une heure"
+                      : `sur ${quota.max} cette heure`
+                    : "Connexion au compteur sécurisé"}
+                </Text>
+                <View style={[styles.quotaTrack, { backgroundColor: `${quotaColor}26` }]}>
+                  <View style={[styles.quotaFill, { backgroundColor: quotaColor, width: `${Math.max(0, quotaProgress * 100)}%` }]} />
+                </View>
+              </View>
             </View>
 
             <View style={[styles.launchPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
@@ -434,8 +558,17 @@ const styles = StyleSheet.create({
   headerCaption: { marginTop: 2, fontSize: 9, fontWeight: "900", letterSpacing: 0.9 },
   localBadge: { minWidth: 36, height: 28, paddingHorizontal: 8, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
   localCount: { fontSize: 12, fontWeight: "900" },
-  quotaBadge: { minHeight: 38, marginBottom: 14, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 7 },
-  quotaText: { flex: 1, fontSize: 11, lineHeight: 16, fontWeight: "800" },
+  quotaPanel: { minHeight: 92, marginBottom: 14, padding: 12, borderRadius: 17, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  quotaGauge: { width: QUOTA_RING_SIZE, height: QUOTA_RING_SIZE, alignItems: "center", justifyContent: "center", marginRight: 13 },
+  quotaGaugeLabel: { position: "absolute", alignItems: "center", justifyContent: "center" },
+  quotaNumber: { fontSize: 19, lineHeight: 22, fontWeight: "900", letterSpacing: -0.5 },
+  quotaUnit: { marginTop: -1, fontSize: 7, fontWeight: "900", letterSpacing: 0.7 },
+  quotaCopy: { flex: 1, justifyContent: "center" },
+  quotaEyebrow: { fontSize: 9, fontWeight: "900", letterSpacing: 0.95 },
+  quotaTitle: { marginTop: 2, fontSize: 14, lineHeight: 18, fontWeight: "900" },
+  quotaDetail: { marginTop: 1, fontSize: 11, lineHeight: 15, fontWeight: "600" },
+  quotaTrack: { height: 4, marginTop: 8, borderRadius: 4, overflow: "hidden" },
+  quotaFill: { height: 4, borderRadius: 4 },
   launchPanel: { borderWidth: 1, borderRadius: 26, padding: 20, overflow: "hidden" },
   heroTopline: { flexDirection: "row", alignItems: "center", gap: 8 },
   orangeRule: { width: 30, height: 4, borderRadius: 3 },
@@ -474,6 +607,11 @@ const styles = StyleSheet.create({
   downloadHint: { fontSize: 11, fontWeight: "600", opacity: 0.78, marginTop: 2 },
   downloadTrack: { height: 4, borderRadius: 4, overflow: "hidden", marginTop: 8, marginRight: 14 },
   downloadFill: { height: 4, borderRadius: 4 },
+  shareApkButton: { minHeight: 62, marginTop: 9, paddingHorizontal: 13, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  shareApkIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
+  shareApkCopy: { flex: 1, paddingRight: 8 },
+  shareApkTitle: { fontSize: 13, fontWeight: "900" },
+  shareApkHint: { marginTop: 2, fontSize: 10.5, lineHeight: 15 },
   keyBackupButton: { minHeight: 64, marginTop: 9, paddingHorizontal: 13, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center" },
   keyBackupIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
   keyBackupCopy: { flex: 1, paddingRight: 8 },
