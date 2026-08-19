@@ -457,4 +457,4 @@
 - [x] Ajouter une jauge circulaire lisible pour le nombre de compilations restantes
 - [x] Ajouter un bouton pour envoyer une APK téléchargée vers les applications du téléphone
 - [x] Valider TypeScript, les tests et le parcours de partage Android
-- [ ] Compiler et préparer la nouvelle APK debug pour livraison directe
+- [x] Compiler et préparer la nouvelle APK debug pour livraison directe
