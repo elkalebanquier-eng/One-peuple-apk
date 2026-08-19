@@ -442,7 +442,7 @@
 - [x] Exposer le nombre de compilations restantes dans les réponses du moteur
 - [x] Afficher un indicateur clair de quota restant dans l’écran principal
 - [x] Valider le compteur, TypeScript et les tests de régression
-- [ ] Compiler l’APK et préparer le code source correspondant pour livraison directe
+- [x] Compiler l’APK et préparer le code source correspondant pour livraison directe
 
 ## APK signée pour publication
 
