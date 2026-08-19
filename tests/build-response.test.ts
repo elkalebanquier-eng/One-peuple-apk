@@ -7,6 +7,13 @@ describe("réponses du moteur de build", () => {
     expect(readBuildResponse('{"status":"queued","message":"Reçu"}', 202)).toEqual({ status: "queued", message: "Reçu" });
   });
 
+  it("lit le quota restant fourni après une soumission", () => {
+    expect(readBuildResponse('{"remainingBuilds":5,"maxBuildsPerHour":6}', 202)).toEqual({
+      remainingBuilds: 5,
+      maxBuildsPerHour: 6,
+    });
+  });
+
   it("masque une page HTML reçue à la place du JSON", () => {
     expect(() => readBuildResponse("<html>Bad gateway</html>", 502)).toThrow("moteur de compilation est momentanément indisponible");
   });

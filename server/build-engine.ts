@@ -33,6 +33,7 @@ type BuildRecord = {
   id: string;
   projectName: string;
   projectType: ProjectType;
+  quotaKey: string;
   sourceUrl: string;
   workerCompletionUrl: string;
   publisherCompletionUrl: string;
@@ -137,15 +138,45 @@ function parseBuildId(value: string) {
   return value;
 }
 
-function checkRateLimit(request: Request) {
-  const key = request.ip || request.socket.remoteAddress || "unknown";
+type QuotaStatus = {
+  key: string;
+  remaining: number;
+  max: number;
+};
+
+function getRateLimitKey(request: Request) {
+  return request.ip || request.socket.remoteAddress || "unknown";
+}
+
+function getQuotaStatusForKey(key: string): QuotaStatus {
   const now = Date.now();
   const validTimes = (submissionTimes.get(key) ?? []).filter((time) => now - time < 60 * 60 * 1000);
-  if (validTimes.length >= MAX_SUBMISSIONS_PER_HOUR) {
+  if (validTimes.length === 0) {
+    submissionTimes.delete(key);
+  } else {
+    submissionTimes.set(key, validTimes);
+  }
+  return {
+    key,
+    remaining: Math.max(0, MAX_SUBMISSIONS_PER_HOUR - validTimes.length),
+    max: MAX_SUBMISSIONS_PER_HOUR,
+  };
+}
+
+function getQuotaStatus(request: Request) {
+  return getQuotaStatusForKey(getRateLimitKey(request));
+}
+
+function checkRateLimit(request: Request) {
+  const key = getRateLimitKey(request);
+  const quota = getQuotaStatusForKey(key);
+  if (quota.remaining === 0) {
     throw new BuildRequestError("Vous avez déjà lancé six compilations récemment. Attendez une heure avant de recommencer.", 429);
   }
-  validTimes.push(now);
+  const validTimes = submissionTimes.get(key) ?? [];
+  validTimes.push(Date.now());
   submissionTimes.set(key, validTimes);
+  return getQuotaStatusForKey(key);
 }
 
 function cleanExpiredBuilds() {
@@ -219,6 +250,7 @@ async function verifyWorkerOrBuildToken(
 }
 
 function sendJob(response: Response, job: BuildRecord, includeKeyBackupUrl = false) {
+  const quota = getQuotaStatusForKey(job.quotaKey);
   const signing = job.buildMode === "signed"
     ? {
       buildMode: job.buildMode,
@@ -234,11 +266,18 @@ function sendJob(response: Response, job: BuildRecord, includeKeyBackupUrl = fal
     // The release path is deterministic. Returning it early lets the phone
     // recover a completed APK if the in-memory build status vanishes.
     apkUrl: job.apkUrl ?? getExpectedApkUrl(job.id),
+    remainingBuilds: quota.remaining,
+    maxBuildsPerHour: quota.max,
     ...signing,
   });
 }
 
 export function registerBuildRoutes(app: Express) {
+  app.get("/api/quota", (request: Request, response: Response) => {
+    const quota = getQuotaStatus(request);
+    response.json({ remaining: quota.remaining, max: quota.max });
+  });
+
   app.post(
     "/api/builds/submit",
     receiveBuildSubmission,
@@ -263,7 +302,7 @@ export function registerBuildRoutes(app: Express) {
         if (archive.length > MAX_SOURCE_SIZE) throw new BuildRequestError("Le ZIP dépasse la limite de 50 Mo.", 413);
         if (!isZip(archive)) throw new BuildRequestError("Le fichier envoyé n’est pas une archive ZIP valide.", 400);
         if (builds.has(buildId)) throw new BuildRequestError("Cette compilation a déjà été reçue.", 409);
-        checkRateLimit(request);
+        const quota = checkRateLimit(request);
 
         const now = Date.now();
         const workerAccessToken = randomBytes(32).toString("base64url");
@@ -274,6 +313,7 @@ export function registerBuildRoutes(app: Express) {
           id: buildId,
           projectName,
           projectType,
+          quotaKey: quota.key,
           sourceUrl: `${buildBaseUrl}/source?accessToken=${workerAccessToken}`,
           workerCompletionUrl: `${buildBaseUrl}/complete?accessToken=${workerAccessToken}`,
           publisherCompletionUrl: `${buildBaseUrl}/complete?accessToken=${publisherAccessToken}`,

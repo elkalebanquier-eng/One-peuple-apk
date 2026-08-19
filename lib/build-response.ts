@@ -2,6 +2,10 @@ export type BuildResponsePayload = {
   status?: string;
   message?: string;
   apkUrl?: string;
+  remaining?: number;
+  max?: number;
+  remainingBuilds?: number;
+  maxBuildsPerHour?: number;
 };
 
 /** Converts server output into a safe response, never exposing JSON parsing details. */

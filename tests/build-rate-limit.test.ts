@@ -9,4 +9,12 @@ describe("One App free compilation quota", () => {
     expect(engine).toContain("six compilations récemment");
     expect(engine).not.toContain("deux compilations récemment");
   });
+
+  it("returns the remaining builds without consuming another quota slot", async () => {
+    const engine = await readFile("server/build-engine.ts", "utf8");
+
+    expect(engine).toContain('app.get("/api/quota"');
+    expect(engine).toContain("remainingBuilds: quota.remaining");
+    expect(engine).toContain("maxBuildsPerHour: quota.max");
+  });
 });

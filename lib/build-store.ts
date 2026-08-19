@@ -13,6 +13,11 @@ export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
 export type BuildMode = "debug" | "signed";
 
+export type BuildQuota = {
+  remaining: number;
+  max: number;
+};
+
 export interface BuildJob {
   id: string;
   projectName: string;
@@ -72,7 +77,9 @@ export const PROJECT_TYPES: Array<{
 const STORAGE_KEY = "one-app-build-jobs-v1";
 const KEY_BACKUP_URL_PREFIX = "one-app-key-backup-url:";
 const listeners = new Set<(jobs: BuildJob[]) => void>();
+const quotaListeners = new Set<(quota: BuildQuota | null) => void>();
 let cache: BuildJob[] | null = null;
+let quotaCache: BuildQuota | null = null;
 
 function makeId() {
   return `build-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -93,6 +100,23 @@ async function writeJobs(jobs: BuildJob[]) {
   cache = jobs;
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
   listeners.forEach((listener) => listener(jobs));
+}
+
+function saveBuildQuota(remaining: unknown, max: unknown) {
+  if (
+    typeof remaining !== "number"
+    || typeof max !== "number"
+    || !Number.isFinite(remaining)
+    || !Number.isFinite(max)
+    || max <= 0
+  ) return quotaCache;
+
+  quotaCache = {
+    remaining: Math.max(0, Math.min(Math.floor(remaining), Math.floor(max))),
+    max: Math.floor(max),
+  };
+  quotaListeners.forEach((listener) => listener(quotaCache));
+  return quotaCache;
 }
 
 async function updateJob(id: string, patch: Partial<BuildJob>) {
@@ -163,6 +187,25 @@ export function subscribeToBuildJobs(listener: (jobs: BuildJob[]) => void) {
   return () => {
     listeners.delete(listener);
   };
+}
+
+export function subscribeToBuildQuota(listener: (quota: BuildQuota | null) => void) {
+  quotaListeners.add(listener);
+  listener(quotaCache);
+  return () => {
+    quotaListeners.delete(listener);
+  };
+}
+
+export async function refreshBuildQuota() {
+  try {
+    const response = await fetch(buildApiUrl("/api/quota"));
+    const payload = readBuildResponse(await response.text(), response.status);
+    if (!response.ok) return quotaCache;
+    return saveBuildQuota(payload.remaining, payload.max);
+  } catch {
+    return quotaCache;
+  }
 }
 
 export async function createLocalBuildDraft(input: {
@@ -272,6 +315,8 @@ export async function submitBuildJob(job: BuildJob) {
         buildMode?: BuildMode;
         keyBackupUrl?: string;
         keyBackupAvailable?: boolean;
+        remainingBuilds?: number;
+        maxBuildsPerHour?: number;
       }
       : {};
     if (statusCode < 200 || statusCode >= 300) {
@@ -281,6 +326,7 @@ export async function submitBuildJob(job: BuildJob) {
     if (payload.buildMode === "signed" && payload.keyBackupUrl) {
       await savePrivateKeyBackupUrl(job.id, payload.keyBackupUrl);
     }
+    saveBuildQuota(payload.remainingBuilds, payload.maxBuildsPerHour);
 
     return await updateJob(job.id, {
       status: "queued",
@@ -323,6 +369,8 @@ export async function refreshBuildJob(job: BuildJob) {
       apkUrl?: string;
       buildMode?: BuildMode;
       keyBackupAvailable?: boolean;
+      remainingBuilds?: number;
+      maxBuildsPerHour?: number;
     };
     const unavailableMessage = getUnavailableBuildMessage(response.status, payload.message);
     if (unavailableMessage) {
@@ -339,6 +387,7 @@ export async function refreshBuildJob(job: BuildJob) {
     if (!response.ok || !payload.status) {
       throw new Error(payload.message || "Le statut est indisponible.");
     }
+    saveBuildQuota(payload.remainingBuilds, payload.maxBuildsPerHour);
     return await updateJob(job.id, {
       status: payload.status,
       message: payload.message || job.message,

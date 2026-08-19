@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import { Alert, FlatList, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
@@ -14,10 +14,13 @@ import {
   formatBytes,
   getPrivateKeyBackupUrl,
   getProjectType,
+  refreshBuildQuota,
   refreshBuildJob,
   restartBuildJob,
+  subscribeToBuildQuota,
   subscribeToBuildJobs,
   type BuildJob,
+  type BuildQuota,
   type BuildStatus,
   type ProjectType,
 } from "@/lib/build-store";
@@ -313,8 +316,14 @@ function BuildCard({ item }: { item: BuildJob }) {
 export default function BuildsScreen() {
   const colors = useColors();
   const [jobs, setJobs] = useState<BuildJob[]>([]);
+  const [quota, setQuota] = useState<BuildQuota | null>(null);
 
   useEffect(() => subscribeToBuildJobs(setJobs), []);
+  useEffect(() => subscribeToBuildQuota(setQuota), []);
+
+  useFocusEffect(useCallback(() => {
+    void refreshBuildQuota();
+  }, []));
 
   useEffect(() => {
     const activeJobs = jobs.filter((job) => job.status === "queued" || job.status === "building");
@@ -351,6 +360,23 @@ export default function BuildsScreen() {
                 </View>
               </View>
               <View style={[styles.localBadge, { backgroundColor: `${colors.primary}15` }]}><MaterialIcons color={colors.primary} name="phone-android" size={14} /><Text style={[styles.localCount, { color: colors.primary }]}>{jobs.length}</Text></View>
+            </View>
+
+            <View style={[
+              styles.quotaBadge,
+              {
+                backgroundColor: quota && quota.remaining <= 1 ? `${colors.error}14` : `${colors.primary}14`,
+                borderColor: quota && quota.remaining <= 1 ? `${colors.error}55` : `${colors.primary}55`,
+              },
+            ]}>
+              <MaterialIcons color={quota && quota.remaining <= 1 ? colors.error : colors.primary} name="bolt" size={17} />
+              <Text style={[styles.quotaText, { color: quota && quota.remaining <= 1 ? colors.error : colors.primary }]}>
+                {quota
+                  ? quota.remaining === 0
+                    ? "Limite atteinte · réessayez dans moins d’une heure"
+                    : `${quota.remaining}/${quota.max} compilations restantes cette heure`
+                  : "Vérification des compilations restantes…"}
+              </Text>
             </View>
 
             <View style={[styles.launchPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
@@ -408,6 +434,8 @@ const styles = StyleSheet.create({
   headerCaption: { marginTop: 2, fontSize: 9, fontWeight: "900", letterSpacing: 0.9 },
   localBadge: { minWidth: 36, height: 28, paddingHorizontal: 8, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
   localCount: { fontSize: 12, fontWeight: "900" },
+  quotaBadge: { minHeight: 38, marginBottom: 14, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 7 },
+  quotaText: { flex: 1, fontSize: 11, lineHeight: 16, fontWeight: "800" },
   launchPanel: { borderWidth: 1, borderRadius: 26, padding: 20, overflow: "hidden" },
   heroTopline: { flexDirection: "row", alignItems: "center", gap: 8 },
   orangeRule: { width: 30, height: 4, borderRadius: 3 },

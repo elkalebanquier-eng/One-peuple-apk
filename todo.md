@@ -439,15 +439,15 @@
 
 ## Indicateur de compilations restantes
 
-- [ ] Exposer le nombre de compilations restantes dans les réponses du moteur
-- [ ] Afficher un indicateur clair de quota restant dans l’écran principal
-- [ ] Valider le compteur, TypeScript et les tests de régression
+- [x] Exposer le nombre de compilations restantes dans les réponses du moteur
+- [x] Afficher un indicateur clair de quota restant dans l’écran principal
+- [x] Valider le compteur, TypeScript et les tests de régression
 - [ ] Compiler l’APK et préparer le code source correspondant pour livraison directe
 
 ## APK signée pour publication
 
-- [ ] Ajouter le choix APK debug ou APK signée avec une explication simple
-- [ ] Générer une clé propre au projet sans conserver son mot de passe dans le moteur
-- [ ] Compiler une APK release signée et préparer une sauvegarde temporaire de la clé `.jks`
-- [ ] Permettre le téléchargement de l’APK signée et de la clé uniquement depuis le téléphone
-- [ ] Tester les protections, la compilation release et la remise des fichiers
+- [x] Ajouter le choix APK debug ou APK signée avec une explication simple
+- [x] Générer une clé propre au projet sans conserver son mot de passe dans le moteur
+- [x] Compiler une APK release signée et préparer une sauvegarde temporaire de la clé `.jks`
+- [x] Permettre le téléchargement de l’APK signée et de la clé uniquement depuis le téléphone
+- [x] Tester les protections, la compilation release et la remise des fichiers
