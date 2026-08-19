@@ -480,6 +480,6 @@
 
 ## Mode Agent MIA💻 — API, IA et données
 
-- [ ] Définir les connecteurs autorisables et les limites de chaque action
-- [ ] Concevoir un écran de consentement et de confirmation avant toute opération sensible
-- [ ] Préparer une feuille de route pour un relais sécurisé sans clés intégrées dans l’APK
+- [x] Définir les connecteurs autorisables et les limites de chaque action
+- [x] Concevoir un écran de consentement et de confirmation avant toute opération sensible
+- [x] Préparer une feuille de route pour un relais sécurisé sans clés intégrées dans l’APK
