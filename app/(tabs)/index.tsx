@@ -5,11 +5,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
+import * as Sharing from "expo-sharing";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import {
+  clearPrivateKeyBackupUrl,
   formatBytes,
+  getPrivateKeyBackupUrl,
   getProjectType,
   refreshBuildJob,
   restartBuildJob,
@@ -48,6 +51,16 @@ function makeApkFileName(projectName: string) {
   return `${safeName}-${Date.now()}.apk`;
 }
 
+function makeKeyBackupFileName(projectName: string) {
+  const safeName = projectName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "one-app";
+  return `${safeName}-cle-de-signature.zip`;
+}
+
 function BuildCard({ item }: { item: BuildJob }) {
   const colors = useColors();
   const type = getProjectType(item.projectType);
@@ -56,6 +69,7 @@ function BuildCard({ item }: { item: BuildJob }) {
   const [downloadProgress, setDownloadProgress] = useState<{ received: number; total: number } | null>(null);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
   const lastDownloadUpdate = useRef(0);
   const canRestart = item.status === "complete" || item.status === "failed";
   const receivedBytes = downloadProgress?.received ?? 0;
@@ -149,6 +163,60 @@ function BuildCard({ item }: { item: BuildJob }) {
     }
   }
 
+  async function shareSavedKeyBackup(fileUri: string) {
+    if (!(await Sharing.isAvailableAsync())) {
+      throw new Error("Le partage de fichiers est indisponible sur ce téléphone.");
+    }
+    await Sharing.shareAsync(fileUri, {
+      dialogTitle: "Sauvegarder ma clé de signature",
+      mimeType: "application/zip",
+    });
+  }
+
+  async function downloadAndShareKeyBackup() {
+    try {
+      setSavingKey(true);
+      const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+      if (!directory) throw new Error("Le dossier de sauvegarde est indisponible sur ce téléphone.");
+      const fileUri = `${directory}${makeKeyBackupFileName(item.projectName)}`;
+      const existing = await FileSystem.getInfoAsync(fileUri);
+      if (existing.exists && existing.size && existing.size > 100) {
+        await shareSavedKeyBackup(fileUri);
+        return;
+      }
+
+      const keyBackupUrl = await getPrivateKeyBackupUrl(item.id);
+      if (!keyBackupUrl) {
+        throw new Error("La sauvegarde privée n’est plus disponible. Ne supprimez jamais une clé déjà sauvegardée : elle est nécessaire pour mettre à jour cette application.");
+      }
+      const download = await FileSystem.downloadAsync(keyBackupUrl, fileUri);
+      const received = await FileSystem.getInfoAsync(download.uri);
+      if (!received.exists || !received.size || received.size < 100) {
+        await FileSystem.deleteAsync(download.uri, { idempotent: true });
+        throw new Error("La sauvegarde reçue est incomplète. Réessayez seulement si aucun fichier n’a été reçu.");
+      }
+      await clearPrivateKeyBackupUrl(item.id);
+      await shareSavedKeyBackup(download.uri);
+      Alert.alert("Clé prête à sauvegarder", "Choisissez un dossier privé ou une application de fichiers. Gardez ce ZIP et son mot de passe : ils sont nécessaires pour publier une mise à jour de cette application.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "La sauvegarde de clé a échoué.";
+      Alert.alert("Sauvegarde non terminée", message);
+    } finally {
+      setSavingKey(false);
+    }
+  }
+
+  function confirmKeyBackup() {
+    Alert.alert(
+      "Sauvegarder la clé ?",
+      "Cette sauvegarde privée ne peut être téléchargée qu’une seule fois. Vérifiez votre connexion, puis choisissez un endroit privé sur le téléphone.",
+      [
+        { text: "Pas maintenant", style: "cancel" },
+        { text: "Télécharger la clé", onPress: () => { void downloadAndShareKeyBackup(); } },
+      ],
+    );
+  }
+
   return (
     <View style={[styles.buildCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.cardTopRow}>
@@ -168,12 +236,17 @@ function BuildCard({ item }: { item: BuildJob }) {
         </View>
       </View>
 
-      <View style={[styles.statusStrip, { backgroundColor: `${status.color}12` }]}>
+      <View style={[styles.statusStrip, { backgroundColor: `${status.color}12` }]}> 
         <View style={[styles.statusMark, { backgroundColor: status.color }]} />
         <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
         <Text numberOfLines={1} style={[styles.statusDetail, { color: colors.muted }]}>
           {item.message || item.sourceName}
         </Text>
+      </View>
+
+      <View style={[styles.buildModeBadge, { backgroundColor: item.buildMode === "signed" ? `${colors.success}16` : `${colors.primary}16` }]}>
+        <MaterialIcons color={item.buildMode === "signed" ? colors.success : colors.primary} name={item.buildMode === "signed" ? "verified-user" : "science"} size={14} />
+        <Text style={[styles.buildModeBadgeText, { color: item.buildMode === "signed" ? colors.success : colors.primary }]}>{item.buildMode === "signed" ? "APK signée · publication" : "APK de test · Android"}</Text>
       </View>
 
       {item.status === "complete" && item.apkUri ? (
@@ -196,6 +269,22 @@ function BuildCard({ item }: { item: BuildJob }) {
             </View>
             <MaterialIcons color={colors.background} name={downloading ? "downloading" : "install-mobile"} size={24} />
           </Pressable>
+          {item.buildMode === "signed" && item.keyBackupAvailable ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Sauvegarder la clé de signature de ${item.projectName}`}
+              disabled={savingKey || downloading}
+              onPress={confirmKeyBackup}
+              style={({ pressed }) => [styles.keyBackupButton, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}66` }, pressed && !savingKey && styles.pressed]}
+            >
+              <View style={[styles.keyBackupIcon, { backgroundColor: `${colors.success}20` }]}><MaterialIcons color={colors.success} name={savingKey ? "downloading" : "key"} size={21} /></View>
+              <View style={styles.keyBackupCopy}>
+                <Text style={[styles.keyBackupTitle, { color: colors.foreground }]}>{savingKey ? "Préparation de la clé…" : "Sauvegarder ma clé"}</Text>
+                <Text style={[styles.keyBackupHint, { color: colors.muted }]}>{savingKey ? "Ne fermez pas One App" : "Une seule fois · indispensable pour les mises à jour"}</Text>
+              </View>
+              <MaterialIcons color={colors.success} name="ios-share" size={20} />
+            </Pressable>
+          ) : null}
         </>
       ) : null}
 
@@ -349,12 +438,19 @@ const styles = StyleSheet.create({
   statusMark: { width: 6, height: 6, borderRadius: 3 },
   statusLabel: { fontSize: 11, fontWeight: "900" },
   statusDetail: { flex: 1, fontSize: 11, textAlign: "right" },
+  buildModeBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5, marginTop: 9 },
+  buildModeBadgeText: { fontSize: 10, fontWeight: "800" },
   downloadButton: { minHeight: 68, marginTop: 12, paddingHorizontal: 15, borderRadius: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   downloadCopy: { flex: 1 },
   downloadTitle: { fontSize: 14, fontWeight: "900" },
   downloadHint: { fontSize: 11, fontWeight: "600", opacity: 0.78, marginTop: 2 },
   downloadTrack: { height: 4, borderRadius: 4, overflow: "hidden", marginTop: 8, marginRight: 14 },
   downloadFill: { height: 4, borderRadius: 4 },
+  keyBackupButton: { minHeight: 64, marginTop: 9, paddingHorizontal: 13, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  keyBackupIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
+  keyBackupCopy: { flex: 1, paddingRight: 8 },
+  keyBackupTitle: { fontSize: 13, fontWeight: "900" },
+  keyBackupHint: { fontSize: 10.5, lineHeight: 15, marginTop: 2 },
   restartButton: { minHeight: 57, marginTop: 10, paddingHorizontal: 15, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   restartCopy: { flex: 1 },
   restartTitle: { fontSize: 14, fontWeight: "900" },

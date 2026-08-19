@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
+import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 import { getApiBaseUrl } from "@/constants/oauth";
@@ -10,6 +11,7 @@ import { getExpectedApkUrl } from "@/shared/build-delivery";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
+export type BuildMode = "debug" | "signed";
 
 export interface BuildJob {
   id: string;
@@ -24,6 +26,8 @@ export interface BuildJob {
   packageName?: string;
   appVersion?: string;
   versionCode?: number;
+  buildMode: BuildMode;
+  keyBackupAvailable?: boolean;
   status: BuildStatus;
   createdAt: string;
   updatedAt: string;
@@ -66,6 +70,7 @@ export const PROJECT_TYPES: Array<{
 ];
 
 const STORAGE_KEY = "one-app-build-jobs-v1";
+const KEY_BACKUP_URL_PREFIX = "one-app-key-backup-url:";
 const listeners = new Set<(jobs: BuildJob[]) => void>();
 let cache: BuildJob[] | null = null;
 
@@ -126,7 +131,26 @@ function buildHeaders(job: BuildJob) {
     "x-one-app-source-name": encodeURIComponent(job.sourceName),
     "x-one-app-package-name": encodeURIComponent(job.packageName ?? getGeneratedPackageName(job.id)),
     "x-one-app-app-version": encodeURIComponent(job.appVersion ?? DEFAULT_APP_VERSION),
+    "x-one-app-build-mode": encodeURIComponent(job.buildMode),
   };
+}
+
+function keyBackupStorageKey(buildId: string) {
+  return `${KEY_BACKUP_URL_PREFIX}${buildId}`;
+}
+
+/** The key link is private: it never enters AsyncStorage or the build history. */
+export async function getPrivateKeyBackupUrl(buildId: string) {
+  return SecureStore.getItemAsync(keyBackupStorageKey(buildId));
+}
+
+export async function clearPrivateKeyBackupUrl(buildId: string) {
+  await SecureStore.deleteItemAsync(keyBackupStorageKey(buildId));
+}
+
+async function savePrivateKeyBackupUrl(buildId: string, url: string | undefined) {
+  if (!url) return;
+  await SecureStore.setItemAsync(keyBackupStorageKey(buildId), url);
 }
 
 export async function loadBuildJobs() {
@@ -152,6 +176,7 @@ export async function createLocalBuildDraft(input: {
   iconUri?: string;
   packageName?: string;
   appVersion?: string;
+  buildMode?: BuildMode;
 }) {
   if (!FileSystem.documentDirectory) {
     throw new Error("Le stockage privé de l’application est indisponible.");
@@ -192,6 +217,7 @@ export async function createLocalBuildDraft(input: {
     packageName: identity.packageName,
     appVersion: identity.appVersion,
     versionCode: identity.versionCode,
+    buildMode: input.buildMode ?? "debug",
     status: "ready",
     createdAt: now,
     updatedAt: now,
@@ -239,15 +265,29 @@ export async function submitBuildJob(job: BuildJob) {
       responseBody = response.body;
     }
 
-    const payload = responseBody ? JSON.parse(responseBody) as { message?: string; apkUrl?: string } : {};
+    const payload = responseBody
+      ? readBuildResponse(responseBody, statusCode) as {
+        message?: string;
+        apkUrl?: string;
+        buildMode?: BuildMode;
+        keyBackupUrl?: string;
+        keyBackupAvailable?: boolean;
+      }
+      : {};
     if (statusCode < 200 || statusCode >= 300) {
       throw new Error(payload.message || "L’envoi n’a pas pu être terminé.");
+    }
+
+    if (payload.buildMode === "signed" && payload.keyBackupUrl) {
+      await savePrivateKeyBackupUrl(job.id, payload.keyBackupUrl);
     }
 
     return await updateJob(job.id, {
       status: "queued",
       message: payload.message || "Votre projet attend le démarrage de la compilation.",
       apkUri: payload.apkUrl || getExpectedApkUrl(job.id),
+      buildMode: payload.buildMode ?? job.buildMode,
+      keyBackupAvailable: payload.keyBackupAvailable ?? false,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "L’envoi a échoué. Vérifiez votre connexion puis réessayez.";
@@ -277,7 +317,13 @@ export async function refreshBuildJob(job: BuildJob) {
 
   try {
     const response = await fetch(buildApiUrl(`/api/builds/${encodeURIComponent(job.id)}/status`));
-    const payload = readBuildResponse(await response.text(), response.status) as { status?: BuildStatus; message?: string; apkUrl?: string };
+    const payload = readBuildResponse(await response.text(), response.status) as {
+      status?: BuildStatus;
+      message?: string;
+      apkUrl?: string;
+      buildMode?: BuildMode;
+      keyBackupAvailable?: boolean;
+    };
     const unavailableMessage = getUnavailableBuildMessage(response.status, payload.message);
     if (unavailableMessage) {
       const apkUri = await findPublishedApk(job);
@@ -297,6 +343,8 @@ export async function refreshBuildJob(job: BuildJob) {
       status: payload.status,
       message: payload.message || job.message,
       apkUri: payload.apkUrl || job.apkUri || getExpectedApkUrl(job.id),
+      buildMode: payload.buildMode ?? job.buildMode,
+      keyBackupAvailable: payload.keyBackupAvailable ?? job.keyBackupAvailable ?? false,
     });
   } catch {
     // A short network issue must not turn a real build into a permanent failure.

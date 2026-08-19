@@ -15,6 +15,8 @@ const OIDC_AUDIENCE = "one-app-build-worker";
 const MAX_SOURCE_SIZE = 50 * 1024 * 1024;
 const MAX_ICON_SIZE = 1024 * 1024;
 const MAX_ICON_BASE64_LENGTH = Math.ceil((MAX_ICON_SIZE * 4) / 3) + 4;
+const MAX_KEY_BACKUP_SIZE = 96 * 1024;
+const MAX_KEY_BACKUP_BASE64_LENGTH = Math.ceil((MAX_KEY_BACKUP_SIZE * 4) / 3) + 4;
 const MAX_SUBMISSIONS_PER_HOUR = 6;
 // APK releases remain available for 48 hours; keep the matching status record
 // for the same duration so a completed download cannot disappear early.
@@ -24,6 +26,7 @@ const submissionTimes = new Map<string, number[]>();
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 
 type ProjectType = "expo" | "android" | "html";
+type BuildMode = "debug" | "signed";
 type BuildState = "queued" | "building" | "complete" | "failed";
 
 type BuildRecord = {
@@ -38,6 +41,10 @@ type BuildRecord = {
   sourceArchive?: Buffer;
   iconUrl?: string;
   iconArchive?: Buffer;
+  buildMode: BuildMode;
+  keyBackupUrl?: string;
+  keyBackupAccessToken?: string;
+  keyBackupArchive?: Buffer;
   packageName: string;
   appVersion: string;
   versionCode: number;
@@ -115,6 +122,12 @@ function receiveBuildSubmission(request: Request, response: Response, next: () =
 function parseProjectType(value: string): ProjectType {
   if (value === "expo" || value === "android" || value === "html") return value;
   throw new BuildRequestError("Choisissez d’abord le type de projet.", 400);
+}
+
+function parseBuildMode(value: string): BuildMode {
+  if (!value || value === "debug") return "debug";
+  if (value === "signed") return "signed";
+  throw new BuildRequestError("Le type d’APK choisi est invalide.", 400);
 }
 
 function parseBuildId(value: string) {
@@ -205,7 +218,14 @@ async function verifyWorkerOrBuildToken(
   await verifyWorker(request, allowedWorkflows, allowedEvents);
 }
 
-function sendJob(response: Response, job: BuildRecord) {
+function sendJob(response: Response, job: BuildRecord, includeKeyBackupUrl = false) {
+  const signing = job.buildMode === "signed"
+    ? {
+      buildMode: job.buildMode,
+      keyBackupAvailable: Boolean(job.keyBackupArchive),
+      ...(includeKeyBackupUrl && job.keyBackupUrl ? { keyBackupUrl: job.keyBackupUrl } : {}),
+    }
+    : { buildMode: job.buildMode, keyBackupAvailable: false };
   response.json({
     id: job.id,
     projectName: job.projectName,
@@ -214,6 +234,7 @@ function sendJob(response: Response, job: BuildRecord) {
     // The release path is deterministic. Returning it early lets the phone
     // recover a completed APK if the in-memory build status vanishes.
     apkUrl: job.apkUrl ?? getExpectedApkUrl(job.id),
+    ...signing,
   });
 }
 
@@ -226,6 +247,7 @@ export function registerBuildRoutes(app: Express) {
         cleanExpiredBuilds();
         const buildId = parseBuildId(getHeaderValue(request, "x-one-app-build-id"));
         const projectType = parseProjectType(getHeaderValue(request, "x-one-app-project-type"));
+        const buildMode = parseBuildMode(getHeaderValue(request, "x-one-app-build-mode"));
         const projectName = getHeaderValue(request, "x-one-app-project-name").trim().slice(0, 80) || "Mon projet";
         const identity = readAppIdentity(
           getHeaderValue(request, "x-one-app-package-name") || getGeneratedPackageName(buildId),
@@ -246,6 +268,7 @@ export function registerBuildRoutes(app: Express) {
         const now = Date.now();
         const workerAccessToken = randomBytes(32).toString("base64url");
         const publisherAccessToken = randomBytes(32).toString("base64url");
+        const keyBackupAccessToken = buildMode === "signed" ? randomBytes(32).toString("base64url") : undefined;
         const buildBaseUrl = `${getPublicBaseUrl()}/api/builds/${buildId}`;
         const job: BuildRecord = {
           id: buildId,
@@ -259,6 +282,9 @@ export function registerBuildRoutes(app: Express) {
           sourceArchive: archive,
           iconUrl: customIcon ? `${buildBaseUrl}/icon?accessToken=${workerAccessToken}` : undefined,
           iconArchive: customIcon,
+          buildMode,
+          keyBackupAccessToken,
+          keyBackupUrl: keyBackupAccessToken ? `${buildBaseUrl}/key-backup?accessToken=${keyBackupAccessToken}` : undefined,
           packageName: identity.packageName,
           appVersion: identity.appVersion,
           versionCode: identity.versionCode,
@@ -269,7 +295,7 @@ export function registerBuildRoutes(app: Express) {
         };
         builds.set(buildId, job);
         response.status(202);
-        sendJob(response, job);
+        sendJob(response, job, true);
       } catch (error) {
         const buildError = error instanceof BuildRequestError
           ? error
@@ -338,6 +364,30 @@ export function registerBuildRoutes(app: Express) {
     }
   });
 
+  app.get("/api/builds/:buildId/key-backup", (request: Request, response: Response) => {
+    try {
+      cleanExpiredBuilds();
+      const buildId = parseBuildId(request.params.buildId);
+      const job = builds.get(buildId);
+      if (!job || job.buildMode !== "signed" || !job.keyBackupArchive || !job.keyBackupAccessToken) {
+        throw new BuildRequestError("La sauvegarde de clé n’est plus disponible. Gardez toujours ce fichier après le téléchargement.", 410);
+      }
+      if (!hasValidBuildToken(request, job.keyBackupAccessToken)) {
+        throw new BuildRequestError("Accès protégé à la clé de signature refusé.", 403);
+      }
+      const archive = job.keyBackupArchive;
+      job.keyBackupArchive = undefined;
+      job.updatedAt = Date.now();
+      response.type("application/zip");
+      response.set("Cache-Control", "no-store");
+      response.set("Content-Disposition", `attachment; filename="one-app-cle-${job.id}.zip"`);
+      response.send(archive);
+    } catch (error) {
+      const buildError = error instanceof BuildRequestError ? error : new BuildRequestError("La sauvegarde de clé est indisponible.", 500);
+      response.status(buildError.statusCode).json({ message: buildError.message });
+    }
+  });
+
   app.get("/api/builds/next", async (request: Request, response: Response) => {
     try {
       await verifyWorker(request, [WORKER_WORKFLOW]);
@@ -353,6 +403,7 @@ export function registerBuildRoutes(app: Express) {
       response.json({
         id: job.id,
         projectType: job.projectType,
+        buildMode: job.buildMode,
         sourceUrl: job.sourceUrl,
         iconUrl: job.iconUrl,
           packageName: job.packageName,
@@ -369,7 +420,7 @@ export function registerBuildRoutes(app: Express) {
 
   app.post(
     "/api/builds/:buildId/complete",
-    express.json({ limit: "32kb" }),
+    express.json({ limit: "128kb" }),
     async (request: Request, response: Response) => {
       try {
         const buildId = parseBuildId(request.params.buildId);
@@ -381,6 +432,22 @@ export function registerBuildRoutes(app: Express) {
         }
         if (outcome === "complete") {
           await verifyWorkerOrBuildToken(request, job.publisherAccessToken, [PUBLISHER_WORKFLOW], ["workflow_run"]);
+          if (job.buildMode === "signed") {
+            const keyBackupBase64 = request.body?.keyBackupBase64;
+            if (
+              typeof keyBackupBase64 !== "string"
+              || keyBackupBase64.length === 0
+              || keyBackupBase64.length > MAX_KEY_BACKUP_BASE64_LENGTH
+              || !/^[A-Za-z0-9+/]+={0,2}$/.test(keyBackupBase64)
+            ) {
+              throw new BuildRequestError("La sauvegarde de clé de signature est invalide.", 400);
+            }
+            const keyBackup = Buffer.from(keyBackupBase64, "base64");
+            if (keyBackup.length === 0 || keyBackup.length > MAX_KEY_BACKUP_SIZE || !isZip(keyBackup)) {
+              throw new BuildRequestError("La sauvegarde de clé de signature est invalide.", 400);
+            }
+            job.keyBackupArchive = keyBackup;
+          }
           job.apkUrl = getExpectedApkUrl(buildId);
         } else {
           await verifyWorkerOrBuildToken(request, job.workerAccessToken, [WORKER_WORKFLOW, PUBLISHER_WORKFLOW]);

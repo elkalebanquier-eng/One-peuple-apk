@@ -11,7 +11,7 @@ import { router, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { prepareAssistantHtmlSource, takeAssistantDraft } from "@/lib/ai-code-assistant";
-import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type ProjectType } from "@/lib/build-store";
+import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type BuildMode, type ProjectType } from "@/lib/build-store";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
 import { DEFAULT_APP_VERSION, getProjectPackageName, readAppIdentity } from "@/shared/app-identity";
@@ -30,6 +30,7 @@ export default function NewBuildScreen() {
   const [customIcon, setCustomIcon] = useState<SelectedAppIcon | null>(null);
   const [packageName, setPackageName] = useState("com.oneapp.monapp");
   const [appVersion, setAppVersion] = useState(DEFAULT_APP_VERSION);
+  const [buildMode, setBuildMode] = useState<BuildMode>("debug");
   const [saving, setSaving] = useState(false);
 
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
@@ -144,9 +145,16 @@ export default function NewBuildScreen() {
         iconUri: customIcon?.uri,
         packageName: appIdentity.packageName,
         appVersion: appIdentity.appVersion,
+        buildMode,
       });
       await submitBuildJob(job);
-      Alert.alert("Compilation lancée", "One App prépare votre APK. Vous verrez son avancement dans Builds.", [{ text: "Voir les builds", onPress: () => router.replace("/(tabs)") }]);
+      Alert.alert(
+        "Compilation lancée",
+        buildMode === "signed"
+          ? "One App prépare une APK signée. Quand elle sera prête, téléchargez aussi la sauvegarde de clé une seule fois depuis Builds."
+          : "One App prépare votre APK de test. Vous verrez son avancement dans Builds.",
+        [{ text: "Voir les builds", onPress: () => router.replace("/(tabs)") }],
+      );
     } catch (error) {
       Alert.alert("Compilation non lancée", error instanceof Error ? error.message : "Vérifiez votre connexion et réessayez.");
     } finally {
@@ -286,13 +294,50 @@ export default function NewBuildScreen() {
         </View>
         {!appIdentity.valid ? <Text style={[styles.identityError, { color: colors.error }]}>{appIdentity.message}</Text> : null}
 
+        <View style={styles.optionalHead}>
+          <View style={[styles.optionalBadge, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="verified-user" size={17} /></View>
+          <View><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Type d’APK</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>Choisissez une version de test ou une version prête à signer pour une publication.</Text></View>
+        </View>
+        <View style={styles.buildModeList}>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: buildMode === "debug" }}
+            accessibilityLabel="APK de test"
+            disabled={saving}
+            onPress={() => setBuildMode("debug")}
+            style={({ pressed }) => [styles.buildModeRow, { backgroundColor: buildMode === "debug" ? `${colors.primary}13` : colors.surface, borderColor: buildMode === "debug" ? colors.primary : colors.border }, pressed && styles.pressed]}
+          >
+            <View style={[styles.buildModeIcon, { backgroundColor: buildMode === "debug" ? colors.primary : colors.background }]}><MaterialIcons color={buildMode === "debug" ? colors.background : colors.primary} name="science" size={21} /></View>
+            <View style={styles.buildModeCopy}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>APK de test</Text><Text style={[styles.buildModeText, { color: colors.muted }]}>À installer et essayer immédiatement sur Android.</Text></View>
+            <View style={[styles.radio, { borderColor: buildMode === "debug" ? colors.primary : colors.border }]}>{buildMode === "debug" ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}</View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: buildMode === "signed" }}
+            accessibilityLabel="APK signée pour publication"
+            disabled={saving}
+            onPress={() => setBuildMode("signed")}
+            style={({ pressed }) => [styles.buildModeRow, { backgroundColor: buildMode === "signed" ? `${colors.success}12` : colors.surface, borderColor: buildMode === "signed" ? colors.success : colors.border }, pressed && styles.pressed]}
+          >
+            <View style={[styles.buildModeIcon, { backgroundColor: buildMode === "signed" ? colors.success : colors.background }]}><MaterialIcons color={buildMode === "signed" ? colors.background : colors.success} name="workspace-premium" size={21} /></View>
+            <View style={styles.buildModeCopy}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>APK signée</Text><Text style={[styles.buildModeText, { color: colors.muted }]}>Crée une clé unique pour cette application et une APK de publication.</Text></View>
+            <View style={[styles.radio, { borderColor: buildMode === "signed" ? colors.success : colors.border }]}>{buildMode === "signed" ? <View style={[styles.radioDot, { backgroundColor: colors.success }]} /> : null}</View>
+          </Pressable>
+        </View>
+        {buildMode === "signed" ? (
+          <View style={[styles.signingNote, { backgroundColor: `${colors.success}10`, borderColor: `${colors.success}55` }]}>
+            <MaterialIcons color={colors.success} name="key" size={20} />
+            <Text style={[styles.signingText, { color: colors.muted }]}>Après la compilation, sauvegardez le fichier de clé proposé dans Builds. Il est nécessaire pour publier une mise à jour de la même application et ne pourra être téléchargé qu’une fois.</Text>
+          </View>
+        ) : null}
+
         <View style={[styles.securityNote, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialIcons color={colors.primary} name="shield" size={20} />
           <Text style={[styles.securityText, { color: colors.muted }]}>N’ajoutez jamais de mot de passe, clé privée ou information personnelle dans votre fichier.</Text>
         </View>
 
         <Pressable accessibilityRole="button" accessibilityLabel="Lancer la compilation" disabled={!canPrepare} onPress={handlePrepareBuild} style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : colors.surface, borderColor: canPrepare ? colors.primary : colors.border }, pressed && canPrepare && styles.pressed]}>
-          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : "Sortie : APK Android de test"}</Text></View>
+          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : buildMode === "signed" ? "Sortie : APK Android signée" : "Sortie : APK Android de test"}</Text></View>
           <MaterialIcons color={canPrepare ? colors.background : colors.muted} name="arrow-forward" size={23} />
         </Pressable>
       </ScrollView>
@@ -355,6 +400,14 @@ const styles = StyleSheet.create({
   identityFieldSmall: { flex: 0.9 },
   identityLabel: { fontSize: 11, fontWeight: "700", marginBottom: 6, marginLeft: 2 },
   identityError: { marginTop: -8, marginBottom: 16, fontSize: 11, lineHeight: 16 },
+  buildModeList: { gap: 9, marginBottom: 12 },
+  buildModeRow: { minHeight: 77, borderWidth: 1, borderRadius: 18, padding: 12, flexDirection: "row", alignItems: "center" },
+  buildModeIcon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center", marginRight: 11 },
+  buildModeCopy: { flex: 1, paddingRight: 9 },
+  buildModeTitle: { fontSize: 13, fontWeight: "800" },
+  buildModeText: { marginTop: 3, fontSize: 10.5, lineHeight: 15 },
+  signingNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 15 },
+  signingText: { flex: 1, fontSize: 11, lineHeight: 17 },
   securityNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 18 },
   securityText: { flex: 1, fontSize: 11, lineHeight: 17 },
   submitButton: { minHeight: 64, borderRadius: 18, borderWidth: 1, paddingHorizontal: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

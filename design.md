@@ -20,8 +20,8 @@ L’interface utilise une identité **noir profond, or et vert**, raccordée au 
 | Écran | Composition retenue | Action prioritaire |
 |---|---|---|
 | **Builds** | En-tête compact « One App », zone principale de démarrage et liste de builds avec un statut très lisible. L’état vide explique les trois types acceptés en une phrase. | **Créer une APK** |
-| **Nouvelle compilation** | Progression 1–2–3 fixe en haut ; choix du type sous forme de trois options larges, puis zone d’import et nom du projet. | **Choisir le type**, puis **Lancer la compilation** |
-| **Résultat dans la liste** | Pastille de statut, message humain, bouton plein format uniquement lorsque l’APK est prête et rappel de la durée de disponibilité. | **Télécharger l’APK** |
+| **Nouvelle compilation** | Progression 1–2–3 fixe en haut ; choix du type sous forme de trois options larges, puis zone d’import, identité et choix clair entre APK de test et APK signée. | **Choisir le type**, puis **Lancer la compilation** |
+| **Résultat dans la liste** | Pastille de statut, message humain, bouton plein format uniquement lorsque l’APK est prête et rappel de la durée de disponibilité. Une APK signée affiche aussi l’action de sauvegarde privée de la clé. | **Télécharger l’APK** |
 | **MIA** | Conversation verticale à bulles : l’utilisateur écrit en bas, MIA répond clairement au-dessus. Les suggestions, le choix du type de projet et les actions liées à un code restent larges, lisibles et atteignables au pouce. | **Envoyer un message à MIA** |
 | **Aide** | Guide court « Préparer / Choisir / Télécharger », formats réellement acceptés et avertissement sur les données secrètes. | **Créer une compilation** |
 | **Réglages** | Informations utiles uniquement : limite, format de sortie, confidentialité et version. Aucun interrupteur qui ne pilote pas une fonction réelle. | Retourner créer une compilation |
@@ -34,6 +34,15 @@ L’interface utilise une identité **noir profond, or et vert**, raccordée au 
 4. Une fois le fichier et le nom renseignés, il touche **Lancer la compilation**.
 5. Le build affiche une étape lisible : en attente, compilation, APK prête ou action à corriger.
 6. Quand l’APK est prête, le bouton de téléchargement explique qu’elle est destinée aux tests et que le lien est temporaire.
+
+## Flux APK signée
+
+1. Après l’identité de l’application, l’utilisateur peut choisir **APK de test** ou **APK signée pour publication**. Le mode de test reste choisi par défaut afin de garder le parcours simple.
+2. En mode signé, One App explique en une phrase que la clé est personnelle et qu’elle est indispensable pour publier une mise à jour plus tard.
+3. Le code importé est d’abord compilé sans clé. La clé et son mot de passe aléatoire ne sont créés qu’ensuite, dans le publieur de confiance, après l’exécution du code importé.
+4. Le publieur signe l’APK, vérifie sa signature, puis remet au moteur une archive privée contenant la clé `.jks`, son alias et son mot de passe.
+5. L’application reçoit un jeton de sauvegarde distinct, conservé uniquement sur le téléphone. Elle peut télécharger la clé une seule fois et l’envoyer vers le stockage choisi par l’utilisateur via la feuille de partage Android.
+6. La clé, le mot de passe et le jeton ne sont jamais ajoutés à une release publique, au ZIP du projet, aux journaux de compilation ou à l’historique local des builds.
 
 ## Flux MIA
 

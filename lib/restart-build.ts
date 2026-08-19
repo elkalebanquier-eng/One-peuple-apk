@@ -11,6 +11,7 @@ export type RestartBuildInput = {
   iconUri?: string;
   packageName?: string;
   appVersion?: string;
+  buildMode: "debug" | "signed";
 };
 
 /** Préserve l’intégralité de la sélection initiale pour une nouvelle compilation. */
@@ -26,5 +27,6 @@ export function makeRestartBuildInput(previousJob: BuildJob): RestartBuildInput 
     iconUri: previousJob.iconUri,
     ...(previousJob.packageName ? { packageName: previousJob.packageName } : {}),
     ...(previousJob.appVersion ? { appVersion: previousJob.appVersion } : {}),
+    buildMode: previousJob.buildMode,
   };
 }

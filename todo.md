@@ -436,3 +436,18 @@
 
 - [x] Faire passer la limite gratuite de deux à six compilations par heure
 - [x] Adapter le message de limite et valider les tests de quota
+
+## Indicateur de compilations restantes
+
+- [ ] Exposer le nombre de compilations restantes dans les réponses du moteur
+- [ ] Afficher un indicateur clair de quota restant dans l’écran principal
+- [ ] Valider le compteur, TypeScript et les tests de régression
+- [ ] Compiler l’APK et préparer le code source correspondant pour livraison directe
+
+## APK signée pour publication
+
+- [ ] Ajouter le choix APK debug ou APK signée avec une explication simple
+- [ ] Générer une clé propre au projet sans conserver son mot de passe dans le moteur
+- [ ] Compiler une APK release signée et préparer une sauvegarde temporaire de la clé `.jks`
+- [ ] Permettre le téléchargement de l’APK signée et de la clé uniquement depuis le téléphone
+- [ ] Tester les protections, la compilation release et la remise des fichiers

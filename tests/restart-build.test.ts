@@ -13,6 +13,7 @@ describe("makeRestartBuildInput", () => {
       sourceUri: "file:///private/one-app/build-original/index.html.zip",
       packageName: "com.onepeuple.mamoney",
       appVersion: "2.0.0",
+      buildMode: "signed",
       status: "complete",
       createdAt: "2026-08-17T08:00:00.000Z",
       updatedAt: "2026-08-17T08:05:00.000Z",
@@ -26,6 +27,7 @@ describe("makeRestartBuildInput", () => {
       sourceUri: "file:///private/one-app/build-original/index.html.zip",
       packageName: "com.onepeuple.mamoney",
       appVersion: "2.0.0",
+      buildMode: "signed",
     });
   });
 });
