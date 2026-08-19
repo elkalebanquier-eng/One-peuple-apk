@@ -22,6 +22,7 @@ L’interface utilise une identité **noir profond, or et vert**, raccordée au 
 | **Builds** | En-tête compact « One App », zone principale de démarrage et liste de builds avec un statut très lisible. L’état vide explique les trois types acceptés en une phrase. | **Créer une APK** |
 | **Nouvelle compilation** | Progression 1–2–3 fixe en haut ; choix du type sous forme de trois options larges, puis zone d’import et nom du projet. | **Choisir le type**, puis **Lancer la compilation** |
 | **Résultat dans la liste** | Pastille de statut, message humain, bouton plein format uniquement lorsque l’APK est prête et rappel de la durée de disponibilité. | **Télécharger l’APK** |
+| **MIA** | Conversation verticale à bulles : l’utilisateur écrit en bas, MIA répond clairement au-dessus. Les suggestions, le choix du type de projet et les actions liées à un code restent larges, lisibles et atteignables au pouce. | **Envoyer un message à MIA** |
 | **Aide** | Guide court « Préparer / Choisir / Télécharger », formats réellement acceptés et avertissement sur les données secrètes. | **Créer une compilation** |
 | **Réglages** | Informations utiles uniquement : limite, format de sortie, confidentialité et version. Aucun interrupteur qui ne pilote pas une fonction réelle. | Retourner créer une compilation |
 
@@ -33,6 +34,14 @@ L’interface utilise une identité **noir profond, or et vert**, raccordée au 
 4. Une fois le fichier et le nom renseignés, il touche **Lancer la compilation**.
 5. Le build affiche une étape lisible : en attente, compilation, APK prête ou action à corriger.
 6. Quand l’APK est prête, le bouton de téléchargement explique qu’elle est destinée aux tests et que le lien est temporaire.
+
+## Flux MIA
+
+1. L’utilisateur ouvre **MIA** et voit un message d’accueil, des idées de demandes rapides et une zone de saisie toujours visible en bas de l’écran.
+2. Il décrit son besoin naturellement, par exemple « Je veux une page de connexion » ; MIA répond en français et pose une question courte seulement si le type de code reste indispensable.
+3. L’utilisateur choisit HTML, Expo ou Android depuis une feuille compacte. MIA garde le contexte récent sur ce téléphone afin de répondre de façon suivie.
+4. Lorsqu’un code est utile, MIA l’affiche dans un message avec les actions **Voir le code**, **Copier** et, pour HTML, **Préparer pour l’APK**.
+5. Les conversations restent locales au téléphone. Elles peuvent être rouvertes ou supprimées sans toucher aux builds déjà créés.
 
 ## Règles d’interaction
 

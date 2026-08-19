@@ -415,3 +415,13 @@
 - [x] Valider TypeScript et les tests de régression de livraison
 - [x] Corriger la transmission des métadonnées de livraison vers le publieur isolé et valider une APK prête
 - [ ] Vérifier le téléchargement direct et l’ouverture de l’installateur Android
+
+## MIA — assistant conversationnel
+
+- [x] Transformer l’ancien générateur IA en MIA, assistant de conversation naturel
+- [x] Adapter le relais Cloudflare pour retourner une réponse lisible et, si utile, du code séparé
+- [x] Refaire l’onglet IA Code en conversation MIA avec actions rapides et historique local
+- [x] Conserver les actions de copie, prévisualisation et préparation HTML vers la compilation
+- [x] Valider les nouveaux messages, TypeScript et les tests avant de reconstruire l’APK
+- [x] Ajouter une navigation de discussions, un bouton Nouveau chat et des actions rapides MIA
+- [x] Présenter chaque réponse de code avec Voir le code, Copier et Préparer l’APK
