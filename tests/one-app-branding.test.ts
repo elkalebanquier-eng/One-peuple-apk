@@ -9,7 +9,7 @@ describe("MIA branding", () => {
     expect(config.name).toBe("MIA💻");
   });
 
-  it("applique le logo One Peuple à toutes les ressources de lancement", () => {
+  it("applique le logo MIA💻 à toutes les ressources de lancement", () => {
     const sharedAssets = [
       "icon.png",
       "splash-icon.png",

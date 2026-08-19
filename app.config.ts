@@ -30,8 +30,8 @@ const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "MIA💻",
   appSlug: "kiko-native-app",
-  // Le logo est fourni avec l’application dans assets/images.
-  logoUrl: "",
+  // Logo MIA💻 généré pour l’icône de l’application.
+  logoUrl: "/manus-storage/mia-logo_59c5dc6f.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -86,6 +86,8 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     "expo-document-picker",
+    "expo-notifications",
+    "expo-background-task",
     [
       "expo-splash-screen",
       {

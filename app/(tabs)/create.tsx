@@ -12,6 +12,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { prepareAssistantHtmlSource, takeAssistantDraft, takeMiaLogoDraft } from "@/lib/ai-code-assistant";
 import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type BuildMode, type ProjectType } from "@/lib/build-store";
+import { enableBuildNotifications } from "@/lib/build-notifications";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
 import { DEFAULT_APP_VERSION, getProjectPackageName, readAppIdentity } from "@/shared/app-identity";
@@ -182,11 +183,12 @@ export default function NewBuildScreen() {
         buildMode,
       });
       await submitBuildJob(job);
+      const notificationsEnabled = await enableBuildNotifications();
       Alert.alert(
         "Compilation lancée",
         buildMode === "signed"
-          ? "MIA💻 prépare une APK signée. Quand elle sera prête, téléchargez aussi la sauvegarde de clé une seule fois depuis Mes APK."
-          : "MIA💻 prépare votre APK de test. Vous verrez son avancement dans Mes APK.",
+          ? `${notificationsEnabled ? "MIA💻 vous préviendra dès que l’APK sera prête. " : ""}MIA💻 prépare une APK signée. Quand elle sera prête, téléchargez aussi la sauvegarde de clé une seule fois depuis Mes APK.`
+          : `${notificationsEnabled ? "MIA💻 vous préviendra dès que l’APK sera prête. " : ""}MIA💻 prépare votre APK de test. Vous verrez son avancement dans Mes APK.`,
         [{ text: "Voir mes APK", onPress: () => router.replace("/(tabs)") }],
       );
     } catch (error) {
@@ -200,7 +202,7 @@ export default function NewBuildScreen() {
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <View style={styles.headerLabel}><View style={[styles.headerLabelDot, { backgroundColor: colors.success }]} /><Text style={[styles.headerEyebrow, { color: colors.primary }]}>ONE PEUPLE · NOUVEAU PROJET</Text></View>
+          <View style={styles.headerLabel}><View style={[styles.headerLabelDot, { backgroundColor: colors.success }]} /><Text style={[styles.headerEyebrow, { color: colors.primary }]}>MIA💻 · NOUVEAU PROJET</Text></View>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Construisez votre APK.</Text>
           <Text style={[styles.headerText, { color: colors.muted }]}>Choisissez, importez, configurez. Le reste est guidé étape par étape.</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir l’assistant de code" onPress={() => router.navigate("/(tabs)/assistant")} style={({ pressed }) => [styles.assistantLink, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}55` }, pressed && styles.pressed]}>

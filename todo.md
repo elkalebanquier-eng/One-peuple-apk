@@ -483,3 +483,16 @@
 - [x] Définir les connecteurs autorisables et les limites de chaque action
 - [x] Concevoir un écran de consentement et de confirmation avant toute opération sensible
 - [x] Préparer une feuille de route pour un relais sécurisé sans clés intégrées dans l’APK
+
+## Notifications, logo et Mode Agent exécutable
+
+- [x] Créer un logo MIA💻 et l’appliquer à l’icône Android, au splash screen et à la configuration
+- [x] Déclencher une notification locale lorsqu’une compilation devient prête ou échoue
+- [x] Ajouter un Mode Agent qui prépare une action lisible avant toute exécution
+- [x] Exiger une confirmation explicite et permettre l’annulation pour chaque action Agent
+- [ ] Tester les notifications, les confirmations et reconstruire l’APK MIA💻
+
+## Assistant Claude
+
+- [x] Arrêter la vérification et l’intégration de Claude à la demande de l’utilisateur
+- [ ] Laisser Claude hors périmètre jusqu’à une nouvelle demande explicite

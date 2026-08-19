@@ -6,8 +6,10 @@ import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { getUnavailableBuildMessage, readBuildResponse } from "@/lib/build-response";
 import { makeRestartBuildInput } from "@/lib/restart-build";
+import { notifyBuildOutcome } from "@/lib/build-notifications";
 import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "@/shared/app-identity";
 import { getExpectedApkUrl } from "@/shared/build-delivery";
+import { shouldNotifyBuildStatus } from "@/shared/build-notifications";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -121,11 +123,16 @@ function saveBuildQuota(remaining: unknown, max: unknown) {
 
 async function updateJob(id: string, patch: Partial<BuildJob>) {
   const jobs = await readJobs();
+  const previous = jobs.find((job) => job.id === id);
   const updated = jobs.map((job) => job.id === id
     ? { ...job, ...patch, updatedAt: new Date().toISOString() }
     : job);
   await writeJobs(updated);
-  return updated.find((job) => job.id === id);
+  const next = updated.find((job) => job.id === id);
+  if (next && shouldNotifyBuildStatus(previous?.status, next.status)) {
+    void notifyBuildOutcome(next);
+  }
+  return next;
 }
 
 function buildApiUrl(path: string) {
@@ -343,7 +350,7 @@ export async function submitBuildJob(job: BuildJob) {
 }
 
 /**
- * Recrée un build à partir de la copie locale déjà conservée par One App.
+ * Recrée un build à partir de la copie locale déjà conservée par MIA💻.
  * L’utilisateur ne doit donc pas choisir à nouveau son ZIP ou son index.html.
  */
 export async function restartBuildJob(previousJob: BuildJob) {

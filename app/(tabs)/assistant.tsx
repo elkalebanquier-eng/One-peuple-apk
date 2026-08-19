@@ -39,6 +39,7 @@ import {
 } from "@/shared/mia-chat";
 import { MIA_TYPING_INTERVAL_MS, isMiaTypingComplete, nextMiaTypingLength } from "@/shared/mia-typing";
 import type { MiaCodeReview } from "@/shared/mia-code-review";
+import { createMiaAgentAction, type MiaAgentAction, type MiaAgentActionKind } from "@/shared/mia-agent";
 import type { MiaLogoDraft } from "@/shared/mia-logo";
 
 const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>["name"]> = {
@@ -90,6 +91,9 @@ export default function AssistantScreen() {
   const [reviewCode, setReviewCode] = useState("");
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewResult, setReviewResult] = useState<MiaCodeReview | null>(null);
+  const [agentPlannerOpen, setAgentPlannerOpen] = useState(false);
+  const [pendingAgentAction, setPendingAgentAction] = useState<MiaAgentAction | null>(null);
+  const [agentExecuting, setAgentExecuting] = useState(false);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
@@ -98,6 +102,7 @@ export default function AssistantScreen() {
   const projectType = activeConversation?.projectType ?? draftProjectType;
   const provider = activeConversation?.provider ?? draftProvider;
   const messages = activeConversation?.messages ?? [];
+  const latestCodeMessage = [...messages].reverse().find((message) => Boolean(message.code)) ?? null;
   const selectedType = PROJECT_TYPES.find((type) => type.id === projectType)!;
   const preview = useMemo(
     () => previewMessage?.code ? createMiaPreview(previewMessage.code) : null,
@@ -347,17 +352,61 @@ export default function AssistantScreen() {
     setReviewOpen(true);
   }
 
-  async function handleCodeReview() {
+  function prepareAgentAction(kind: MiaAgentActionKind) {
+    setAgentPlannerOpen(false);
+    setPendingAgentAction(createMiaAgentAction(kind));
+  }
+
+  function cancelAgentAction() {
+    if (!agentExecuting) setPendingAgentAction(null);
+  }
+
+  async function confirmAgentAction() {
+    const action = pendingAgentAction;
+    if (!action || agentExecuting) return;
+    setAgentExecuting(true);
+    setError("");
+    try {
+      if (action.kind === "review-latest-code") {
+        if (!latestCodeMessage?.code) throw new Error("Aucun code généré n’est disponible dans cette discussion.");
+        setReviewCode(latestCodeMessage.code);
+        setReviewResult(null);
+        setReviewOpen(true);
+        setPendingAgentAction(null);
+        await runCodeReview(latestCodeMessage.code);
+        return;
+      }
+      if (action.kind === "prepare-html-apk") {
+        if (!latestCodeMessage?.code || projectType !== "html") throw new Error("Préparez d’abord un code HTML dans cette discussion.");
+        setPendingAgentAction(null);
+        await handlePrepareHtml(latestCodeMessage);
+        return;
+      }
+      if (!logoDraft) throw new Error("Créez d’abord un logo dans MIA avant de l’utiliser.");
+      setPendingAgentAction(null);
+      await handleUseLogoForBuild();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Cette action Agent ne peut pas être exécutée pour le moment.");
+    } finally {
+      setAgentExecuting(false);
+    }
+  }
+
+  async function runCodeReview(code: string) {
     if (reviewLoading) return;
     setReviewLoading(true);
     setError("");
     try {
-      setReviewResult(await reviewMiaCode({ code: reviewCode, projectType }));
+      setReviewResult(await reviewMiaCode({ code, projectType }));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "MIA ne peut pas vérifier ce code pour le moment.");
     } finally {
       setReviewLoading(false);
     }
+  }
+
+  async function handleCodeReview() {
+    await runCodeReview(reviewCode);
   }
 
   function confirmDeleteConversation(conversation: MiaConversation) {
@@ -486,6 +535,17 @@ export default function AssistantScreen() {
               </Pressable>
             );
           })}
+        </View>
+
+        <View style={[styles.agentStrip, { borderBottomColor: colors.border, backgroundColor: `${colors.success}08` }]}>
+          <View style={styles.agentStripCopy}>
+            <View style={styles.agentTitleRow}><MaterialIcons color={colors.success} name="verified-user" size={16} /><Text style={[styles.agentStripTitle, { color: colors.foreground }]}>Mode Agent</Text></View>
+            <Text style={[styles.agentStripText, { color: colors.muted }]}>Chaque action vous demande une confirmation.</Text>
+          </View>
+          <Pressable accessibilityRole="button" onPress={() => setAgentPlannerOpen(true)} style={({ pressed }) => [styles.agentOpenButton, { borderColor: colors.success, backgroundColor: `${colors.success}10` }, pressed && styles.pressed]}>
+            <Text style={[styles.agentOpenText, { color: colors.success }]}>Choisir</Text>
+            <MaterialIcons color={colors.success} name="arrow-forward" size={17} />
+          </Pressable>
         </View>
 
         <FlatList
@@ -669,6 +729,37 @@ export default function AssistantScreen() {
           </View>
         </ScreenContainer>
       </Modal>
+
+      <Modal visible={agentPlannerOpen} transparent animationType="slide" onRequestClose={() => setAgentPlannerOpen(false)}>
+        <View style={styles.sheetBackdrop}>
+          <View style={[styles.agentSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={styles.typeSheetHeader}>
+              <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Mode Agent</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>L’action ne démarre jamais à cette étape.</Text></View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Fermer le Mode Agent" onPress={() => setAgentPlannerOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
+            </View>
+            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code} onPress={() => prepareAgentAction("review-latest-code")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code ? 1 : 0.5 }, pressed && latestCodeMessage?.code && styles.pressed]}><MaterialIcons color={colors.success} name="fact-check" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Vérifier le dernier code</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{latestCodeMessage?.code ? "Diagnostic avant compilation" : "Générez ou ouvrez d’abord un code"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
+            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code || projectType !== "html"} onPress={() => prepareAgentAction("prepare-html-apk")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code && projectType === "html" ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code && projectType === "html" ? 1 : 0.5 }, pressed && latestCodeMessage?.code && projectType === "html" && styles.pressed]}><MaterialIcons color={colors.primary} name="archive" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Préparer l’APK HTML</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{projectType === "html" ? "Ouvre le formulaire, sans lancer la compilation" : "Disponible pour un projet HTML"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
+            <Pressable accessibilityRole="button" disabled={!logoDraft} onPress={() => prepareAgentAction("use-logo-as-icon")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: logoDraft ? colors.surface : colors.background, borderColor: colors.border, opacity: logoDraft ? 1 : 0.5 }, pressed && logoDraft && styles.pressed]}><MaterialIcons color={colors.primary} name="image" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Utiliser le logo comme icône</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{logoDraft ? "Enregistre le dernier logo pour l’APK" : "Créez d’abord un logo dans MIA"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={Boolean(pendingAgentAction)} transparent animationType="fade" onRequestClose={cancelAgentAction}>
+        <View style={styles.sheetBackdrop}>
+          <View style={[styles.agentSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={[styles.agentConfirmIcon, { backgroundColor: `${colors.success}14` }]}><MaterialIcons color={colors.success} name="verified-user" size={28} /></View>
+            <Text style={[styles.agentConfirmTitle, { color: colors.foreground }]}>Confirmer cette action ?</Text>
+            <Text style={[styles.agentConfirmLead, { color: colors.muted }]}>MIA💻 ne fera rien tant que vous n’aurez pas touché « Confirmer ».</Text>
+            <View style={[styles.agentSummary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.agentSummaryLabel, { color: colors.success }]}>ACTION</Text><Text style={[styles.agentSummaryTitle, { color: colors.foreground }]}>{pendingAgentAction?.title}</Text>
+              <Text style={[styles.agentSummaryLabel, { color: colors.success }]}>DONNÉES UTILISÉES</Text><Text style={[styles.agentSummaryText, { color: colors.foreground }]}>{pendingAgentAction?.dataLabel}</Text>
+              <Text style={[styles.agentSummaryLabel, { color: colors.success }]}>RÉSULTAT ATTENDU</Text><Text style={[styles.agentSummaryText, { color: colors.foreground }]}>{pendingAgentAction?.consequence}</Text>
+            </View>
+            <Pressable accessibilityRole="button" disabled={agentExecuting} onPress={() => void confirmAgentAction()} style={({ pressed }) => [styles.agentConfirmButton, { backgroundColor: colors.success }, (pressed || agentExecuting) && styles.pressed]}>{agentExecuting ? <ActivityIndicator color={colors.background} /> : <MaterialIcons color={colors.background} name="check" size={20} />}<Text style={[styles.agentConfirmButtonText, { color: colors.background }]}>{agentExecuting ? "Exécution…" : "Confirmer l’action"}</Text></Pressable>
+            <Pressable accessibilityRole="button" disabled={agentExecuting} onPress={cancelAgentAction} style={({ pressed }) => [styles.agentCancelButton, { borderColor: colors.border }, pressed && !agentExecuting && styles.pressed]}><Text style={[styles.agentCancelButtonText, { color: colors.foreground }]}>Annuler</Text></Pressable>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -687,6 +778,13 @@ const styles = StyleSheet.create({
   providerStrip: { minHeight: 52, flexDirection: "row", gap: 8, borderBottomWidth: 1, paddingHorizontal: 16, paddingBottom: 8 },
   providerChoice: { flex: 1, minHeight: 36, borderWidth: 1, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 8 },
   providerChoiceText: { fontSize: 11, fontWeight: "800" },
+  agentStrip: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, paddingHorizontal: 16, paddingVertical: 8 },
+  agentStripCopy: { flex: 1 },
+  agentTitleRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  agentStripTitle: { fontSize: 12, fontWeight: "900" },
+  agentStripText: { marginTop: 2, fontSize: 10, fontWeight: "500" },
+  agentOpenButton: { minHeight: 38, borderRadius: 11, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 10 },
+  agentOpenText: { fontSize: 11, fontWeight: "900" },
   projectChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
   projectChipText: { fontSize: 12, fontWeight: "800" },
   projectStripText: { flex: 1, fontSize: 11, fontWeight: "600" },
@@ -760,6 +858,22 @@ const styles = StyleSheet.create({
   typeChoiceCopy: { flex: 1 },
   typeChoiceTitle: { fontSize: 13, fontWeight: "800" },
   typeChoiceText: { marginTop: 2, fontSize: 11, lineHeight: 15 },
+  agentSheet: { borderTopWidth: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingTop: 20, gap: 11 },
+  agentChoice: { minHeight: 72, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13 },
+  agentChoiceCopy: { flex: 1 },
+  agentChoiceTitle: { fontSize: 13, fontWeight: "900" },
+  agentChoiceText: { marginTop: 3, fontSize: 11, fontWeight: "500", lineHeight: 15 },
+  agentConfirmIcon: { width: 56, height: 56, borderRadius: 18, alignItems: "center", justifyContent: "center", alignSelf: "center" },
+  agentConfirmTitle: { fontSize: 20, fontWeight: "900", textAlign: "center", marginTop: 3 },
+  agentConfirmLead: { fontSize: 12, fontWeight: "500", textAlign: "center", lineHeight: 18, paddingHorizontal: 10 },
+  agentSummary: { borderWidth: 1, borderRadius: 15, padding: 13, gap: 4, marginTop: 3 },
+  agentSummaryLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 0.6, marginTop: 4 },
+  agentSummaryTitle: { fontSize: 14, fontWeight: "900", lineHeight: 20 },
+  agentSummaryText: { fontSize: 12, fontWeight: "600", lineHeight: 18 },
+  agentConfirmButton: { minHeight: 52, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 2 },
+  agentConfirmButtonText: { fontSize: 14, fontWeight: "900" },
+  agentCancelButton: { minHeight: 52, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  agentCancelButtonText: { fontSize: 14, fontWeight: "800" },
   codePreviewList: { paddingVertical: 12, paddingHorizontal: 10 },
   codeLine: { minHeight: 20, flexDirection: "row" },
   lineNumber: { width: 42, paddingRight: 9, fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }), fontSize: 11, textAlign: "right", lineHeight: 19 },
