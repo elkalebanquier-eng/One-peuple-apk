@@ -425,3 +425,9 @@
 - [x] Valider les nouveaux messages, TypeScript et les tests avant de reconstruire l’APK
 - [x] Ajouter une navigation de discussions, un bouton Nouveau chat et des actions rapides MIA
 - [x] Présenter chaque réponse de code avec Voir le code, Copier et Préparer l’APK
+
+## Animation de frappe MIA
+
+- [x] Afficher un indicateur discret pendant que MIA prépare une réponse
+- [x] Révéler progressivement le texte de la réponse MIA sans bloquer les actions de code
+- [x] Valider l’animation, TypeScript et les tests avant de reconstruire l’APK

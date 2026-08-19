@@ -32,6 +32,7 @@ import {
   type MiaConversation,
   type MiaMessage,
 } from "@/shared/mia-chat";
+import { MIA_TYPING_INTERVAL_MS, isMiaTypingComplete, nextMiaTypingLength } from "@/shared/mia-typing";
 
 const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>["name"]> = {
   expo: "code",
@@ -68,6 +69,8 @@ export default function AssistantScreen() {
   const [typePickerOpen, setTypePickerOpen] = useState(false);
   const [previewMessage, setPreviewMessage] = useState<MiaMessage | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
+  const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
+  const [typingCharacterCount, setTypingCharacterCount] = useState(0);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
@@ -80,7 +83,7 @@ export default function AssistantScreen() {
     () => previewMessage?.code ? createMiaPreview(previewMessage.code) : null,
     [previewMessage],
   );
-  const canSend = Boolean(draft.trim()) && !loading;
+  const canSend = Boolean(draft.trim()) && !loading && !typingMessageId;
 
   useEffect(() => {
     let active = true;
@@ -92,6 +95,35 @@ export default function AssistantScreen() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (!typingMessageId) {
+      setTypingCharacterCount(0);
+      return;
+    }
+
+    const typingMessage = conversations
+      .flatMap((conversation) => conversation.messages)
+      .find((message) => message.id === typingMessageId);
+    const fullText = typingMessage?.content ?? "";
+    if (!fullText) {
+      setTypingMessageId(null);
+      return;
+    }
+
+    let visibleLength = 0;
+    setTypingCharacterCount(0);
+    const timer = setInterval(() => {
+      visibleLength = nextMiaTypingLength(fullText, visibleLength);
+      setTypingCharacterCount(visibleLength);
+      if (isMiaTypingComplete(fullText, visibleLength)) {
+        clearInterval(timer);
+        setTypingMessageId(null);
+      }
+    }, MIA_TYPING_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [conversations, typingMessageId]);
+
   function startNewConversation() {
     setActiveConversationId(null);
     setDraftProjectType("html");
@@ -101,6 +133,8 @@ export default function AssistantScreen() {
     setHistoryOpen(false);
     setTypePickerOpen(false);
     setPreviewMessage(null);
+    setTypingMessageId(null);
+    setTypingCharacterCount(0);
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
@@ -112,6 +146,8 @@ export default function AssistantScreen() {
     setCopyState("idle");
     setHistoryOpen(false);
     setPreviewMessage(null);
+    setTypingMessageId(null);
+    setTypingCharacterCount(0);
   }
 
   function selectProjectType(nextType: ProjectType) {
@@ -182,6 +218,7 @@ export default function AssistantScreen() {
         updatedAt: assistantMessage.createdAt,
         messages: [...pendingConversation.messages, assistantMessage],
       });
+      setTypingMessageId(assistantMessage.id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "MIA ne répond pas. Réessayez dans quelques instants.");
     } finally {
@@ -245,6 +282,8 @@ export default function AssistantScreen() {
 
   function renderMessage({ item }: { item: MiaMessage }) {
     const assistant = item.role === "assistant";
+    const typing = assistant && item.id === typingMessageId;
+    const visibleContent = typing ? item.content.slice(0, typingCharacterCount) : item.content;
     return (
       <View style={[styles.messageRow, assistant ? styles.messageRowAssistant : styles.messageRowUser]}>
         {assistant ? <View style={[styles.miaAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.miaAvatarText, { color: colors.background }]}>M</Text></View> : null}
@@ -256,7 +295,14 @@ export default function AssistantScreen() {
               ? { backgroundColor: colors.surface, borderColor: colors.border }
               : { backgroundColor: colors.primary, borderColor: colors.primary },
           ]}>
-            <Text style={[styles.messageText, { color: assistant ? colors.foreground : colors.background }]}>{item.content}</Text>
+            <Text
+              accessibilityLiveRegion={typing ? "polite" : "none"}
+              accessibilityLabel={typing ? "MIA rédige sa réponse" : undefined}
+              style={[styles.messageText, { color: assistant ? colors.foreground : colors.background }]}
+            >
+              {visibleContent}
+              {typing ? <Text style={[styles.typingCursor, { color: colors.primary }]}>▍</Text> : null}
+            </Text>
           </View>
           {item.code ? (
             <View style={[styles.codeAttachment, { backgroundColor: colors.background, borderColor: colors.border }]}>
@@ -345,7 +391,7 @@ export default function AssistantScreen() {
           ListFooterComponent={loading ? (
             <View style={[styles.messageRow, styles.messageRowAssistant]}>
               <View style={[styles.miaAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.miaAvatarText, { color: colors.background }]}>M</Text></View>
-              <View style={[styles.typingBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}><ActivityIndicator color={colors.primary} size="small" /><Text style={[styles.typingText, { color: colors.muted }]}>MIA réfléchit…</Text></View>
+              <View style={[styles.typingBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}><ActivityIndicator color={colors.primary} size="small" /><Text style={[styles.typingText, { color: colors.muted }]}>MIA prépare sa réponse…</Text></View>
             </View>
           ) : null}
         />
@@ -471,6 +517,7 @@ const styles = StyleSheet.create({
   senderName: { marginBottom: 4, paddingLeft: 2, fontSize: 11, fontWeight: "900", letterSpacing: 0.4 },
   messageBubble: { borderRadius: 17, borderWidth: 1, paddingHorizontal: 13, paddingVertical: 11 },
   messageText: { fontSize: 14, fontWeight: "500", lineHeight: 21 },
+  typingCursor: { fontSize: 13, fontWeight: "900" },
   codeAttachment: { marginTop: 8, borderWidth: 1, borderRadius: 15, padding: 10 },
   codeAttachmentHeader: { flexDirection: "row", alignItems: "center", gap: 9 },
   codeFileIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
