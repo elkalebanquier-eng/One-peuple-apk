@@ -431,3 +431,8 @@
 - [x] Afficher un indicateur discret pendant que MIA prépare une réponse
 - [x] Révéler progressivement le texte de la réponse MIA sans bloquer les actions de code
 - [x] Valider l’animation, TypeScript et les tests avant de reconstruire l’APK
+
+## Quota de compilation gratuit
+
+- [x] Faire passer la limite gratuite de deux à six compilations par heure
+- [x] Adapter le message de limite et valider les tests de quota

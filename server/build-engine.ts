@@ -15,7 +15,7 @@ const OIDC_AUDIENCE = "one-app-build-worker";
 const MAX_SOURCE_SIZE = 50 * 1024 * 1024;
 const MAX_ICON_SIZE = 1024 * 1024;
 const MAX_ICON_BASE64_LENGTH = Math.ceil((MAX_ICON_SIZE * 4) / 3) + 4;
-const MAX_SUBMISSIONS_PER_HOUR = 2;
+const MAX_SUBMISSIONS_PER_HOUR = 6;
 // APK releases remain available for 48 hours; keep the matching status record
 // for the same duration so a completed download cannot disappear early.
 const BUILD_RETENTION_MS = 48 * 60 * 60 * 1000;
@@ -129,7 +129,7 @@ function checkRateLimit(request: Request) {
   const now = Date.now();
   const validTimes = (submissionTimes.get(key) ?? []).filter((time) => now - time < 60 * 60 * 1000);
   if (validTimes.length >= MAX_SUBMISSIONS_PER_HOUR) {
-    throw new BuildRequestError("Vous avez déjà lancé deux compilations récemment. Attendez une heure avant de recommencer.", 429);
+    throw new BuildRequestError("Vous avez déjà lancé six compilations récemment. Attendez une heure avant de recommencer.", 429);
   }
   validTimes.push(now);
   submissionTimes.set(key, validTimes);
