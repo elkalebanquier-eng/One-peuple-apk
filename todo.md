@@ -468,7 +468,7 @@
 - [x] Ajouter une route Cloudflare protégée pour générer le logo et limiter les demandes
 - [x] Ajouter dans MIA le formulaire, l’aperçu et les actions de validation du logo
 - [x] Utiliser le logo validé comme icône dans le formulaire de nouvelle compilation
-- [ ] Tester le relais, le stockage et le parcours de préparation d’APK
+- [x] Tester le relais, le stockage et le parcours de préparation d’APK
 - [ ] Déployer le relais, compiler l’APK debug et livrer les fichiers actualisés
 - [x] Ajouter une analyse MIA qui détecte les blocages probables avant compilation
 - [x] Afficher les erreurs, avertissements et corrections simples avant l’envoi du code

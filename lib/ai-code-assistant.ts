@@ -39,6 +39,7 @@ import {
 const ASSISTANT_API_URL = "https://one-app-ai.oneapp-kikokalok.workers.dev/api";
 const ASSISTANT_URL = `${ASSISTANT_API_URL}/code`;
 const KIA_URL = "https://kikonative-evby5xxj.manus.space/api/kia/chat";
+const KIA_LOGO_URL = "https://kikonative-evby5xxj.manus.space/api/kia/logo";
 const ASSISTANT_CLIENT_KEY = "one-app-ai-client-v1";
 const ASSISTANT_DRAFT_KEY = "one-app-ai-draft-v1";
 const ASSISTANT_HISTORY_KEY = "one-app-ai-history-v1";
@@ -136,14 +137,23 @@ export async function generateMiaLogo(input: MiaLogoRequest): Promise<MiaLogoDra
   if (!request) throw new Error("Indiquez le nom de l’application et décrivez le logo souhaité.");
   if (!FileSystem.documentDirectory) throw new Error("Le stockage privé du téléphone est indisponible.");
 
-  const response = await fetch(`${ASSISTANT_API_URL}/logo`, {
+  const headers = {
+    "content-type": "application/json",
+    "x-one-app-client": await getAssistantClientId(),
+  };
+  let response = await fetch(`${ASSISTANT_API_URL}/logo`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-one-app-client": await getAssistantClientId(),
-    },
+    headers,
     body: JSON.stringify(request),
   });
+  // Le secours KIA est réservé à une indisponibilité technique de Cloudflare, sans contourner sa limite de logo.
+  if (!response.ok && response.status === 503) {
+    response = await fetch(KIA_LOGO_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(request),
+    });
+  }
   const text = await response.text();
   if (!response.ok) throw new Error(getAiFailureMessage(text, response.status));
 
