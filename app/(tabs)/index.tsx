@@ -472,8 +472,7 @@ export default function BuildsScreen() {
                     fill="none"
                     strokeDasharray={`${QUOTA_RING_CIRCUMFERENCE}`}
                     strokeDashoffset={QUOTA_RING_CIRCUMFERENCE * (1 - quotaProgress)}
-                    rotation="-90"
-                    origin={`${QUOTA_RING_SIZE / 2}, ${QUOTA_RING_SIZE / 2}`}
+                    transform={`rotate(-90 ${QUOTA_RING_SIZE / 2} ${QUOTA_RING_SIZE / 2})`}
                   />
                 </Svg>
                 <View style={styles.quotaGaugeLabel}>
