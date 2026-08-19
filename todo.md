@@ -477,3 +477,9 @@
 - [x] Ajouter un choix entre MIA Cloudflare et KIA Gemini dans le chat
 - [x] Acheminer les messages et la génération de code vers Gemini sans exposer sa clé
 - [x] Conserver des conversations distinctes et locales pour chaque assistant
+
+## Mode Agent MIA💻 — API, IA et données
+
+- [ ] Définir les connecteurs autorisables et les limites de chaque action
+- [ ] Concevoir un écran de consentement et de confirmation avant toute opération sensible
+- [ ] Préparer une feuille de route pour un relais sécurisé sans clés intégrées dans l’APK
