@@ -38,8 +38,6 @@ import {
 
 const ASSISTANT_API_URL = "https://one-app-ai.oneapp-kikokalok.workers.dev/api";
 const ASSISTANT_URL = `${ASSISTANT_API_URL}/code`;
-const KIA_URL = "https://kikonative-evby5xxj.manus.space/api/kia/chat";
-const KIA_LOGO_URL = "https://kikonative-evby5xxj.manus.space/api/kia/logo";
 const ASSISTANT_CLIENT_KEY = "one-app-ai-client-v1";
 const ASSISTANT_DRAFT_KEY = "one-app-ai-draft-v1";
 const ASSISTANT_HISTORY_KEY = "one-app-ai-history-v1";
@@ -106,15 +104,16 @@ export async function sendMiaMessage(input: MiaChatInput): Promise<MiaChatRespon
   const message = input.message.trim();
   const provider = input.provider ?? "mia";
   if (!message) throw new Error(`Écrivez un message pour ${provider === "kia" ? "KIA" : "MIA"}.`);
+  if (provider === "kia") throw new Error("KIA est temporairement indisponible pendant la migration. Utilisez MIA pour le moment.");
 
-  const response = await fetch(provider === "kia" ? KIA_URL : ASSISTANT_URL, {
+  const response = await fetch(ASSISTANT_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-one-app-client": await getAssistantClientId(),
     },
     body: JSON.stringify({
-      ...(provider === "mia" ? { mode: "chat" } : {}),
+      mode: "chat",
       message: message.slice(0, 3500),
       projectType: input.projectType,
       history: input.history.slice(-8).map((entry) => ({
@@ -127,7 +126,7 @@ export async function sendMiaMessage(input: MiaChatInput): Promise<MiaChatRespon
   if (!response.ok) throw new Error(getAiFailureMessage(text, response.status));
 
   const payload = readMiaChatResponse(text);
-  if (!payload) throw new Error(`${provider === "kia" ? "KIA" : "MIA"} a envoyé une réponse incomplète. Réessayez avec un message plus simple.`);
+  if (!payload) throw new Error("MIA a envoyé une réponse incomplète. Réessayez avec un message plus simple.");
   return payload;
 }
 
@@ -146,14 +145,6 @@ export async function generateMiaLogo(input: MiaLogoRequest): Promise<MiaLogoDra
     headers,
     body: JSON.stringify(request),
   });
-  // Le secours KIA est réservé à une indisponibilité technique de Cloudflare, sans contourner sa limite de logo.
-  if (!response.ok && response.status === 503) {
-    response = await fetch(KIA_LOGO_URL, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(request),
-    });
-  }
   const text = await response.text();
   if (!response.ok) throw new Error(getAiFailureMessage(text, response.status));
 

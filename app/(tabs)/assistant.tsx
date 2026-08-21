@@ -115,7 +115,10 @@ export default function AssistantScreen() {
   useEffect(() => {
     let active = true;
     void loadMiaConversations().then((loaded) => {
-      if (active) setConversations(loaded);
+      // KIA relies on a separate Gemini relay that is unavailable during the
+      // Cloudflare-only migration. Keep these conversations in local storage,
+      // but do not offer them in the active assistant interface.
+      if (active) setConversations(loaded.filter((conversation) => conversation.provider === "mia"));
     }).catch(() => {
       if (active) setError("Les anciennes discussions MIA ne sont pas disponibles pour le moment.");
     });
@@ -153,6 +156,7 @@ export default function AssistantScreen() {
 
   function startNewConversation() {
     setActiveConversationId(null);
+    setDraftProvider("mia");
     setDraftProjectType("html");
     setDraft("");
     setError("");
@@ -166,8 +170,12 @@ export default function AssistantScreen() {
   }
 
   function openConversation(conversation: MiaConversation) {
+    if (conversation.provider !== "mia") {
+      Alert.alert("KIA est momentanément indisponible", "Pendant la migration gratuite, utilisez MIA Cloudflare pour continuer.");
+      return;
+    }
     setActiveConversationId(conversation.id);
-    setDraftProvider(conversation.provider);
+    setDraftProvider("mia");
     setDraftProjectType(conversation.projectType);
     setDraft("");
     setError("");
@@ -189,18 +197,6 @@ export default function AssistantScreen() {
     }
     setDraftProjectType(nextType);
     setTypePickerOpen(false);
-  }
-
-  function selectProvider(nextProvider: MiaProvider) {
-    if (activeConversation) {
-      Alert.alert(
-        "Assistant enregistré",
-        `Cette discussion continue avec ${activeConversation.provider === "kia" ? "KIA Gemini" : "MIA Cloudflare"}. Lancez un nouveau chat pour choisir l’autre assistant.`,
-      );
-      return;
-    }
-    setDraftProvider(nextProvider);
-    setError("");
   }
 
   function useQuickPrompt(value: string) {
@@ -262,7 +258,7 @@ export default function AssistantScreen() {
       });
       setTypingMessageId(assistantMessage.id);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : `${provider === "kia" ? "KIA" : "MIA"} ne répond pas. Réessayez dans quelques instants.`);
+      setError(caught instanceof Error ? caught.message : "MIA ne répond pas. Réessayez dans quelques instants.");
     } finally {
       setLoading(false);
     }
@@ -535,23 +531,12 @@ export default function AssistantScreen() {
           <Text numberOfLines={1} style={[styles.projectStripText, { color: colors.muted }]}>{activeConversation ? "Discussion enregistrée sur ce téléphone" : "Choisissez le type avant de commencer"}</Text>
         </View>
 
-        <View style={[styles.providerStrip, { borderBottomColor: colors.border }]}>
-          {(["kia", "mia"] as MiaProvider[]).map((candidate) => {
-            const selected = provider === candidate;
-            const label = candidate === "kia" ? "KIA · Gemini" : "MIA · Cloudflare";
-            return (
-              <Pressable
-                key={candidate}
-                accessibilityRole="radio"
-                accessibilityState={{ selected, disabled: Boolean(activeConversation) }}
-                onPress={() => selectProvider(candidate)}
-                style={({ pressed }) => [styles.providerChoice, { backgroundColor: selected ? `${colors.primary}16` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && !activeConversation && styles.pressed]}
-              >
-                <Text style={[styles.providerChoiceText, { color: selected ? colors.primary : colors.muted }]}>{label}</Text>
-                {selected ? <MaterialIcons color={colors.primary} name="check-circle" size={16} /> : null}
-              </Pressable>
-            );
-          })}
+        <View style={[styles.providerStrip, { borderBottomColor: colors.border }]}> 
+          <View style={[styles.providerChoice, { backgroundColor: `${colors.primary}16`, borderColor: colors.primary }]}> 
+            <Text style={[styles.providerChoiceText, { color: colors.primary }]}>MIA · Cloudflare</Text>
+            <MaterialIcons color={colors.primary} name="check-circle" size={16} />
+          </View>
+          <Text style={[styles.kiaUnavailableText, { color: colors.muted }]}>KIA · Gemini est momentanément indisponible pendant la migration gratuite.</Text>
         </View>
 
         <View style={[styles.agentStrip, { borderBottomColor: colors.border, backgroundColor: `${colors.success}08` }]}>
@@ -573,7 +558,7 @@ export default function AssistantScreen() {
           contentContainerStyle={[styles.messagesContent, messages.length === 0 && styles.emptyMessagesContent]}
           ListEmptyComponent={
             <View style={styles.welcome}>
-              <View style={[styles.welcomeOrb, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}55` }]}><Text style={[styles.welcomeOrbText, { color: colors.primary }]}>{provider === "kia" ? "K" : "M"}</Text></View>
+          <View style={[styles.welcomeOrb, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}55` }]}><Text style={[styles.welcomeOrbText, { color: colors.primary }]}>M</Text></View>
               <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Bonjour, je suis {assistantName}.</Text>
               <Text style={[styles.welcomeText, { color: colors.muted }]}>Je travaille avec {assistantService}. Parlez-moi de votre idée, posez une question ou demandez-moi du code. Je vous réponds simplement et je prépare le fichier quand vous en avez besoin.</Text>
               <View style={styles.quickPromptList}>
@@ -634,7 +619,7 @@ export default function AssistantScreen() {
       <Modal visible={historyOpen} animationType="slide" onRequestClose={() => setHistoryOpen(false)}>
         <ScreenContainer className="flex-1" edges={["top", "bottom", "left", "right"]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Discussions MIA et KIA</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Conservées uniquement sur ce téléphone</Text></View>
+            <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Discussions MIA</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Conservées uniquement sur ce téléphone</Text></View>
             <Pressable accessibilityRole="button" onPress={() => setHistoryOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={22} /></Pressable>
           </View>
           <Pressable accessibilityRole="button" onPress={startNewConversation} style={({ pressed }) => [styles.newChatButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}><MaterialIcons color={colors.background} name="add" size={21} /><Text style={[styles.newChatText, { color: colors.background }]}>Nouvelle discussion</Text></Pressable>
@@ -642,12 +627,12 @@ export default function AssistantScreen() {
             data={conversations}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.conversationList}
-            ListEmptyComponent={<Text style={[styles.emptyConversationText, { color: colors.muted }]}>Vos nouvelles discussions avec MIA ou KIA apparaîtront ici.</Text>}
+            ListEmptyComponent={<Text style={[styles.emptyConversationText, { color: colors.muted }]}>Vos nouvelles discussions avec MIA apparaîtront ici.</Text>}
             renderItem={({ item }) => (
               <View style={[styles.conversationRow, { backgroundColor: item.id === activeConversationId ? `${colors.primary}12` : colors.surface, borderColor: item.id === activeConversationId ? colors.primary : colors.border }]}>
                 <Pressable accessibilityRole="button" onPress={() => openConversation(item)} style={({ pressed }) => [styles.conversationOpen, pressed && styles.pressed]}>
                   <View style={[styles.conversationIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name={TYPE_ICONS[item.projectType]} size={19} /></View>
-                  <View style={styles.conversationCopy}><Text numberOfLines={2} style={[styles.conversationTitle, { color: colors.foreground }]}>{item.title}</Text><Text style={[styles.conversationMeta, { color: colors.muted }]}>{item.provider === "kia" ? "KIA Gemini" : "MIA Cloudflare"} · {item.messages.length} messages · {dateLabel(item.updatedAt)}</Text></View>
+                  <View style={styles.conversationCopy}><Text numberOfLines={2} style={[styles.conversationTitle, { color: colors.foreground }]}>{item.title}</Text><Text style={[styles.conversationMeta, { color: colors.muted }]}>MIA Cloudflare · {item.messages.length} messages · {dateLabel(item.updatedAt)}</Text></View>
                 </Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="Supprimer cette discussion" onPress={() => confirmDeleteConversation(item)} style={({ pressed }) => [styles.conversationDelete, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="delete-outline" size={20} /></Pressable>
               </View>
@@ -798,6 +783,7 @@ const styles = StyleSheet.create({
   providerStrip: { gap: 8, borderBottomWidth: 1, paddingHorizontal: 16, paddingBottom: 10 },
   providerChoice: { minHeight: 42, borderWidth: 1, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 12 },
   providerChoiceText: { fontSize: 11, fontWeight: "800" },
+  kiaUnavailableText: { fontSize: 10, fontWeight: "600", lineHeight: 14, textAlign: "center" },
   agentStrip: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, paddingHorizontal: 16, paddingVertical: 8 },
   agentStripCopy: { flex: 1 },
   agentTitleRow: { flexDirection: "row", alignItems: "center", gap: 5 },

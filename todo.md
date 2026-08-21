@@ -516,5 +516,20 @@
 
 - [x] Comparer les options gratuites Cloudflare et GitHub Actions pour MIA💻
 - [x] Documenter les routes à déplacer du serveur Manus vers Cloudflare
-- [ ] Préparer un relais Cloudflare avec accès GitHub Actions sécurisé
-- [ ] Vérifier une compilation sans dépendre du serveur Manus
+- [x] Préparer un relais Cloudflare avec accès GitHub Actions sécurisé
+- [x] Vérifier une compilation sans dépendre du serveur Manus
+
+## Migration opérationnelle Cloudflare–GitHub
+
+- [x] Valider une file et un stockage temporaire privé sans carte bancaire
+- [ ] Déployer le relais Cloudflare de compilation et de KIA sans secret dans l’APK
+- [x] Adapter le worker GitHub Actions aux routes Cloudflare sécurisées
+- [x] Pointer MIA💻 vers Cloudflare et vérifier le parcours complet
+- [ ] Compiler et livrer une APK debug indépendante du serveur Manus
+
+## Option A — Migration sans serveur Manus
+
+- [x] Déployer la file privée Cloudflare et conserver les ZIP hors de tout dépôt public
+- [x] Faire compiler la file Cloudflare par GitHub Actions avec rappel signé
+- [x] Retirer temporairement KIA et conserver MIA Cloudflare dans l’application
+- [ ] Vérifier une APK debug MIA💻 sans appel au serveur Manus
