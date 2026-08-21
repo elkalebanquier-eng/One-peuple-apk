@@ -43,7 +43,13 @@ export default function RootLayout() {
   useEffect(() => {
     void initializeBuildNotifications();
     void ensureBuildStatusBackgroundTask();
-    return subscribeToBuildNotificationOpen(() => router.replace("/(tabs)"));
+    return subscribeToBuildNotificationOpen(({ intent, buildId }) => {
+      if (intent === "install-apk" && buildId) {
+        router.replace({ pathname: "/(tabs)", params: { installBuild: buildId } });
+        return;
+      }
+      router.replace("/(tabs)");
+    });
   }, []);
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {

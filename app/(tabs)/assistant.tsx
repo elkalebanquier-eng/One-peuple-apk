@@ -382,6 +382,23 @@ export default function AssistantScreen() {
         await handlePrepareHtml(latestCodeMessage);
         return;
       }
+      if (action.kind === "copy-latest-code") {
+        if (!latestCodeMessage?.code) throw new Error("Aucun code généré n’est disponible dans cette discussion.");
+        setPendingAgentAction(null);
+        await handleCopy(latestCodeMessage);
+        return;
+      }
+      if (action.kind === "preview-latest-code") {
+        if (!latestCodeMessage?.code) throw new Error("Aucun code généré n’est disponible dans cette discussion.");
+        setPendingAgentAction(null);
+        setPreviewMessage(latestCodeMessage);
+        return;
+      }
+      if (action.kind === "start-html-project") {
+        setPendingAgentAction(null);
+        startNewConversation();
+        return;
+      }
       if (!logoDraft) throw new Error("Créez d’abord un logo dans MIA avant de l’utiliser.");
       setPendingAgentAction(null);
       await handleUseLogoForBuild();
@@ -740,6 +757,9 @@ export default function AssistantScreen() {
             <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code} onPress={() => prepareAgentAction("review-latest-code")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code ? 1 : 0.5 }, pressed && latestCodeMessage?.code && styles.pressed]}><MaterialIcons color={colors.success} name="fact-check" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Vérifier le dernier code</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{latestCodeMessage?.code ? "Diagnostic avant compilation" : "Générez ou ouvrez d’abord un code"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
             <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code || projectType !== "html"} onPress={() => prepareAgentAction("prepare-html-apk")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code && projectType === "html" ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code && projectType === "html" ? 1 : 0.5 }, pressed && latestCodeMessage?.code && projectType === "html" && styles.pressed]}><MaterialIcons color={colors.primary} name="archive" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Préparer l’APK HTML</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{projectType === "html" ? "Ouvre le formulaire, sans lancer la compilation" : "Disponible pour un projet HTML"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
             <Pressable accessibilityRole="button" disabled={!logoDraft} onPress={() => prepareAgentAction("use-logo-as-icon")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: logoDraft ? colors.surface : colors.background, borderColor: colors.border, opacity: logoDraft ? 1 : 0.5 }, pressed && logoDraft && styles.pressed]}><MaterialIcons color={colors.primary} name="image" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Utiliser le logo comme icône</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{logoDraft ? "Enregistre le dernier logo pour l’APK" : "Créez d’abord un logo dans MIA"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
+            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code} onPress={() => prepareAgentAction("copy-latest-code")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code ? 1 : 0.5 }, pressed && latestCodeMessage?.code && styles.pressed]}><MaterialIcons color={colors.success} name="content-copy" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Copier le dernier code</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{latestCodeMessage?.code ? "Copie locale après confirmation" : "Générez ou ouvrez d’abord un code"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
+            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code} onPress={() => prepareAgentAction("preview-latest-code")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code ? 1 : 0.5 }, pressed && latestCodeMessage?.code && styles.pressed]}><MaterialIcons color={colors.primary} name="visibility" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Relire le dernier code</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{latestCodeMessage?.code ? "Ouvre l’aperçu, sans modifier le code" : "Générez ou ouvrez d’abord un code"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => prepareAgentAction("start-html-project")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.primary} name="add-comment" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Nouvelle discussion HTML</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>Conserve l’historique et repart sur un projet HTML</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
           </View>
         </View>
       </Modal>

@@ -1,4 +1,10 @@
-export type MiaAgentActionKind = "review-latest-code" | "prepare-html-apk" | "use-logo-as-icon";
+export type MiaAgentActionKind =
+  | "review-latest-code"
+  | "prepare-html-apk"
+  | "use-logo-as-icon"
+  | "copy-latest-code"
+  | "preview-latest-code"
+  | "start-html-project";
 
 export type MiaAgentAction = {
   id: string;
@@ -30,6 +36,27 @@ const ACTION_COPY: Record<MiaAgentActionKind, Omit<MiaAgentAction, "id">> = {
     detail: "MIA enregistre le dernier logo créé comme icône proposée pour votre APK.",
     dataLabel: "Le dernier logo créé dans MIA",
     consequence: "Le formulaire de compilation utilisera cette icône. Aucune compilation ne démarre.",
+  },
+  "copy-latest-code": {
+    kind: "copy-latest-code",
+    title: "Copier le dernier code",
+    detail: "MIA copie le dernier code généré dans le presse-papiers de votre téléphone.",
+    dataLabel: "Le dernier fichier de code affiché dans cette discussion",
+    consequence: "Le code pourra être collé dans une autre application. Aucune donnée n’est envoyée.",
+  },
+  "preview-latest-code": {
+    kind: "preview-latest-code",
+    title: "Relire le dernier code",
+    detail: "MIA ouvre l’aperçu ligne par ligne du dernier code généré.",
+    dataLabel: "Le dernier fichier de code affiché dans cette discussion",
+    consequence: "Un aperçu de lecture s’ouvrira. Le code ne sera ni modifié ni envoyé.",
+  },
+  "start-html-project": {
+    kind: "start-html-project",
+    title: "Nouvelle discussion HTML",
+    detail: "MIA ouvre une nouvelle discussion réglée pour créer un projet HTML.",
+    dataLabel: "Aucun fichier ni aucune donnée de la discussion actuelle",
+    consequence: "La discussion actuelle reste dans l’historique et une nouvelle conversation vide s’ouvrira.",
   },
 };
 

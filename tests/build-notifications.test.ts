@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { getBuildOutcomeNotification, shouldNotifyBuildStatus } from "../shared/build-notifications";
+import {
+  getBuildOutcomeNotification,
+  INSTALL_APK_NOTIFICATION_ACTION,
+  isInstallApkNotificationAction,
+  shouldNotifyBuildStatus,
+} from "../shared/build-notifications";
 
 describe("notifications locales de compilation", () => {
   it("annonce une APK terminée avec une instruction simple", () => {
     expect(getBuildOutcomeNotification({ status: "complete", projectName: "Mon projet" })).toEqual({
       title: "Votre APK est prête",
-      body: "Mon projet a terminé sa compilation. Touchez pour la télécharger et l’installer.",
+      body: "Mon projet a terminé sa compilation. Utilisez « Installer l’APK » pour l’ouvrir directement.",
     });
   });
 
@@ -20,5 +25,10 @@ describe("notifications locales de compilation", () => {
     expect(shouldNotifyBuildStatus("building", "complete")).toBe(true);
     expect(shouldNotifyBuildStatus("complete", "complete")).toBe(false);
     expect(shouldNotifyBuildStatus("queued", "building")).toBe(false);
+  });
+
+  it("reconnaît uniquement le bouton Installer l’APK", () => {
+    expect(isInstallApkNotificationAction(INSTALL_APK_NOTIFICATION_ACTION)).toBe(true);
+    expect(isInstallApkNotificationAction("default")).toBe(false);
   });
 });

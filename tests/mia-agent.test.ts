@@ -12,6 +12,9 @@ describe("Mode Agent MIA", () => {
 
   it("exige une confirmation pour chaque action préparée", () => {
     expect(requiresAgentConfirmation(createMiaAgentAction("review-latest-code"))).toBe(true);
+    expect(requiresAgentConfirmation(createMiaAgentAction("copy-latest-code"))).toBe(true);
+    expect(createMiaAgentAction("preview-latest-code").consequence).toContain("ni modifié ni envoyé");
+    expect(createMiaAgentAction("start-html-project").dataLabel).toContain("Aucun fichier");
     expect(requiresAgentConfirmation(null)).toBe(false);
   });
 });

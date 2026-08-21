@@ -1,5 +1,9 @@
 export type BuildNotificationStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
 
+/** Stable native identifiers for the Android action shown on completed APK notifications. */
+export const BUILD_READY_NOTIFICATION_CATEGORY = "mia_build_ready";
+export const INSTALL_APK_NOTIFICATION_ACTION = "mia_install_apk";
+
 export type BuildNotificationCopy = {
   title: string;
   body: string;
@@ -16,7 +20,7 @@ export function getBuildOutcomeNotification(input: {
   if (input.status === "complete") {
     return {
       title: "Votre APK est prête",
-      body: `${projectName} a terminé sa compilation. Touchez pour la télécharger et l’installer.`,
+      body: `${projectName} a terminé sa compilation. Utilisez « Installer l’APK » pour l’ouvrir directement.`,
     };
   }
 
@@ -28,6 +32,10 @@ export function getBuildOutcomeNotification(input: {
   }
 
   return null;
+}
+
+export function isInstallApkNotificationAction(actionIdentifier: string) {
+  return actionIdentifier === INSTALL_APK_NOTIFICATION_ACTION;
 }
 
 /** A final outcome must be announced only when the status actually changes. */

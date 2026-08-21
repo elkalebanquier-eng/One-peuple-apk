@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import { Alert, FlatList, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
@@ -69,7 +69,7 @@ function makeKeyBackupFileName(projectName: string) {
   return `${safeName}-cle-de-signature.zip`;
 }
 
-function BuildCard({ item }: { item: BuildJob }) {
+function BuildCard({ item, installFromNotification = false }: { item: BuildJob; installFromNotification?: boolean }) {
   const colors = useColors();
   const type = getProjectType(item.projectType);
   const status = STATUS_COPY[item.status];
@@ -81,6 +81,7 @@ function BuildCard({ item }: { item: BuildJob }) {
   const [sharingApk, setSharingApk] = useState(false);
   const [savedApkUri, setSavedApkUri] = useState<string | null>(null);
   const lastDownloadUpdate = useRef(0);
+  const handledNotificationInstall = useRef(false);
   const canRestart = item.status === "complete" || item.status === "failed";
   const receivedBytes = downloadProgress?.received ?? 0;
   const expectedBytes = downloadProgress?.total ?? 0;
@@ -185,6 +186,12 @@ function BuildCard({ item }: { item: BuildJob }) {
       setDownloading(false);
     }
   }
+
+  useEffect(() => {
+    if (!installFromNotification || handledNotificationInstall.current || item.status !== "complete" || !item.apkUri) return;
+    handledNotificationInstall.current = true;
+    void handleDownloadAndInstall();
+  }, [installFromNotification, item.apkUri, item.status]);
 
   async function handleShareApk() {
     try {
@@ -403,6 +410,7 @@ export default function BuildsScreen() {
   const colors = useColors();
   const [jobs, setJobs] = useState<BuildJob[]>([]);
   const [quota, setQuota] = useState<BuildQuota | null>(null);
+  const { installBuild } = useLocalSearchParams<{ installBuild?: string }>();
   const quotaProgress = quota ? Math.max(0, Math.min(1, quota.remaining / quota.max)) : 0;
   const quotaWarning = quota !== null && quota.remaining <= 1;
   const quotaColor = quotaWarning ? colors.error : colors.primary;
@@ -435,7 +443,7 @@ export default function BuildsScreen() {
       <FlatList
         data={jobs}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <BuildCard item={item} />}
+        renderItem={({ item }) => <BuildCard item={item} installFromNotification={installBuild === item.id} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
