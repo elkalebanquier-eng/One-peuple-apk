@@ -539,4 +539,4 @@
 - [x] Définir des étapes réelles de compilation et des messages simples en français
 - [x] Transmettre l’avancement et les événements de compilation depuis Cloudflare et GitHub Actions
 - [x] Afficher une barre de progression et un journal lisible dans Mes APK
-- [ ] Tester le suivi complet et reconstruire l’APK MIA💻
+- [x] Tester le suivi complet et reconstruire l’APK MIA💻
