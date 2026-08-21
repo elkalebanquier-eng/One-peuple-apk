@@ -13,13 +13,15 @@ describe("One App APK signing flow", () => {
   });
 
   it("creates a release key only in the trusted publisher workflow", async () => {
-    const worker = await readFile("../one-app-build-worker/.github/workflows/build-imported-project.yml", "utf8");
-    const publisher = await readFile("../one-app-build-worker/.github/workflows/publish-temporary-apk.yml", "utf8");
+    const worker = await readFile("../one-app-build-worker-git/.github/workflows/build-imported-project.yml", "utf8");
+    const publisher = await readFile("../one-app-build-worker-git/.github/workflows/publish-temporary-apk.yml", "utf8");
 
     expect(worker).toContain('TASK="assembleRelease"');
     expect(worker).not.toContain("keytool -genkeypair");
     expect(publisher).toContain("keytool -genkeypair");
     expect(publisher).toContain("apksigner");
     expect(publisher).toContain("keyBackupBase64");
+    expect(publisher).toContain("IMPORTANT-MOT-DE-PASSE");
+    expect(publisher).toContain("Ne donnez jamais cette clé ni ce mot de passe");
   });
 });

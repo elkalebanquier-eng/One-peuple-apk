@@ -547,3 +547,14 @@
 - [x] Afficher l’estimation à côté de la barre de progression
 - [x] Ajouter un bouton pour afficher ou masquer le journal détaillé
 - [x] Tester puis livrer directement l’APK debug et le code source
+
+## Compétence réutilisable de compilation APK
+
+- [ ] Formaliser le processus Cloudflare–GitHub et ses protections réutilisables
+- [ ] Créer et valider la compétence installable
+
+## Sauvegarde d’APK signée
+
+- [x] Vérifier que la sauvegarde de clé contient les informations nécessaires à la prochaine mise à jour Android
+- [x] Rendre le mot de passe de la clé clair, téléchargeable et remis une seule fois au propriétaire
+- [ ] Tester le parcours signé puis reconstruire et livrer l’APK debug

@@ -67,7 +67,7 @@ function makeKeyBackupFileName(projectName: string) {
     .replace(/[^a-zA-Z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase() || "mia";
-  return `${safeName}-cle-de-signature.zip`;
+  return `${safeName}-cle-et-mot-de-passe.zip`;
 }
 
 function BuildCard({ item, installFromNotification = false }: { item: BuildJob; installFromNotification?: boolean }) {
@@ -254,7 +254,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       throw new Error("Le partage de fichiers est indisponible sur ce téléphone.");
     }
     await Sharing.shareAsync(fileUri, {
-      dialogTitle: "Sauvegarder ma clé de signature",
+      dialogTitle: "Sauvegarder ma clé et mon mot de passe",
       mimeType: "application/zip",
     });
   }
@@ -283,7 +283,10 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       }
       await clearPrivateKeyBackupUrl(item.id);
       await shareSavedKeyBackup(download.uri);
-      Alert.alert("Clé prête à sauvegarder", "Choisissez un dossier privé ou une application de fichiers. Gardez ce ZIP et son mot de passe : ils sont nécessaires pour publier une mise à jour de cette application.");
+      Alert.alert(
+        "Sauvegarde prête",
+        "Dans le ZIP, ouvrez le fichier « IMPORTANT-MOT-DE-PASSE.txt » : il contient le mot de passe et l’alias de votre clé. Conservez ce ZIP dans un endroit privé et ne le partagez avec personne.",
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "La sauvegarde de clé a échoué.";
       Alert.alert("Sauvegarde non terminée", message);
@@ -294,11 +297,11 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
 
   function confirmKeyBackup() {
     Alert.alert(
-      "Sauvegarder la clé ?",
-      "Cette sauvegarde privée ne peut être téléchargée qu’une seule fois. Vérifiez votre connexion, puis choisissez un endroit privé sur le téléphone.",
+      "Sauvegarder la clé et le mot de passe ?",
+      "Ce ZIP privé ne peut être téléchargé qu’une seule fois. Il contient votre fichier de clé et « IMPORTANT-MOT-DE-PASSE.txt ». Vérifiez votre connexion, puis choisissez un endroit privé sur le téléphone.",
       [
         { text: "Pas maintenant", style: "cancel" },
-        { text: "Télécharger la clé", onPress: () => { void downloadAndShareKeyBackup(); } },
+        { text: "Télécharger le ZIP privé", onPress: () => { void downloadAndShareKeyBackup(); } },
       ],
     );
   }
@@ -412,14 +415,14 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
           {item.buildMode === "signed" && item.keyBackupAvailable ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Sauvegarder la clé de signature de ${item.projectName}`}
+              accessibilityLabel={`Sauvegarder la clé et le mot de passe de ${item.projectName}`}
               disabled={savingKey || downloading}
               onPress={confirmKeyBackup}
               style={({ pressed }) => [styles.keyBackupButton, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}66` }, pressed && !savingKey && styles.pressed]}
             >
               <View style={[styles.keyBackupIcon, { backgroundColor: `${colors.success}20` }]}><MaterialIcons color={colors.success} name={savingKey ? "downloading" : "key"} size={21} /></View>
               <View style={styles.keyBackupCopy}>
-                <Text style={[styles.keyBackupTitle, { color: colors.foreground }]}>{savingKey ? "Préparation de la clé…" : "Sauvegarder ma clé"}</Text>
+                <Text style={[styles.keyBackupTitle, { color: colors.foreground }]}>{savingKey ? "Préparation de la sauvegarde…" : "Sauvegarder clé + mot de passe"}</Text>
                 <Text style={[styles.keyBackupHint, { color: colors.muted }]}>{savingKey ? "Ne fermez pas MIA💻" : "Une seule fois · indispensable pour les mises à jour"}</Text>
               </View>
               <MaterialIcons color={colors.success} name="ios-share" size={20} />
