@@ -507,7 +507,7 @@
 
 ## Actions de notification et Mode Agent étendu
 
-- [ ] Ajouter le bouton « Installer l’APK » dans la notification de compilation prête
+- [x] Ajouter le bouton « Installer l’APK » dans la notification de compilation prête
 - [x] Ajouter de nouvelles actions locales simples au Mode Agent
 - [x] Exiger la confirmation et proposer l’annulation pour chacune des nouvelles actions Agent
-- [ ] Tester et reconstruire l’APK MIA💻 avec les nouveaux parcours
+- [x] Tester et reconstruire l’APK MIA💻 avec les nouveaux parcours
