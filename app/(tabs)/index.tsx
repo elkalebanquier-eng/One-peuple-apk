@@ -285,7 +285,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       await shareSavedKeyBackup(download.uri);
       Alert.alert(
         "Sauvegarde prête",
-        "Dans le ZIP, ouvrez le fichier « IMPORTANT-MOT-DE-PASSE.txt » : il contient le mot de passe et l’alias de votre clé. Conservez ce ZIP dans un endroit privé et ne le partagez avec personne.",
+        "Dans le ZIP, ouvrez le fichier « MOT-DE-PASSE-ET-INFOS…txt » : il contient le mot de passe et l’alias de votre clé. Conservez ce ZIP dans un endroit privé et ne le partagez avec personne.",
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "La sauvegarde de clé a échoué.";
@@ -297,11 +297,11 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
 
   function confirmKeyBackup() {
     Alert.alert(
-      "Sauvegarder la clé et le mot de passe ?",
-      "Ce ZIP privé ne peut être téléchargé qu’une seule fois. Il contient votre fichier de clé et « IMPORTANT-MOT-DE-PASSE.txt ». Vérifiez votre connexion, puis choisissez un endroit privé sur le téléphone.",
+      "Exporter la clé et le mot de passe ?",
+      "Ce ZIP privé ne peut être téléchargé qu’une seule fois. Il contient votre fichier de clé et « MOT-DE-PASSE-ET-INFOS…txt ». Vérifiez votre connexion, puis choisissez Fichiers ou un endroit privé sur le téléphone.",
       [
         { text: "Pas maintenant", style: "cancel" },
-        { text: "Télécharger le ZIP privé", onPress: () => { void downloadAndShareKeyBackup(); } },
+        { text: "Exporter le ZIP privé", onPress: () => { void downloadAndShareKeyBackup(); } },
       ],
     );
   }
@@ -378,6 +378,22 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
 
       {item.status === "complete" && item.apkUri ? (
         <>
+          {item.buildMode === "signed" && item.keyBackupAvailable ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Exporter le ZIP privé contenant la clé et le mot de passe de ${item.projectName}`}
+              disabled={savingKey || downloading}
+              onPress={confirmKeyBackup}
+              style={({ pressed }) => [styles.keyBackupButton, { backgroundColor: colors.success }, pressed && !savingKey && !downloading && styles.pressed]}
+            >
+              <View style={[styles.keyBackupIcon, { backgroundColor: `${colors.background}22` }]}><MaterialIcons color={colors.background} name={savingKey ? "downloading" : "file-download"} size={22} /></View>
+              <View style={styles.keyBackupCopy}>
+                <Text style={[styles.keyBackupTitle, { color: colors.background }]}>{savingKey ? "Export du ZIP en cours…" : "Exporter le ZIP : clé + mot de passe"}</Text>
+                <Text style={[styles.keyBackupHint, { color: colors.background }]}>{savingKey ? "Ne fermez pas MIA💻" : "Une seule fois · fichier MOT-DE-PASSE-ET-INFOS inclus"}</Text>
+              </View>
+              <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Télécharger et installer l’APK de ${item.projectName}`}
@@ -412,22 +428,6 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
             </View>
             <MaterialIcons color={colors.primary} name="arrow-forward" size={20} />
           </Pressable>
-          {item.buildMode === "signed" && item.keyBackupAvailable ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Sauvegarder la clé et le mot de passe de ${item.projectName}`}
-              disabled={savingKey || downloading}
-              onPress={confirmKeyBackup}
-              style={({ pressed }) => [styles.keyBackupButton, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}66` }, pressed && !savingKey && styles.pressed]}
-            >
-              <View style={[styles.keyBackupIcon, { backgroundColor: `${colors.success}20` }]}><MaterialIcons color={colors.success} name={savingKey ? "downloading" : "key"} size={21} /></View>
-              <View style={styles.keyBackupCopy}>
-                <Text style={[styles.keyBackupTitle, { color: colors.foreground }]}>{savingKey ? "Préparation de la sauvegarde…" : "Sauvegarder clé + mot de passe"}</Text>
-                <Text style={[styles.keyBackupHint, { color: colors.muted }]}>{savingKey ? "Ne fermez pas MIA💻" : "Une seule fois · indispensable pour les mises à jour"}</Text>
-              </View>
-              <MaterialIcons color={colors.success} name="ios-share" size={20} />
-            </Pressable>
-          ) : null}
         </>
       ) : null}
 
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   shareApkCopy: { flex: 1, paddingRight: 8 },
   shareApkTitle: { fontSize: 13, fontWeight: "900" },
   shareApkHint: { marginTop: 2, fontSize: 10.5, lineHeight: 15 },
-  keyBackupButton: { minHeight: 64, marginTop: 9, paddingHorizontal: 13, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  keyBackupButton: { minHeight: 70, marginTop: 12, paddingHorizontal: 14, borderRadius: 16, flexDirection: "row", alignItems: "center" },
   keyBackupIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
   keyBackupCopy: { flex: 1, paddingRight: 8 },
   keyBackupTitle: { fontSize: 13, fontWeight: "900" },

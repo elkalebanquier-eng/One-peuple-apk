@@ -21,7 +21,7 @@ describe("One App APK signing flow", () => {
     expect(publisher).toContain("keytool -genkeypair");
     expect(publisher).toContain("apksigner");
     expect(publisher).toContain("keyBackupBase64");
-    expect(publisher).toContain("IMPORTANT-MOT-DE-PASSE");
+    expect(publisher).toContain("MOT-DE-PASSE-ET-INFOS");
     expect(publisher).toContain("Ne donnez jamais cette clé ni ce mot de passe");
   });
 });
