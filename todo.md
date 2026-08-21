@@ -511,3 +511,10 @@
 - [x] Ajouter de nouvelles actions locales simples au Mode Agent
 - [x] Exiger la confirmation et proposer l’annulation pour chacune des nouvelles actions Agent
 - [x] Tester et reconstruire l’APK MIA💻 avec les nouveaux parcours
+
+## Indépendance du serveur Manus
+
+- [x] Comparer les options gratuites Cloudflare et GitHub Actions pour MIA💻
+- [x] Documenter les routes à déplacer du serveur Manus vers Cloudflare
+- [ ] Préparer un relais Cloudflare avec accès GitHub Actions sécurisé
+- [ ] Vérifier une compilation sans dépendre du serveur Manus
