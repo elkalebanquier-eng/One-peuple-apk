@@ -14,11 +14,15 @@ import { prepareAssistantHtmlSource, takeAssistantDraft, takeMiaLogoDraft } from
 import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type BuildMode, type ProjectType } from "@/lib/build-store";
 import { enableBuildNotifications } from "@/lib/build-notifications";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
+import { inspectProjectSource } from "@/lib/project-preflight";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
+import { prepareStarterProject } from "@/lib/starter-project";
 import { DEFAULT_APP_VERSION, getProjectPackageName, readAppIdentity } from "@/shared/app-identity";
+import type { ProjectPreflight } from "@/shared/project-preflight";
+import { STARTER_PROJECTS, type StarterProjectId } from "@/shared/starter-projects";
 
 type IconName = ComponentProps<typeof MaterialIcons>["name"];
-type SelectedSource = Pick<DocumentPicker.DocumentPickerAsset, "name" | "size" | "uri"> & { preparedFromHtml?: boolean };
+type SelectedSource = Pick<DocumentPicker.DocumentPickerAsset, "name" | "size" | "uri"> & { preparedFromHtml?: boolean; preparedFromTemplate?: boolean };
 type SelectedAppIcon = { name: string; size?: number; uri: string };
 
 const TYPE_ICONS: Record<ProjectType, IconName> = { expo: "code", android: "android", html: "language" };
@@ -33,10 +37,27 @@ export default function NewBuildScreen() {
   const [appVersion, setAppVersion] = useState(DEFAULT_APP_VERSION);
   const [buildMode, setBuildMode] = useState<BuildMode>("debug");
   const [saving, setSaving] = useState(false);
+  const [preflight, setPreflight] = useState<ProjectPreflight | null>(null);
 
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
   const appIdentity = useMemo(() => readAppIdentity(packageName, appVersion), [appVersion, packageName]);
-  const canPrepare = Boolean(projectType && archive && projectName.trim() && appIdentity.valid && !saving);
+  const canPrepare = Boolean(projectType && archive && preflight && !preflight.hasBlockers && projectName.trim() && appIdentity.valid && !saving);
+
+  async function inspectSelectedSource(nextType: ProjectType, source: SelectedSource) {
+    try {
+      const report = await inspectProjectSource({ projectType: nextType, uri: source.uri, preparedFromHtml: source.preparedFromHtml });
+      setPreflight(report);
+      return report;
+    } catch (error) {
+      const report: ProjectPreflight = {
+        entryCount: 0,
+        hasBlockers: true,
+        findings: [{ level: "blocker", message: error instanceof Error ? error.message : "Le contrôle du ZIP n’a pas pu être terminé." }],
+      };
+      setPreflight(report);
+      return report;
+    }
+  }
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -52,6 +73,7 @@ export default function NewBuildScreen() {
           if (!active) return;
           setProjectType("html");
           setArchive(prepared);
+          await inspectSelectedSource("html", prepared);
           setProjectName(draft.projectName);
           setPackageName(getProjectPackageName(draft.projectName));
           importedCode = true;
@@ -124,6 +146,7 @@ export default function NewBuildScreen() {
       const rawSource: SelectedSource = { name: selectedName, size: selected.size, uri: selected.uri };
       const source: SelectedSource | PreparedHtmlSource = directHtml ? await prepareDirectHtmlSource(selected) : rawSource;
       setArchive(source);
+      await inspectSelectedSource(projectType, source);
       if (!projectName.trim()) {
         const suggestedName = selectedName.replace(/\.(zip|html?)$/i, "");
         setProjectName(suggestedName);
@@ -131,6 +154,20 @@ export default function NewBuildScreen() {
       }
     } catch (error) {
       Alert.alert("Import impossible", error instanceof Error ? error.message : "Le fichier n’a pas pu être sélectionné. Réessayez.");
+    }
+  }
+
+  async function handleUseStarter(starterId: StarterProjectId) {
+    try {
+      const source = prepareStarterProject(starterId);
+      setProjectType(source.projectType);
+      setArchive(source);
+      setProjectName(source.projectName);
+      setPackageName(getProjectPackageName(source.projectName));
+      await inspectSelectedSource(source.projectType, source);
+      Alert.alert("Modèle prêt", `Le modèle ${source.projectType === "html" ? "HTML" : source.projectType === "expo" ? "Expo" : "Android"} est prêt à modifier ou à compiler.`);
+    } catch (error) {
+      Alert.alert("Modèle non ajouté", error instanceof Error ? error.message : "Réessayez dans un instant.");
     }
   }
 
@@ -169,6 +206,11 @@ export default function NewBuildScreen() {
     }
     try {
       setSaving(true);
+      const report = preflight ?? await inspectSelectedSource(projectType, archive);
+      if (report.hasBlockers) {
+        Alert.alert("Projet à corriger", "MIA💻 a trouvé au moins un blocage dans la structure du projet. Corrigez les éléments indiqués avant d’envoyer la compilation.");
+        return;
+      }
       const job = await createLocalBuildDraft({
         projectName,
         projectType,
@@ -212,7 +254,7 @@ export default function NewBuildScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.stepPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.stepPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <View style={styles.progressRow}>
             {[1, 2, 3].map((step, index) => {
               const done = (step === 1 && projectType) || (step === 2 && archive) || (step === 3 && projectName.trim());
@@ -230,6 +272,19 @@ export default function NewBuildScreen() {
           <Text style={[styles.progressText, { color: colors.muted }]}>{!projectType ? "Étape 1 · Choisissez votre type de code" : !archive ? "Étape 2 · Ajoutez votre fichier" : "Étape 3 · Donnez une identité à votre APK"}</Text>
         </View>
 
+        <View style={[styles.starterPanel, { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}45` }]}>
+          <View style={styles.starterTitleRow}><MaterialIcons color={colors.primary} name="auto-awesome" size={18} /><View style={styles.starterCopy}><Text style={[styles.starterTitle, { color: colors.foreground }]}>Démarrer sans fichier</Text><Text style={[styles.starterText, { color: colors.muted }]}>Choisissez un modèle déjà compatible avec le compilateur.</Text></View></View>
+          <View style={styles.starterList}>
+            {STARTER_PROJECTS.map((starter) => (
+              <Pressable key={starter.id} accessibilityRole="button" accessibilityLabel={`Utiliser le ${starter.title}`} disabled={saving} onPress={() => { void handleUseStarter(starter.id); }} style={({ pressed }) => [styles.starterButton, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
+                <MaterialIcons color={colors.primary} name={starter.id === "html" ? "language" : starter.id === "expo" ? "code" : "android"} size={18} />
+                <View style={styles.starterButtonCopy}><Text style={[styles.starterButtonTitle, { color: colors.foreground }]}>{starter.title}</Text><Text numberOfLines={1} style={[styles.starterButtonText, { color: colors.muted }]}>{starter.description}</Text></View>
+                <MaterialIcons color={colors.primary} name="arrow-forward-ios" size={13} />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         <View style={styles.sectionHead}>
           <View style={[styles.sectionNumber, { backgroundColor: colors.primary }]}><Text style={[styles.sectionNumberText, { color: colors.background }]}>1</Text></View>
           <View><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Quel code voulez-vous compiler ?</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>Le choix ne peut plus changer après l’import.</Text></View>
@@ -244,7 +299,7 @@ export default function NewBuildScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 accessibilityLabel={type.label}
-                onPress={() => { setProjectType(type.id); setArchive(null); }}
+                onPress={() => { setProjectType(type.id); setArchive(null); setPreflight(null); }}
                 style={({ pressed }) => [styles.typeRow, { backgroundColor: selected ? `${colors.primary}13` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && styles.pressed]}
               >
                 <View style={[styles.typeIcon, { backgroundColor: selected ? colors.primary : colors.background }]}>
@@ -283,8 +338,15 @@ export default function NewBuildScreen() {
         {archive ? (
           <View style={[styles.selectedFile, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}55` }]}> 
             <View style={[styles.fileCheck, { backgroundColor: `${colors.success}22` }]}><MaterialIcons color={colors.success} name="check" size={18} /></View>
-            <View style={styles.fileCopy}><Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text><Text style={[styles.fileDetail, { color: colors.muted }]}>{formatBytes(archive.size)} · {archive.preparedFromHtml ? "HTML prêt à compiler" : "Fichier reconnu"}</Text></View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => setArchive(null)} style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="close" size={20} /></Pressable>
+            <View style={styles.fileCopy}><Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text><Text style={[styles.fileDetail, { color: colors.muted }]}>{formatBytes(archive.size)} · {archive.preparedFromTemplate ? "Modèle prêt à modifier" : archive.preparedFromHtml ? "HTML prêt à compiler" : "Fichier reconnu"}</Text></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => { setArchive(null); setPreflight(null); }} style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="close" size={20} /></Pressable>
+          </View>
+        ) : null}
+
+        {preflight ? (
+          <View style={[styles.preflightPanel, { backgroundColor: preflight.hasBlockers ? `${colors.error}10` : `${colors.success}10`, borderColor: preflight.hasBlockers ? `${colors.error}55` : `${colors.success}55` }]}>
+            <View style={styles.preflightHeader}><MaterialIcons color={preflight.hasBlockers ? colors.error : colors.success} name={preflight.hasBlockers ? "warning-amber" : "verified"} size={20} /><View><Text style={[styles.preflightTitle, { color: colors.foreground }]}>{preflight.hasBlockers ? "À corriger avant l’envoi" : "Contrôle avant envoi terminé"}</Text><Text style={[styles.preflightSubtitle, { color: colors.muted }]}>{preflight.entryCount} fichier{preflight.entryCount > 1 ? "s" : ""} vérifié{preflight.entryCount > 1 ? "s" : ""} sur votre téléphone</Text></View></View>
+            {preflight.findings.map((finding, index) => <View key={`${finding.level}-${index}`} style={styles.preflightFinding}><MaterialIcons color={finding.level === "blocker" ? colors.error : finding.level === "warning" ? colors.primary : colors.success} name={finding.level === "blocker" ? "cancel" : finding.level === "warning" ? "info-outline" : "check-circle"} size={15} /><Text style={[styles.preflightFindingText, { color: colors.muted }]}>{finding.message}</Text></View>)}
           </View>
         ) : null}
 
@@ -391,6 +453,16 @@ const styles = StyleSheet.create({
   headerText: { marginTop: 7, maxWidth: 335, fontSize: 13, lineHeight: 20 },
   assistantLink: { alignSelf: "flex-start", minHeight: 42, borderWidth: 1, borderRadius: 14, marginTop: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   assistantLinkText: { fontSize: 11, fontWeight: "800" },
+  starterPanel: { borderWidth: 1, borderRadius: 19, padding: 13, marginBottom: 27 },
+  starterTitleRow: { flexDirection: "row", alignItems: "center", gap: 9 },
+  starterCopy: { flex: 1 },
+  starterTitle: { fontSize: 14, fontWeight: "900" },
+  starterText: { marginTop: 2, fontSize: 10.5, lineHeight: 15 },
+  starterList: { marginTop: 11, gap: 7 },
+  starterButton: { minHeight: 53, borderWidth: 1, borderRadius: 13, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 9 },
+  starterButtonCopy: { flex: 1 },
+  starterButtonTitle: { fontSize: 12, fontWeight: "900" },
+  starterButtonText: { marginTop: 2, fontSize: 10, lineHeight: 14 },
   stepPanel: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 15, paddingVertical: 15, marginBottom: 29 },
   progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   progressItem: { flexDirection: "row", alignItems: "center" },
@@ -421,6 +493,12 @@ const styles = StyleSheet.create({
   fileCopy: { flex: 1, minWidth: 0 },
   fileName: { fontSize: 13, fontWeight: "800" },
   fileDetail: { marginTop: 2, fontSize: 11 },
+  preflightPanel: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: -17, marginBottom: 27 },
+  preflightHeader: { flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 9 },
+  preflightTitle: { fontSize: 13, fontWeight: "900" },
+  preflightSubtitle: { fontSize: 10.5, marginTop: 1 },
+  preflightFinding: { flexDirection: "row", alignItems: "flex-start", gap: 7, marginTop: 6 },
+  preflightFindingText: { flex: 1, fontSize: 10.5, lineHeight: 15 },
   removeButton: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   optionalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 9, marginBottom: 12 },
   optionalBadge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },

@@ -43,6 +43,7 @@ const ASSISTANT_DRAFT_KEY = "one-app-ai-draft-v1";
 const ASSISTANT_HISTORY_KEY = "one-app-ai-history-v1";
 const MIA_CONVERSATIONS_KEY = "one-app-mia-conversations-v1";
 const MIA_LOGO_DRAFT_KEY = "one-app-mia-logo-draft-v1";
+const MIA_BUILD_HELP_DRAFT_KEY = "one-app-mia-build-help-v1";
 
 export type AiCodeDraft = AiCodeResponse & {
   projectType: ProjectType;
@@ -58,6 +59,11 @@ export type MiaChatInput = {
   projectType: ProjectType;
   history: MiaMessage[];
   provider?: MiaProvider;
+};
+
+export type MiaBuildHelpDraft = {
+  projectType: ProjectType;
+  prompt: string;
 };
 
 async function getAssistantClientId() {
@@ -204,6 +210,24 @@ export async function takeMiaLogoDraft(): Promise<MiaLogoDraft | null> {
   if (!raw) return null;
   try {
     return readMiaLogoDraft(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+/** Rend un message de compilation disponible une seule fois au prochain écran MIA. */
+export async function saveMiaBuildHelpDraft(draft: MiaBuildHelpDraft) {
+  await AsyncStorage.setItem(MIA_BUILD_HELP_DRAFT_KEY, JSON.stringify(draft));
+}
+
+export async function takeMiaBuildHelpDraft(): Promise<MiaBuildHelpDraft | null> {
+  const raw = await AsyncStorage.getItem(MIA_BUILD_HELP_DRAFT_KEY);
+  await AsyncStorage.removeItem(MIA_BUILD_HELP_DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    const draft = JSON.parse(raw) as Partial<MiaBuildHelpDraft>;
+    if (!draft || !["html", "expo", "android"].includes(draft.projectType ?? "") || typeof draft.prompt !== "string" || !draft.prompt.trim()) return null;
+    return { projectType: draft.projectType as ProjectType, prompt: draft.prompt.trim().slice(0, 3500) };
   } catch {
     return null;
   }

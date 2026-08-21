@@ -10,6 +10,8 @@ import Svg, { Circle } from "react-native-svg";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { saveMiaBuildHelpDraft } from "@/lib/ai-code-assistant";
+import { getBuildErrorHelp } from "@/shared/build-error-help";
 import { getBuildTimeRemainingLabel } from "@/shared/build-progress";
 import { canDeleteBuildFromHistory, countDeletableBuilds, getLocalApkFileUri, matchesBuildHistoryFilter, type BuildHistoryFilter } from "@/shared/build-history";
 import {
@@ -92,6 +94,9 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   const compilationProgress = item.status === "complete" ? 100 : Math.max(0, Math.min(100, item.progress ?? (item.status === "building" ? 12 : 5)));
   const compilationEvents = (item.events ?? []).slice(-8);
   const showCompilationProgress = item.status === "queued" || item.status === "building";
+  const errorHelp = item.status === "failed"
+    ? getBuildErrorHelp({ projectName: item.projectName, projectType: item.projectType, message: item.message })
+    : null;
   const timeRemaining = getBuildTimeRemainingLabel(item.status, compilationProgress);
   const downloadHint = downloadMessage
     ?? (expectedBytes > 0
@@ -250,6 +255,16 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
     }
   }
 
+  async function handleOpenMiaErrorHelp() {
+    if (!errorHelp) return;
+    try {
+      await saveMiaBuildHelpDraft({ projectType: item.projectType, prompt: errorHelp.miaPrompt });
+      router.navigate("/(tabs)/assistant");
+    } catch {
+      Alert.alert("Aide indisponible", "MIA💻 n’a pas pu préparer l’aide pour le moment. Réessayez dans un instant.");
+    }
+  }
+
   async function handleDelete() {
     try {
       setDeleting(true);
@@ -360,6 +375,29 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
           {item.message || item.sourceName}
         </Text>
       </View>
+
+      {errorHelp ? (
+        <View style={[styles.errorHelpPanel, { backgroundColor: `${colors.error}0D`, borderColor: `${colors.error}40` }]}>
+          <View style={styles.errorHelpHeader}>
+            <MaterialIcons color={colors.error} name="lightbulb-outline" size={19} />
+            <View style={styles.errorHelpCopy}>
+              <Text style={[styles.errorHelpTitle, { color: colors.foreground }]}>{errorHelp.title}</Text>
+              <Text style={[styles.errorHelpText, { color: colors.muted }]}>{errorHelp.summary}</Text>
+            </View>
+          </View>
+          <Text style={[styles.errorHelpNext, { color: colors.muted }]}>{errorHelp.nextStep}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Comprendre l’erreur de ${item.projectName} avec MIA`}
+            onPress={() => { void handleOpenMiaErrorHelp(); }}
+            style={({ pressed }) => [styles.errorHelpButton, { backgroundColor: `${colors.primary}17`, borderColor: `${colors.primary}55` }, pressed && styles.pressed]}
+          >
+            <MaterialIcons color={colors.primary} name="auto-awesome" size={17} />
+            <Text style={[styles.errorHelpButtonText, { color: colors.primary }]}>Comprendre avec MIA</Text>
+            <MaterialIcons color={colors.primary} name="arrow-forward" size={17} />
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={[styles.buildModeBadge, { backgroundColor: item.buildMode === "signed" ? `${colors.success}16` : `${colors.primary}16` }]}>
         <MaterialIcons color={item.buildMode === "signed" ? colors.success : colors.primary} name={item.buildMode === "signed" ? "verified-user" : "science"} size={14} />
@@ -788,6 +826,14 @@ const styles = StyleSheet.create({
   statusMark: { width: 6, height: 6, borderRadius: 3 },
   statusLabel: { fontSize: 11, fontWeight: "900" },
   statusDetail: { flex: 1, fontSize: 11, textAlign: "right" },
+  errorHelpPanel: { borderWidth: 1, borderRadius: 14, marginTop: 10, padding: 11 },
+  errorHelpHeader: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  errorHelpCopy: { flex: 1 },
+  errorHelpTitle: { fontSize: 12, fontWeight: "900" },
+  errorHelpText: { marginTop: 2, fontSize: 10.5, lineHeight: 15 },
+  errorHelpNext: { marginTop: 8, fontSize: 10.5, lineHeight: 15, fontWeight: "700" },
+  errorHelpButton: { minHeight: 38, marginTop: 9, paddingHorizontal: 10, borderWidth: 1, borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 6 },
+  errorHelpButtonText: { flex: 1, fontSize: 11, fontWeight: "900" },
   buildModeBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5, marginTop: 9 },
   buildModeBadgeText: { fontSize: 10, fontWeight: "800" },
   compilationPanel: { borderWidth: 1, borderRadius: 14, marginTop: 10, padding: 11 },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Clipboard from "expo-clipboard";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -28,6 +28,7 @@ import {
   saveMiaConversation,
   saveMiaLogoDraft,
   sendMiaMessage,
+  takeMiaBuildHelpDraft,
 } from "@/lib/ai-code-assistant";
 import { PROJECT_TYPES, type ProjectType } from "@/lib/build-store";
 import {
@@ -124,6 +125,23 @@ export default function AssistantScreen() {
     });
     return () => { active = false; };
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void takeMiaBuildHelpDraft().then((helpDraft) => {
+      if (!active || !helpDraft) return;
+      setActiveConversationId(null);
+      setDraftProvider("mia");
+      setDraftProjectType(helpDraft.projectType);
+      setDraft(helpDraft.prompt);
+      setError("");
+      setHistoryOpen(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }).catch(() => {
+      if (active) setError("L’aide liée à cette compilation n’a pas pu être préparée. Réessayez depuis Mes APK.");
+    });
+    return () => { active = false; };
+  }, []));
 
   useEffect(() => {
     if (!typingMessageId) {

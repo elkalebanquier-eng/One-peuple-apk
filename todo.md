@@ -590,3 +590,10 @@
 - [x] Ajouter « Tout supprimer » avec deux confirmations distinctes.
 - [x] Conserver les compilations actives et les APK déjà partagées lors du nettoyage global.
 - [x] Tester, compiler puis livrer directement l’APK debug mise à jour.
+
+## Améliorations de qualité de compilation
+
+- [x] Renforcer le contrôle local avant l’envoi du ZIP avec un résumé clair des blocages et avertissements.
+- [x] Ajouter un bouton d’aide après une erreur de compilation pour obtenir une explication MIA adaptée.
+- [x] Ajouter des modèles de départ pour HTML, Expo/React Native et Android natif, utilisables depuis le téléphone.
+- [ ] Tester, compiler puis livrer directement l’APK debug avec ces améliorations.
