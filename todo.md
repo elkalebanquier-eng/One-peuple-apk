@@ -564,4 +564,4 @@
 
 - [x] Rendre le bouton de téléchargement de la clé et du mot de passe très visible dès que l’APK signée est prête
 - [x] Expliquer que le ZIP est à usage unique et doit être conservé hors du téléphone
-- [ ] Tester le bouton puis compiler et livrer l’APK debug et le code source
+- [x] Tester le bouton puis compiler et livrer l’APK debug et le code source
