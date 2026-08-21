@@ -10,6 +10,7 @@ import Svg, { Circle } from "react-native-svg";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { getBuildTimeRemainingLabel } from "@/shared/build-progress";
 import {
   clearPrivateKeyBackupUrl,
   formatBytes,
@@ -80,6 +81,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   const [savingKey, setSavingKey] = useState(false);
   const [sharingApk, setSharingApk] = useState(false);
   const [savedApkUri, setSavedApkUri] = useState<string | null>(null);
+  const [showCompilationLog, setShowCompilationLog] = useState(true);
   const lastDownloadUpdate = useRef(0);
   const handledNotificationInstall = useRef(false);
   const canRestart = item.status === "complete" || item.status === "failed";
@@ -87,8 +89,9 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   const expectedBytes = downloadProgress?.total ?? 0;
   const progressPercent = expectedBytes > 0 ? Math.min(100, Math.round((receivedBytes / expectedBytes) * 100)) : 0;
   const compilationProgress = item.status === "complete" ? 100 : Math.max(0, Math.min(100, item.progress ?? (item.status === "building" ? 12 : 5)));
-  const compilationEvents = (item.events ?? []).slice(-3);
+  const compilationEvents = (item.events ?? []).slice(-8);
   const showCompilationProgress = item.status === "queued" || item.status === "building";
+  const timeRemaining = getBuildTimeRemainingLabel(item.status, compilationProgress);
   const downloadHint = downloadMessage
     ?? (expectedBytes > 0
       ? `${progressPercent} % · ${formatBytes(receivedBytes)} sur ${formatBytes(expectedBytes)}`
@@ -336,21 +339,37 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
         <View style={[styles.compilationPanel, { backgroundColor: `${status.color}0D`, borderColor: `${status.color}32` }]}>
           <View style={styles.compilationHeading}>
             <Text style={[styles.compilationTitle, { color: colors.foreground }]}>Progression de la compilation</Text>
-            <Text style={[styles.compilationPercent, { color: status.color }]}>{compilationProgress} %</Text>
+            <View style={styles.compilationSummary}>
+              <Text style={[styles.compilationPercent, { color: status.color }]}>{compilationProgress} %</Text>
+              <Text style={[styles.compilationEstimate, { color: colors.muted }]}>{timeRemaining}</Text>
+            </View>
           </View>
           <View style={[styles.compilationTrack, { backgroundColor: `${status.color}24` }]}>
             <View style={[styles.compilationFill, { backgroundColor: status.color, width: `${Math.max(3, compilationProgress)}%` }]} />
           </View>
-          <View style={styles.compilationEvents}>
-            {compilationEvents.length > 0 ? compilationEvents.map((event, index) => (
-              <View key={`${event.createdAt}-${index}`} style={styles.compilationEvent}>
-                <MaterialIcons color={event.progress <= compilationProgress ? status.color : colors.muted} name={event.progress < compilationProgress ? "check-circle" : "radio-button-checked"} size={14} />
-                <Text numberOfLines={2} style={[styles.compilationEventText, { color: event.progress < compilationProgress ? colors.muted : colors.foreground }]}>{event.message}</Text>
-              </View>
-            )) : (
-              <Text style={[styles.compilationEventText, { color: colors.muted }]}>Connexion au suivi de compilation…</Text>
-            )}
-          </View>
+          <Text style={[styles.compilationEstimateHint, { color: colors.muted }]}>Estimation variable selon la taille du projet et la file.</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showCompilationLog ? "Masquer le journal de compilation" : "Afficher le journal de compilation"}
+            accessibilityState={{ expanded: showCompilationLog }}
+            onPress={() => setShowCompilationLog((visible) => !visible)}
+            style={({ pressed }) => [styles.compilationLogToggle, { backgroundColor: `${status.color}12` }, pressed && styles.pressed]}
+          >
+            <MaterialIcons color={status.color} name={showCompilationLog ? "expand-less" : "expand-more"} size={18} />
+            <Text style={[styles.compilationLogToggleText, { color: status.color }]}>{showCompilationLog ? "Masquer le journal" : `Afficher le journal${compilationEvents.length > 0 ? ` (${compilationEvents.length})` : ""}`}</Text>
+          </Pressable>
+          {showCompilationLog ? (
+            <View style={styles.compilationEvents}>
+              {compilationEvents.length > 0 ? compilationEvents.map((event, index) => (
+                <View key={`${event.createdAt}-${index}`} style={styles.compilationEvent}>
+                  <MaterialIcons color={event.progress <= compilationProgress ? status.color : colors.muted} name={event.progress < compilationProgress ? "check-circle" : "radio-button-checked"} size={14} />
+                  <Text numberOfLines={2} style={[styles.compilationEventText, { color: event.progress < compilationProgress ? colors.muted : colors.foreground }]}>{event.message}</Text>
+                </View>
+              )) : (
+                <Text style={[styles.compilationEventText, { color: colors.muted }]}>Connexion au suivi de compilation…</Text>
+              )}
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -636,9 +655,14 @@ const styles = StyleSheet.create({
   compilationPanel: { borderWidth: 1, borderRadius: 14, marginTop: 10, padding: 11 },
   compilationHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   compilationTitle: { fontSize: 12, fontWeight: "900" },
+  compilationSummary: { alignItems: "flex-end", marginLeft: 10 },
   compilationPercent: { fontSize: 12, fontWeight: "900" },
+  compilationEstimate: { marginTop: 1, fontSize: 9.5, lineHeight: 13, fontWeight: "700", textAlign: "right" },
   compilationTrack: { height: 6, borderRadius: 5, overflow: "hidden", marginTop: 8 },
   compilationFill: { height: 6, borderRadius: 5 },
+  compilationEstimateHint: { marginTop: 8, fontSize: 9.5, lineHeight: 13 },
+  compilationLogToggle: { minHeight: 34, marginTop: 9, paddingHorizontal: 9, borderRadius: 9, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5 },
+  compilationLogToggleText: { fontSize: 10.5, fontWeight: "900" },
   compilationEvents: { marginTop: 10, gap: 5 },
   compilationEvent: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   compilationEventText: { flex: 1, fontSize: 10.5, lineHeight: 15, fontWeight: "600" },

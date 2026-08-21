@@ -540,3 +540,10 @@
 - [x] Transmettre l’avancement et les événements de compilation depuis Cloudflare et GitHub Actions
 - [x] Afficher une barre de progression et un journal lisible dans Mes APK
 - [x] Tester le suivi complet et reconstruire l’APK MIA💻
+
+## Durée restante et journal repliable
+
+- [x] Définir une estimation simple et prudente du temps restant par étape de compilation
+- [x] Afficher l’estimation à côté de la barre de progression
+- [x] Ajouter un bouton pour afficher ou masquer le journal détaillé
+- [ ] Tester puis livrer directement l’APK debug et le code source
