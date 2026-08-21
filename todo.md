@@ -558,3 +558,4 @@
 - [x] Vérifier que la sauvegarde de clé contient les informations nécessaires à la prochaine mise à jour Android
 - [x] Rendre le mot de passe de la clé clair, téléchargeable et remis une seule fois au propriétaire
 - [ ] Tester le parcours signé puis reconstruire et livrer l’APK debug
+- [x] Valider les protections par les tests, puis compiler et préparer l’APK debug et le code source
