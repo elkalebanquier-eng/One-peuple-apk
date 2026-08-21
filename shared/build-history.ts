@@ -1,8 +1,20 @@
 export type BuildHistoryStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
+export type BuildHistoryFilter = "all" | "complete" | "failed";
 
 /** Une compilation en cours reste protégée contre une suppression accidentelle. */
 export function canDeleteBuildFromHistory(status: BuildHistoryStatus) {
   return status !== "queued" && status !== "building";
+}
+
+/** Limite l’affichage sans altérer les données conservées sur le téléphone. */
+export function matchesBuildHistoryFilter(status: BuildHistoryStatus, filter: BuildHistoryFilter) {
+  if (filter === "all") return true;
+  return status === filter;
+}
+
+/** Les builds en file ou en cours restent visibles et ne font jamais partie d’un nettoyage global. */
+export function countDeletableBuilds(statuses: BuildHistoryStatus[]) {
+  return statuses.filter(canDeleteBuildFromHistory).length;
 }
 
 function makeSafeApkName(projectName: string, buildId: string) {

@@ -217,6 +217,30 @@ export async function deleteBuildJob(job: BuildJob) {
   await writeJobs(jobs.filter((candidate) => candidate.id !== job.id));
 }
 
+/**
+ * Nettoie seulement les entrées qui ne sont plus en cours, avec leurs fichiers locaux.
+ * Les compilations en file ou en construction restent intactes et continueront leur suivi.
+ */
+export async function deleteFinishedBuildJobs() {
+  const jobs = await readJobs();
+  const deletableJobs = jobs.filter((job) => canDeleteBuildFromHistory(job.status));
+  if (deletableJobs.length === 0) return 0;
+
+  await Promise.all(deletableJobs.map(async (job) => {
+    const rootDirectory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+    if (rootDirectory) {
+      await Promise.allSettled([
+        FileSystem.deleteAsync(getLocalBuildDirectory(rootDirectory, job.id), { idempotent: true }),
+        FileSystem.deleteAsync(getLocalApkFileUri(rootDirectory, job.projectName, job.id), { idempotent: true }),
+      ]);
+    }
+    await clearPrivateKeyBackupUrl(job.id).catch(() => undefined);
+  }));
+
+  await writeJobs(jobs.filter((job) => !canDeleteBuildFromHistory(job.status)));
+  return deletableJobs.length;
+}
+
 export function subscribeToBuildJobs(listener: (jobs: BuildJob[]) => void) {
   listeners.add(listener);
   void loadBuildJobs().then(listener);

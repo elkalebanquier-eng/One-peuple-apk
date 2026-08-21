@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import { Alert, FlatList, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -11,10 +11,11 @@ import Svg, { Circle } from "react-native-svg";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { getBuildTimeRemainingLabel } from "@/shared/build-progress";
-import { canDeleteBuildFromHistory, getLocalApkFileUri } from "@/shared/build-history";
+import { canDeleteBuildFromHistory, countDeletableBuilds, getLocalApkFileUri, matchesBuildHistoryFilter, type BuildHistoryFilter } from "@/shared/build-history";
 import {
   clearPrivateKeyBackupUrl,
   deleteBuildJob,
+  deleteFinishedBuildJobs,
   formatBytes,
   getPrivateKeyBackupUrl,
   getProjectType,
@@ -51,6 +52,12 @@ const QUOTA_RING_SIZE = 66;
 const QUOTA_RING_STROKE = 6;
 const QUOTA_RING_RADIUS = (QUOTA_RING_SIZE - QUOTA_RING_STROKE) / 2;
 const QUOTA_RING_CIRCUMFERENCE = 2 * Math.PI * QUOTA_RING_RADIUS;
+
+const HISTORY_FILTERS: Array<{ id: BuildHistoryFilter; label: string; icon: IconName }> = [
+  { id: "all", label: "Toutes", icon: "apps" },
+  { id: "complete", label: "Terminées", icon: "verified" },
+  { id: "failed", label: "Erreurs", icon: "error-outline" },
+];
 
 function makeKeyBackupFileName(projectName: string) {
   const safeName = projectName
@@ -494,10 +501,22 @@ export default function BuildsScreen() {
   const colors = useColors();
   const [jobs, setJobs] = useState<BuildJob[]>([]);
   const [quota, setQuota] = useState<BuildQuota | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<BuildHistoryFilter>("all");
+  const [deletingAll, setDeletingAll] = useState(false);
   const { installBuild } = useLocalSearchParams<{ installBuild?: string }>();
   const quotaProgress = quota ? Math.max(0, Math.min(1, quota.remaining / quota.max)) : 0;
   const quotaWarning = quota !== null && quota.remaining <= 1;
   const quotaColor = quotaWarning ? colors.error : colors.primary;
+  const filteredJobs = useMemo(
+    () => jobs.filter((job) => matchesBuildHistoryFilter(job.status, historyFilter)),
+    [historyFilter, jobs],
+  );
+  const deletableBuildCount = useMemo(() => countDeletableBuilds(jobs.map((job) => job.status)), [jobs]);
+  const activeBuildCount = jobs.length - deletableBuildCount;
+  const filterEmptyTitle = historyFilter === "complete" ? "Aucune APK terminée." : "Aucune compilation en erreur.";
+  const filterEmptyText = historyFilter === "complete"
+    ? "Les APK prêtes apparaîtront ici après la fin de leur compilation."
+    : "Les explications utiles apparaîtront ici seulement si une compilation a besoin d’être relancée.";
 
   useEffect(() => subscribeToBuildJobs(setJobs), []);
   useEffect(() => subscribeToBuildQuota(setQuota), []);
@@ -522,10 +541,52 @@ export default function BuildsScreen() {
     };
   }, [jobs]);
 
+  async function handleDeleteFinishedBuilds() {
+    try {
+      setDeletingAll(true);
+      const deletedCount = await deleteFinishedBuildJobs();
+      Alert.alert(
+        "Historique nettoyé",
+        `${deletedCount} ancienne${deletedCount > 1 ? "s" : ""} compilation${deletedCount > 1 ? "s" : ""} et ses fichiers locaux ont été retirés de MIA💻.`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Le nettoyage n’a pas pu être terminé.";
+      Alert.alert("Nettoyage impossible", message);
+    } finally {
+      setDeletingAll(false);
+    }
+  }
+
+  function confirmDeleteFinishedBuildsSecondStep() {
+    Alert.alert(
+      "Dernière confirmation",
+      `Vous allez supprimer définitivement ${deletableBuildCount} ancienne${deletableBuildCount > 1 ? "s" : ""} compilation${deletableBuildCount > 1 ? "s" : ""} de l’historique local. Cette action ne peut pas être annulée.${activeBuildCount > 0 ? ` ${activeBuildCount} compilation${activeBuildCount > 1 ? "s" : ""} active${activeBuildCount > 1 ? "s" : ""} restera${activeBuildCount > 1 ? "ont" : ""} protégée${activeBuildCount > 1 ? "s" : ""}.` : ""}`,
+      [
+        { text: "Revenir", style: "cancel" },
+        { text: "Oui, tout supprimer", style: "destructive", onPress: () => { void handleDeleteFinishedBuilds(); } },
+      ],
+    );
+  }
+
+  function confirmDeleteFinishedBuildsFirstStep() {
+    if (deletableBuildCount === 0) {
+      Alert.alert("Rien à supprimer", "Seules les compilations actives sont encore présentes. Elles restent protégées jusqu’à leur fin.");
+      return;
+    }
+    Alert.alert(
+      "Supprimer toutes les anciennes compilations ?",
+      `MIA💻 retirera ${deletableBuildCount} entrée${deletableBuildCount > 1 ? "s" : ""} terminée${deletableBuildCount > 1 ? "s" : ""} ou en erreur, avec les ZIP et APK conservés uniquement dans l’application. Les APK déjà installées, partagées ou copiées dans Fichiers ne seront pas supprimées.${activeBuildCount > 0 ? ` ${activeBuildCount} compilation${activeBuildCount > 1 ? "s" : ""} active${activeBuildCount > 1 ? "s" : ""} restera protégée.` : ""}`,
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Continuer", style: "destructive", onPress: confirmDeleteFinishedBuildsSecondStep },
+      ],
+    );
+  }
+
   return (
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <FlatList
-        data={jobs}
+        data={filteredJobs}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <BuildCard item={item} installFromNotification={installBuild === item.id} />}
         contentContainerStyle={styles.listContent}
@@ -614,19 +675,50 @@ export default function BuildsScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.sectionTitleRow}>
-              <View><Text style={[styles.sectionEyebrow, { color: colors.primary }]}>SUIVI</Text><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mes compilations</Text></View>
-              <Text style={[styles.sectionCount, { color: colors.muted }]}>{jobs.length === 0 ? "Aucune pour l’instant" : `${jobs.length} au total`}</Text>
-            </View>
+              <View style={styles.sectionTitleRow}>
+                <View><Text style={[styles.sectionEyebrow, { color: colors.primary }]}>SUIVI</Text><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mes compilations</Text></View>
+                <Text style={[styles.sectionCount, { color: colors.muted }]}>{jobs.length === 0 ? "Aucune pour l’instant" : `${filteredJobs.length} affichée${filteredJobs.length > 1 ? "s" : ""}`}</Text>
+              </View>
+              <View style={styles.historyControls}>
+                <View style={[styles.filterRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  {HISTORY_FILTERS.map((filter) => {
+                    const selected = historyFilter === filter.id;
+                    const selectedColor = filter.id === "failed" ? colors.error : colors.primary;
+                    return (
+                      <Pressable
+                        key={filter.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Afficher les compilations ${filter.label.toLocaleLowerCase("fr-FR")}`}
+                        accessibilityState={{ selected }}
+                        onPress={() => setHistoryFilter(filter.id)}
+                        style={({ pressed }) => [styles.filterButton, selected && { backgroundColor: `${selectedColor}18` }, pressed && styles.pressed]}
+                      >
+                        <MaterialIcons color={selected ? selectedColor : colors.muted} name={filter.icon} size={15} />
+                        <Text style={[styles.filterButtonText, { color: selected ? selectedColor : colors.muted }]}>{filter.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Supprimer toutes les anciennes compilations"
+                  disabled={deletingAll || deletableBuildCount === 0}
+                  onPress={confirmDeleteFinishedBuildsFirstStep}
+                  style={({ pressed }) => [styles.clearAllButton, { borderColor: `${colors.error}66`, backgroundColor: `${colors.error}10`, opacity: deletableBuildCount === 0 ? 0.48 : 1 }, pressed && deletableBuildCount > 0 && styles.pressed]}
+                >
+                  <MaterialIcons color={colors.error} name={deletingAll ? "hourglass-top" : "delete-sweep"} size={18} />
+                  <Text style={[styles.clearAllButtonText, { color: colors.error }]}>{deletingAll ? "Nettoyage en cours…" : `Tout supprimer${deletableBuildCount > 0 ? ` (${deletableBuildCount})` : ""}`}</Text>
+                </Pressable>
+              </View>
           </>
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
-              <MaterialIcons color={colors.primary} name="rocket-launch" size={25} />
+              <MaterialIcons color={historyFilter === "failed" ? colors.error : colors.primary} name={historyFilter === "all" ? "rocket-launch" : historyFilter === "complete" ? "verified" : "check-circle-outline"} size={25} />
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Votre première APK commence ici.</Text>
-            <Text style={[styles.emptyText, { color: colors.muted }]}>Un ZIP Expo ou Android, ou directement un fichier index.html, suffit pour démarrer.</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{historyFilter === "all" ? "Votre première APK commence ici." : filterEmptyTitle}</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>{historyFilter === "all" ? "Un ZIP Expo ou Android, ou directement un fichier index.html, suffit pour démarrer." : filterEmptyText}</Text>
           </View>
         }
         ListFooterComponent={
@@ -679,6 +771,12 @@ const styles = StyleSheet.create({
   sectionEyebrow: { marginBottom: 3, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
   sectionTitle: { fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
   sectionCount: { fontSize: 12, fontWeight: "600" },
+  historyControls: { marginBottom: 13, gap: 8 },
+  filterRow: { minHeight: 46, padding: 4, borderRadius: 14, borderWidth: 1, flexDirection: "row" },
+  filterButton: { flex: 1, minHeight: 36, paddingHorizontal: 6, borderRadius: 10, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 4 },
+  filterButtonText: { fontSize: 10.5, fontWeight: "900" },
+  clearAllButton: { minHeight: 43, paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 7 },
+  clearAllButtonText: { fontSize: 11.5, fontWeight: "900" },
   buildCard: { borderWidth: 1, borderRadius: 20, padding: 14, marginBottom: 11 },
   cardTopRow: { flexDirection: "row", alignItems: "center" },
   typeTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 11 },

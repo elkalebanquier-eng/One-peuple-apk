@@ -583,3 +583,10 @@
 - [x] Ajouter une suppression confirmée d’une ancienne compilation depuis la liste Mes APK.
 - [x] Supprimer aussi les fichiers locaux associés sans toucher aux APK déjà partagées.
 - [x] Tester puis livrer l’APK debug avec le bouton de suppression.
+
+## Filtres et suppression complète de l’historique
+
+- [x] Ajouter des filtres simples : toutes, terminées et erreurs.
+- [x] Ajouter « Tout supprimer » avec deux confirmations distinctes.
+- [x] Conserver les compilations actives et les APK déjà partagées lors du nettoyage global.
+- [ ] Tester, compiler puis livrer directement l’APK debug mise à jour.
