@@ -589,4 +589,4 @@
 - [x] Ajouter des filtres simples : toutes, terminées et erreurs.
 - [x] Ajouter « Tout supprimer » avec deux confirmations distinctes.
 - [x] Conserver les compilations actives et les APK déjà partagées lors du nettoyage global.
-- [ ] Tester, compiler puis livrer directement l’APK debug mise à jour.
+- [x] Tester, compiler puis livrer directement l’APK debug mise à jour.
