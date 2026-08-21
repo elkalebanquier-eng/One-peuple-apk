@@ -546,4 +546,4 @@
 - [x] Définir une estimation simple et prudente du temps restant par étape de compilation
 - [x] Afficher l’estimation à côté de la barre de progression
 - [x] Ajouter un bouton pour afficher ou masquer le journal détaillé
-- [ ] Tester puis livrer directement l’APK debug et le code source
+- [x] Tester puis livrer directement l’APK debug et le code source
