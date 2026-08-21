@@ -86,6 +86,9 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   const receivedBytes = downloadProgress?.received ?? 0;
   const expectedBytes = downloadProgress?.total ?? 0;
   const progressPercent = expectedBytes > 0 ? Math.min(100, Math.round((receivedBytes / expectedBytes) * 100)) : 0;
+  const compilationProgress = item.status === "complete" ? 100 : Math.max(0, Math.min(100, item.progress ?? (item.status === "building" ? 12 : 5)));
+  const compilationEvents = (item.events ?? []).slice(-3);
+  const showCompilationProgress = item.status === "queued" || item.status === "building";
   const downloadHint = downloadMessage
     ?? (expectedBytes > 0
       ? `${progressPercent} % · ${formatBytes(receivedBytes)} sur ${formatBytes(expectedBytes)}`
@@ -328,6 +331,28 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
         <MaterialIcons color={item.buildMode === "signed" ? colors.success : colors.primary} name={item.buildMode === "signed" ? "verified-user" : "science"} size={14} />
         <Text style={[styles.buildModeBadgeText, { color: item.buildMode === "signed" ? colors.success : colors.primary }]}>{item.buildMode === "signed" ? "APK signée · publication" : "APK de test · Android"}</Text>
       </View>
+
+      {showCompilationProgress ? (
+        <View style={[styles.compilationPanel, { backgroundColor: `${status.color}0D`, borderColor: `${status.color}32` }]}>
+          <View style={styles.compilationHeading}>
+            <Text style={[styles.compilationTitle, { color: colors.foreground }]}>Progression de la compilation</Text>
+            <Text style={[styles.compilationPercent, { color: status.color }]}>{compilationProgress} %</Text>
+          </View>
+          <View style={[styles.compilationTrack, { backgroundColor: `${status.color}24` }]}>
+            <View style={[styles.compilationFill, { backgroundColor: status.color, width: `${Math.max(3, compilationProgress)}%` }]} />
+          </View>
+          <View style={styles.compilationEvents}>
+            {compilationEvents.length > 0 ? compilationEvents.map((event, index) => (
+              <View key={`${event.createdAt}-${index}`} style={styles.compilationEvent}>
+                <MaterialIcons color={event.progress <= compilationProgress ? status.color : colors.muted} name={event.progress < compilationProgress ? "check-circle" : "radio-button-checked"} size={14} />
+                <Text numberOfLines={2} style={[styles.compilationEventText, { color: event.progress < compilationProgress ? colors.muted : colors.foreground }]}>{event.message}</Text>
+              </View>
+            )) : (
+              <Text style={[styles.compilationEventText, { color: colors.muted }]}>Connexion au suivi de compilation…</Text>
+            )}
+          </View>
+        </View>
+      ) : null}
 
       {item.status === "complete" && item.apkUri ? (
         <>
@@ -608,6 +633,15 @@ const styles = StyleSheet.create({
   statusDetail: { flex: 1, fontSize: 11, textAlign: "right" },
   buildModeBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5, marginTop: 9 },
   buildModeBadgeText: { fontSize: 10, fontWeight: "800" },
+  compilationPanel: { borderWidth: 1, borderRadius: 14, marginTop: 10, padding: 11 },
+  compilationHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  compilationTitle: { fontSize: 12, fontWeight: "900" },
+  compilationPercent: { fontSize: 12, fontWeight: "900" },
+  compilationTrack: { height: 6, borderRadius: 5, overflow: "hidden", marginTop: 8 },
+  compilationFill: { height: 6, borderRadius: 5 },
+  compilationEvents: { marginTop: 10, gap: 5 },
+  compilationEvent: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  compilationEventText: { flex: 1, fontSize: 10.5, lineHeight: 15, fontWeight: "600" },
   downloadButton: { minHeight: 68, marginTop: 12, paddingHorizontal: 15, borderRadius: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   downloadCopy: { flex: 1 },
   downloadTitle: { fontSize: 14, fontWeight: "900" },

@@ -5,6 +5,7 @@ const MAX_KEY_BACKUP_BYTES = 10 * 1024 * 1024;
 const SOURCE_CHUNK_BYTES = 8 * 1024 * 1024;
 const SOURCE_TTL_SECONDS = 2 * 60 * 60;
 const JOB_TTL_SECONDS = 48 * 60 * 60;
+const MAX_PROGRESS_EVENTS = 8;
 const API_PREFIX = "/api";
 const OIDC_AUDIENCE = "one-app-build-worker";
 const GITHUB_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
@@ -145,12 +146,37 @@ function publicJob(job, includeKeyBackupUrl = false) {
     id: job.id,
     status: job.status,
     message: job.message,
+    progress: Number.isFinite(job.progress) ? Math.max(0, Math.min(100, Math.round(job.progress))) : 0,
+    events: Array.isArray(job.events) ? job.events.slice(-MAX_PROGRESS_EVENTS) : [],
     apkUrl: job.apkUrl ?? expectedApkUrl(job.id),
     buildMode: job.buildMode,
     remainingBuilds: job.remainingBuilds,
     maxBuildsPerHour: MAX_SUBMISSIONS_PER_HOUR,
     ...signing,
   };
+}
+
+function progressEvent(progress, message) {
+  return {
+    progress: Math.max(0, Math.min(100, Math.round(progress))),
+    message,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function appendProgress(job, progress, message) {
+  const safeProgress = Math.max(Number.isFinite(job.progress) ? job.progress : 0, Math.max(0, Math.min(100, Math.round(progress))));
+  const safeMessage = typeof message === "string" ? message.trim().slice(0, 180) : "";
+  if (!safeMessage) return false;
+  const events = Array.isArray(job.events) ? job.events : [];
+  const latest = events[events.length - 1];
+  job.progress = safeProgress;
+  job.message = safeMessage;
+  if (!latest || latest.message !== safeMessage || latest.progress !== safeProgress) {
+    job.events = [...events, progressEvent(safeProgress, safeMessage)].slice(-MAX_PROGRESS_EVENTS);
+  }
+  job.updatedAt = new Date().toISOString();
+  return true;
 }
 
 async function getRateState(env, request) {
@@ -336,7 +362,9 @@ async function submitBuild(request, env, origin) {
     sourceChunks: sourceInfo.chunkCount,
     iconName,
     status: "queued",
-    message: "Votre projet attend le démarrage de la compilation.",
+    progress: 5,
+    message: "Projet reçu. Il attend une machine de compilation.",
+    events: [progressEvent(5, "Projet reçu. Il attend une machine de compilation.")],
     createdAt: now,
     updatedAt: now,
     remainingBuilds: quota.remaining,
@@ -365,8 +393,7 @@ async function claimBuild(request, env, origin) {
   const job = id ? await readJob(env, id) : null;
   if (!job || job.status !== "queued") return new Response(null, { status: 204 });
   job.status = "building";
-  job.message = "MIA💻 fabrique votre APK. Cette étape peut prendre plusieurs minutes.";
-  job.updatedAt = new Date().toISOString();
+  appendProgress(job, 12, "La machine prépare votre projet.");
   await writeJob(env, job);
   return json({
     id: job.id,
@@ -379,7 +406,9 @@ async function claimBuild(request, env, origin) {
     sourceUrl: `${origin}${API_PREFIX}/builds/${encodeURIComponent(job.id)}/source?t=${job.sourceToken}`,
     iconUrl: job.iconName ? `${origin}${API_PREFIX}/builds/${encodeURIComponent(job.id)}/icon?t=${job.sourceToken}` : undefined,
     workerCompletionUrl: `${origin}${API_PREFIX}/builds/${encodeURIComponent(job.id)}/worker-complete?t=${job.workerToken}`,
+    workerProgressUrl: `${origin}${API_PREFIX}/builds/${encodeURIComponent(job.id)}/worker-progress?t=${job.workerToken}`,
     publisherCompletionUrl: `${origin}${API_PREFIX}/builds/${encodeURIComponent(job.id)}/publisher-complete?t=${job.publisherToken}`,
+    publisherProgressUrl: `${origin}${API_PREFIX}/builds/${encodeURIComponent(job.id)}/publisher-progress?t=${job.publisherToken}`,
   });
 }
 
@@ -421,13 +450,25 @@ async function completeBuild(request, env, id, token, publisher = false) {
       return error(caught instanceof Error ? caught.message : "La sauvegarde de clé de signature est invalide.");
     }
     job.status = "complete";
-    job.message = "Votre APK est prête à être téléchargée.";
+    appendProgress(job, 100, "Votre APK est prête à être téléchargée.");
     job.apkUrl = expectedApkUrl(id);
   } else {
     job.status = "building";
-    job.message = "L’APK est terminée et sa publication sécurisée est en cours.";
+    appendProgress(job, 90, "APK créée. Sa publication sécurisée est en cours.");
   }
-  job.updatedAt = new Date().toISOString();
+  await writeJob(env, job);
+  return json(publicJob(job));
+}
+
+async function reportBuildProgress(request, env, id, token, publisher = false) {
+  const job = await readJob(env, id);
+  const expectedToken = publisher ? job?.publisherToken : job?.workerToken;
+  if (!job || !token || token !== expectedToken || job.status !== "building") return error("Mise à jour de compilation refusée.", 401);
+  const payload = await request.json().catch(() => ({}));
+  const maximum = publisher ? 99 : 90;
+  if (typeof payload.progress !== "number" || payload.progress < 0 || payload.progress > maximum || !appendProgress(job, payload.progress, payload.message)) {
+    return error("Mise à jour de compilation invalide.");
+  }
   await writeJob(env, job);
   return json(publicJob(job));
 }
@@ -468,7 +509,7 @@ export default {
     } else if (request.method === "GET" && url.pathname === `${API_PREFIX}/builds/next`) {
       response = await claimBuild(request, env, origin);
     } else {
-      const match = url.pathname.match(/^\/api\/builds\/([^/]+)\/(status|source|icon|key-backup|worker-complete|publisher-complete)$/);
+      const match = url.pathname.match(/^\/api\/builds\/([^/]+)\/(status|source|icon|key-backup|worker-progress|publisher-progress|worker-complete|publisher-complete)$/);
       if (!match) response = error("Route inconnue.", 404);
       else {
         const [, id, action] = match;
@@ -483,8 +524,12 @@ export default {
           response = await downloadKeyBackup(env, id, url.searchParams.get("t"));
         } else if (request.method === "POST" && action === "worker-complete") {
           response = await completeBuild(request, env, id, url.searchParams.get("t"));
+        } else if (request.method === "POST" && action === "worker-progress") {
+          response = await reportBuildProgress(request, env, id, url.searchParams.get("t"));
         } else if (request.method === "POST" && action === "publisher-complete") {
           response = await completeBuild(request, env, id, url.searchParams.get("t"), true);
+        } else if (request.method === "POST" && action === "publisher-progress") {
+          response = await reportBuildProgress(request, env, id, url.searchParams.get("t"), true);
         } else response = error("Méthode refusée.", 405);
       }
     }

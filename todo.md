@@ -533,3 +533,10 @@
 - [x] Faire compiler la file Cloudflare par GitHub Actions avec rappel signé
 - [x] Retirer temporairement KIA et conserver MIA Cloudflare dans l’application
 - [x] Vérifier une APK debug MIA💻 sans appel au serveur Manus
+
+## Suivi de compilation détaillé
+
+- [x] Définir des étapes réelles de compilation et des messages simples en français
+- [x] Transmettre l’avancement et les événements de compilation depuis Cloudflare et GitHub Actions
+- [x] Afficher une barre de progression et un journal lisible dans Mes APK
+- [ ] Tester le suivi complet et reconstruire l’APK MIA💻

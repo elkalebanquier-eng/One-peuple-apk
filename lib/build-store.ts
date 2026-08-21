@@ -10,6 +10,7 @@ import { notifyBuildOutcome } from "@/lib/build-notifications";
 import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "@/shared/app-identity";
 import { getExpectedApkUrl } from "@/shared/build-delivery";
 import { shouldNotifyBuildStatus } from "@/shared/build-notifications";
+import { normalizeBuildProgress, readBuildProgressEvents, type BuildProgressEvent } from "@/shared/build-progress";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -39,6 +40,8 @@ export interface BuildJob {
   createdAt: string;
   updatedAt: string;
   message?: string;
+  progress?: number;
+  events?: BuildProgressEvent[];
   apkUri?: string;
 }
 
@@ -269,6 +272,8 @@ export async function createLocalBuildDraft(input: {
     versionCode: identity.versionCode,
     buildMode: input.buildMode ?? "debug",
     status: "ready",
+    progress: 0,
+    events: [],
     createdAt: now,
     updatedAt: now,
     message: "Archive enregistrée sur cet appareil. Prête pour l’envoi sécurisé.",
@@ -283,6 +288,8 @@ export async function submitBuildJob(job: BuildJob) {
   await updateJob(job.id, {
     status: "queued",
     message: "Envoi sécurisé du ZIP vers le moteur de compilation…",
+    progress: 2,
+    events: [{ progress: 2, message: "Envoi sécurisé du ZIP vers le moteur de compilation…", createdAt: new Date().toISOString() }],
   });
 
   try {
@@ -324,6 +331,8 @@ export async function submitBuildJob(job: BuildJob) {
         keyBackupAvailable?: boolean;
         remainingBuilds?: number;
         maxBuildsPerHour?: number;
+        progress?: number;
+        events?: unknown;
       }
       : {};
     if (statusCode < 200 || statusCode >= 300) {
@@ -341,6 +350,8 @@ export async function submitBuildJob(job: BuildJob) {
       apkUri: payload.apkUrl || getExpectedApkUrl(job.id),
       buildMode: payload.buildMode ?? job.buildMode,
       keyBackupAvailable: payload.keyBackupAvailable ?? false,
+      progress: normalizeBuildProgress(payload.progress, 5),
+      events: readBuildProgressEvents(payload.events),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "L’envoi a échoué. Vérifiez votre connexion puis réessayez.";
@@ -378,6 +389,8 @@ export async function refreshBuildJob(job: BuildJob) {
       keyBackupAvailable?: boolean;
       remainingBuilds?: number;
       maxBuildsPerHour?: number;
+      progress?: number;
+      events?: unknown;
     };
     const unavailableMessage = getUnavailableBuildMessage(response.status, payload.message);
     if (unavailableMessage) {
@@ -401,6 +414,8 @@ export async function refreshBuildJob(job: BuildJob) {
       apkUri: payload.apkUrl || job.apkUri || getExpectedApkUrl(job.id),
       buildMode: payload.buildMode ?? job.buildMode,
       keyBackupAvailable: payload.keyBackupAvailable ?? job.keyBackupAvailable ?? false,
+      progress: normalizeBuildProgress(payload.progress, job.progress ?? 0),
+      events: readBuildProgressEvents(payload.events),
     });
   } catch {
     // A short network issue must not turn a real build into a permanent failure.
