@@ -11,8 +11,10 @@ import Svg, { Circle } from "react-native-svg";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { getBuildTimeRemainingLabel } from "@/shared/build-progress";
+import { canDeleteBuildFromHistory, getLocalApkFileUri } from "@/shared/build-history";
 import {
   clearPrivateKeyBackupUrl,
+  deleteBuildJob,
   formatBytes,
   getPrivateKeyBackupUrl,
   getProjectType,
@@ -50,16 +52,6 @@ const QUOTA_RING_STROKE = 6;
 const QUOTA_RING_RADIUS = (QUOTA_RING_SIZE - QUOTA_RING_STROKE) / 2;
 const QUOTA_RING_CIRCUMFERENCE = 2 * Math.PI * QUOTA_RING_RADIUS;
 
-function makeApkFileName(projectName: string, buildId: string) {
-  const safeName = projectName
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase() || "mia-build";
-  return `${safeName}-${buildId.slice(-8)}.apk`;
-}
-
 function makeKeyBackupFileName(projectName: string) {
   const safeName = projectName
     .normalize("NFD")
@@ -80,11 +72,13 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   const [restarting, setRestarting] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const [sharingApk, setSharingApk] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [savedApkUri, setSavedApkUri] = useState<string | null>(null);
   const [showCompilationLog, setShowCompilationLog] = useState(true);
   const lastDownloadUpdate = useRef(0);
   const handledNotificationInstall = useRef(false);
   const canRestart = item.status === "complete" || item.status === "failed";
+  const canDelete = canDeleteBuildFromHistory(item.status);
   const receivedBytes = downloadProgress?.received ?? 0;
   const expectedBytes = downloadProgress?.total ?? 0;
   const progressPercent = expectedBytes > 0 ? Math.min(100, Math.round((receivedBytes / expectedBytes) * 100)) : 0;
@@ -104,7 +98,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
     const findSavedApk = async () => {
       const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
       if (!directory) return;
-      const fileUri = `${directory}${makeApkFileName(item.projectName, item.id)}`;
+      const fileUri = getLocalApkFileUri(directory, item.projectName, item.id);
       const info = await FileSystem.getInfoAsync(fileUri);
       if (active && info.exists && info.size && info.size >= 10_000) setSavedApkUri(fileUri);
     };
@@ -119,7 +113,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
     const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
     if (!directory) throw new Error("Le dossier de téléchargement est indisponible sur ce téléphone.");
 
-    const fileUri = `${directory}${makeApkFileName(item.projectName, item.id)}`;
+    const fileUri = getLocalApkFileUri(directory, item.projectName, item.id);
     const existing = await FileSystem.getInfoAsync(fileUri);
     if (existing.exists && existing.size && existing.size >= 10_000) {
       setDownloadProgress({ received: existing.size, total: existing.size });
@@ -247,6 +241,33 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
     } finally {
       setRestarting(false);
     }
+  }
+
+  async function handleDelete() {
+    try {
+      setDeleting(true);
+      await deleteBuildJob(item);
+      Alert.alert("Compilation supprimée", "L’ancienne compilation et ses fichiers locaux ont été retirés de MIA💻.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "La compilation ne peut pas être supprimée pour le moment.";
+      Alert.alert("Suppression impossible", message);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function confirmDelete() {
+    const signingWarning = item.buildMode === "signed" && item.keyBackupAvailable
+      ? "\n\nSi vous devez mettre cette APK à jour plus tard, exportez d’abord le ZIP « clé + mot de passe ». Après suppression, son lien privé ne sera plus accessible dans MIA💻."
+      : "";
+    Alert.alert(
+      "Supprimer cette compilation ?",
+      `Cette action retire cette carte, le ZIP importé et l’APK enregistrée par MIA💻 sur ce téléphone. Elle ne désinstalle pas une APK déjà installée et ne supprime pas les fichiers déjà envoyés ou copiés dans Fichiers.${signingWarning}`,
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Supprimer", style: "destructive", onPress: () => { void handleDelete(); } },
+      ],
+    );
   }
 
   async function shareSavedKeyBackup(fileUri: string) {
@@ -448,6 +469,22 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
           </Pressable>
           {item.status === "complete" ? <Text style={[styles.expiryNote, { color: colors.muted }]}>L’APK est téléchargée sur le téléphone, sans navigateur. Disponible temporairement.</Text> : null}
         </>
+      ) : null}
+
+      {canDelete ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Supprimer la compilation ${item.projectName}`}
+          disabled={deleting || downloading || restarting || savingKey || sharingApk}
+          onPress={confirmDelete}
+          style={({ pressed }) => [styles.deleteButton, { borderColor: `${colors.error}66`, backgroundColor: `${colors.error}10` }, pressed && !deleting && styles.pressed]}
+        >
+          <View style={styles.deleteCopy}>
+            <Text style={[styles.deleteTitle, { color: colors.error }]}>{deleting ? "Suppression en cours…" : "Supprimer cette compilation"}</Text>
+            <Text style={[styles.deleteHint, { color: colors.muted }]}>Retire l’historique et les fichiers locaux de MIA💻</Text>
+          </View>
+          <MaterialIcons color={colors.error} name={deleting ? "hourglass-top" : "delete-outline"} size={21} />
+        </Pressable>
       ) : null}
     </View>
   );
@@ -689,6 +726,10 @@ const styles = StyleSheet.create({
   restartCopy: { flex: 1 },
   restartTitle: { fontSize: 14, fontWeight: "900" },
   restartHint: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+  deleteButton: { minHeight: 50, marginTop: 10, paddingHorizontal: 15, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  deleteCopy: { flex: 1, paddingRight: 10 },
+  deleteTitle: { fontSize: 12.5, fontWeight: "900" },
+  deleteHint: { marginTop: 2, fontSize: 10.5, lineHeight: 14 },
   expiryNote: { marginTop: 8, fontSize: 11, textAlign: "center" },
   emptyState: { alignItems: "center", paddingHorizontal: 28, paddingTop: 10, paddingBottom: 23 },
   emptyIcon: { width: 54, height: 54, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 13 },

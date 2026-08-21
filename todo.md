@@ -577,3 +577,9 @@
 - [x] Conserver et traiter proprement une compilation temporairement introuvable sans générer de fausse alerte
 - [x] Vérifier le déclenchement et l’action de la notification de fin de compilation
 - [x] Tester puis livrer l’APK debug corrigée
+
+## Gestion de l’historique des compilations
+
+- [x] Ajouter une suppression confirmée d’une ancienne compilation depuis la liste Mes APK.
+- [x] Supprimer aussi les fichiers locaux associés sans toucher aux APK déjà partagées.
+- [ ] Tester puis livrer l’APK debug avec le bouton de suppression.

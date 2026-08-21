@@ -9,6 +9,7 @@ import { makeRestartBuildInput } from "@/lib/restart-build";
 import { notifyBuildOutcome } from "@/lib/build-notifications";
 import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "@/shared/app-identity";
 import { getExpectedApkUrl } from "@/shared/build-delivery";
+import { canDeleteBuildFromHistory, getLocalApkFileUri, getLocalBuildDirectory } from "@/shared/build-history";
 import { shouldNotifyBuildStatus } from "@/shared/build-notifications";
 import { normalizeBuildProgress, readBuildProgressEvents, type BuildProgressEvent } from "@/shared/build-progress";
 import { getKeyBackupStorageKey } from "@/shared/secure-storage-key";
@@ -189,6 +190,31 @@ async function savePrivateKeyBackupUrl(buildId: string, url: string | undefined)
 
 export async function loadBuildJobs() {
   return [...(await readJobs())].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * Retire une ancienne entrée de l’historique uniquement sur ce téléphone.
+ * Les APK déjà installées, partagées ou copiées dans Fichiers ne sont jamais concernées.
+ */
+export async function deleteBuildJob(job: BuildJob) {
+  if (!canDeleteBuildFromHistory(job.status)) {
+    throw new Error("Une compilation en cours ne peut pas être supprimée. Attendez qu’elle soit terminée.");
+  }
+
+  const rootDirectory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
+  if (rootDirectory) {
+    const localDirectory = getLocalBuildDirectory(rootDirectory, job.id);
+    const localApkUri = getLocalApkFileUri(rootDirectory, job.projectName, job.id);
+    await Promise.allSettled([
+      FileSystem.deleteAsync(localDirectory, { idempotent: true }),
+      FileSystem.deleteAsync(localApkUri, { idempotent: true }),
+    ]);
+  }
+
+  // The private link is removed from the encrypted store; any exported backup stays in the user’s Files app.
+  await clearPrivateKeyBackupUrl(job.id).catch(() => undefined);
+  const jobs = await readJobs();
+  await writeJobs(jobs.filter((candidate) => candidate.id !== job.id));
 }
 
 export function subscribeToBuildJobs(listener: (jobs: BuildJob[]) => void) {
