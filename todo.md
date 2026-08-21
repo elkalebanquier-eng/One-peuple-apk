@@ -1,5 +1,10 @@
 # KIKO👑 Native App — TODO
 
+## Correctifs de régression MIA💻
+
+- [x] Remplacer l’identifiant SecureStore invalide de la sauvegarde de clé d’APK signée.
+- [ ] Vérifier la soumission et le suivi d’une APK signée avec le relais Cloudflare actif.
+
 ## Refonte visuelle One App
 
 - [x] Refaire l’accueil pour clarifier immédiatement l’action « importer et compiler »
@@ -565,3 +570,10 @@
 - [x] Rendre le bouton de téléchargement de la clé et du mot de passe très visible dès que l’APK signée est prête
 - [x] Expliquer que le ZIP est à usage unique et doit être conservé hors du téléphone
 - [x] Tester le bouton puis compiler et livrer l’APK debug et le code source
+
+## Correctifs de signature et de notification
+
+- [ ] Corriger l’identifiant SecureStore invalide utilisé lors d’une relance d’APK signée
+- [ ] Conserver et traiter proprement une compilation temporairement introuvable sans générer de fausse alerte
+- [ ] Vérifier le déclenchement et l’action de la notification de fin de compilation
+- [ ] Tester puis livrer l’APK debug corrigée

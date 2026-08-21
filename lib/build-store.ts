@@ -11,6 +11,7 @@ import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "@
 import { getExpectedApkUrl } from "@/shared/build-delivery";
 import { shouldNotifyBuildStatus } from "@/shared/build-notifications";
 import { normalizeBuildProgress, readBuildProgressEvents, type BuildProgressEvent } from "@/shared/build-progress";
+import { getKeyBackupStorageKey } from "@/shared/secure-storage-key";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
@@ -80,7 +81,6 @@ export const PROJECT_TYPES: Array<{
 ];
 
 const STORAGE_KEY = "one-app-build-jobs-v1";
-const KEY_BACKUP_URL_PREFIX = "one-app-key-backup-url:";
 const listeners = new Set<(jobs: BuildJob[]) => void>();
 const quotaListeners = new Set<(quota: BuildQuota | null) => void>();
 let cache: BuildJob[] | null = null;
@@ -170,7 +170,7 @@ function buildHeaders(job: BuildJob) {
 }
 
 function keyBackupStorageKey(buildId: string) {
-  return `${KEY_BACKUP_URL_PREFIX}${buildId}`;
+  return getKeyBackupStorageKey(buildId);
 }
 
 /** The key link is private: it never enters AsyncStorage or the build history. */
