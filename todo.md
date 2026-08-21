@@ -525,11 +525,11 @@
 - [ ] Déployer le relais Cloudflare de compilation et de KIA sans secret dans l’APK
 - [x] Adapter le worker GitHub Actions aux routes Cloudflare sécurisées
 - [x] Pointer MIA💻 vers Cloudflare et vérifier le parcours complet
-- [ ] Compiler et livrer une APK debug indépendante du serveur Manus
+- [x] Compiler et livrer une APK debug indépendante du serveur Manus
 
 ## Option A — Migration sans serveur Manus
 
 - [x] Déployer la file privée Cloudflare et conserver les ZIP hors de tout dépôt public
 - [x] Faire compiler la file Cloudflare par GitHub Actions avec rappel signé
 - [x] Retirer temporairement KIA et conserver MIA Cloudflare dans l’application
-- [ ] Vérifier une APK debug MIA💻 sans appel au serveur Manus
+- [x] Vérifier une APK debug MIA💻 sans appel au serveur Manus
