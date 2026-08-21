@@ -573,7 +573,7 @@
 
 ## Correctifs de signature et de notification
 
-- [ ] Corriger l’identifiant SecureStore invalide utilisé lors d’une relance d’APK signée
-- [ ] Conserver et traiter proprement une compilation temporairement introuvable sans générer de fausse alerte
+- [x] Corriger l’identifiant SecureStore invalide utilisé lors d’une relance d’APK signée
+- [x] Conserver et traiter proprement une compilation temporairement introuvable sans générer de fausse alerte
 - [ ] Vérifier le déclenchement et l’action de la notification de fin de compilation
 - [ ] Tester puis livrer l’APK debug corrigée

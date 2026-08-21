@@ -9,6 +9,14 @@ export type BuildNotificationCopy = {
   body: string;
 };
 
+/** Une compilation expirée se relance depuis le ZIP local : ce n’est pas un échec à notifier. */
+export function isUnavailableBuildMessage(message?: string) {
+  const normalized = message?.trim().toLocaleLowerCase("fr-FR") ?? "";
+  return normalized.includes("compilation est introuvable")
+    || normalized.includes("compilation n’est plus disponible")
+    || normalized.includes("compilation n'est plus disponible");
+}
+
 /** Returns a user-facing notification only for a final build outcome. */
 export function getBuildOutcomeNotification(input: {
   status: BuildNotificationStatus;
@@ -25,6 +33,7 @@ export function getBuildOutcomeNotification(input: {
   }
 
   if (input.status === "failed") {
+    if (isUnavailableBuildMessage(input.message)) return null;
     return {
       title: "Compilation à vérifier",
       body: input.message?.trim() || `${projectName} n’a pas pu être compilée. Touchez pour voir la solution proposée.`,

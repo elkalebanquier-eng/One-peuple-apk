@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getBuildOutcomeNotification,
   INSTALL_APK_NOTIFICATION_ACTION,
+  isUnavailableBuildMessage,
   isInstallApkNotificationAction,
   shouldNotifyBuildStatus,
 } from "../shared/build-notifications";
@@ -18,6 +19,13 @@ describe("notifications locales de compilation", () => {
   it("annonce un échec sans afficher de message technique", () => {
     expect(getBuildOutcomeNotification({ status: "failed", projectName: "Mon projet" })?.title).toBe("Compilation à vérifier");
     expect(getBuildOutcomeNotification({ status: "failed", projectName: "Mon projet" })?.body).toContain("Mon projet");
+  });
+
+  it("ne notifie pas une ancienne compilation expirée qui peut être relancée", () => {
+    const message = "Cette compilation est introuvable. Votre fichier est toujours enregistré sur ce téléphone : appuyez sur Relancer.";
+
+    expect(isUnavailableBuildMessage(message)).toBe(true);
+    expect(getBuildOutcomeNotification({ status: "failed", projectName: "Mon projet", message })).toBeNull();
   });
 
   it("n’annonce ni les statuts provisoires ni deux fois le même résultat", () => {
