@@ -582,4 +582,4 @@
 
 - [x] Ajouter une suppression confirmée d’une ancienne compilation depuis la liste Mes APK.
 - [x] Supprimer aussi les fichiers locaux associés sans toucher aux APK déjà partagées.
-- [ ] Tester puis livrer l’APK debug avec le bouton de suppression.
+- [x] Tester puis livrer l’APK debug avec le bouton de suppression.
