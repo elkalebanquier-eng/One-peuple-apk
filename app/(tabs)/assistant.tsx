@@ -519,7 +519,7 @@ export default function AssistantScreen() {
         </View>
 
         <View style={[styles.providerStrip, { borderBottomColor: colors.border }]}>
-          {(["mia", "kia"] as MiaProvider[]).map((candidate) => {
+          {(["kia", "mia"] as MiaProvider[]).map((candidate) => {
             const selected = provider === candidate;
             const label = candidate === "kia" ? "KIA · Gemini" : "MIA · Cloudflare";
             return (
@@ -775,8 +775,8 @@ const styles = StyleSheet.create({
   topSubtitle: { fontSize: 11, fontWeight: "700", lineHeight: 15 },
   topIconButton: { width: 40, height: 40, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   projectStrip: { minHeight: 46, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16 },
-  providerStrip: { minHeight: 52, flexDirection: "row", gap: 8, borderBottomWidth: 1, paddingHorizontal: 16, paddingBottom: 8 },
-  providerChoice: { flex: 1, minHeight: 36, borderWidth: 1, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 8 },
+  providerStrip: { gap: 8, borderBottomWidth: 1, paddingHorizontal: 16, paddingBottom: 10 },
+  providerChoice: { minHeight: 42, borderWidth: 1, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 12 },
   providerChoiceText: { fontSize: 11, fontWeight: "800" },
   agentStrip: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, paddingHorizontal: 16, paddingVertical: 8 },
   agentStripCopy: { flex: 1 },

@@ -490,9 +490,17 @@
 - [x] Déclencher une notification locale lorsqu’une compilation devient prête ou échoue
 - [x] Ajouter un Mode Agent qui prépare une action lisible avant toute exécution
 - [x] Exiger une confirmation explicite et permettre l’annulation pour chaque action Agent
-- [ ] Tester les notifications, les confirmations et reconstruire l’APK MIA💻
+- [x] Tester les notifications, les confirmations et reconstruire l’APK MIA💻
 
 ## Assistant Claude
 
 - [x] Arrêter la vérification et l’intégration de Claude à la demande de l’utilisateur
 - [ ] Laisser Claude hors périmètre jusqu’à une nouvelle demande explicite
+
+## Présentation des assistants
+
+- [x] Afficher KIA en premier et MIA juste en dessous dans le sélecteur de l’assistant
+
+## Icône officielle MIA💻
+
+- [x] Finaliser le logo MIA💻 comme icône de l’application, du splash screen et de la prochaine APK Android
