@@ -1,6 +1,7 @@
 import { type ComponentProps, useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -87,6 +88,12 @@ export default function SettingsScreen() {
         <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           {services.map((service, index) => <ServiceRow key={service.id} service={service} border={index < services.length - 1 ? colors.border : undefined} />)}
         </View>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Connecteurs</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les connecteurs MIA" onPress={() => router.push("/connectors" as never)} style={({ pressed }) => [styles.connectorRow, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
+          <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="hub" size={19} /></View>
+          <View style={styles.infoCopy}><Text style={[styles.infoTitle, { color: colors.foreground }]}>Gérer les connecteurs</Text><Text style={[styles.infoDetail, { color: colors.muted }]}>Voir les services autorisables et leurs protections.</Text></View>
+          <MaterialIcons color={colors.muted} name="chevron-right" size={22} />
+        </Pressable>
         <View style={[styles.personalNotice, { backgroundColor: `${colors.success}10`, borderColor: `${colors.success}4D` }]}><MaterialIcons color={colors.success} name="phone-android" size={21} /><Text style={[styles.noticeText, { color: colors.muted }]}>Mode personnel : vos projets restent sur ce téléphone. La préparation de l’APK ne demande aucun dépôt GitHub personnel ni configuration technique.</Text></View>
 
         <View style={[styles.notice, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}4D` }]}><MaterialIcons color={colors.primary} name="lightbulb-outline" size={21} /><Text style={[styles.noticeText, { color: colors.muted }]}>Pour éviter un refus, envoyez un fichier propre : pas de node_modules, pas de dossier build et aucune clé secrète.</Text></View>
@@ -109,6 +116,7 @@ const styles = StyleSheet.create({
   checkButton: { minHeight: 36, paddingHorizontal: 10, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 5 },
   checkButtonText: { fontSize: 10.5, fontWeight: "900" },
   panel: { borderWidth: 1, borderRadius: 20, overflow: "hidden" },
+  connectorRow: { minHeight: 75, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 11 },
   infoRow: { minHeight: 75, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 11 },
   infoIcon: { width: 39, height: 39, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   infoCopy: { flex: 1 },

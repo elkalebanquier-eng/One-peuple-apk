@@ -41,7 +41,13 @@ import {
 } from "@/shared/mia-chat";
 import { MIA_TYPING_INTERVAL_MS, isMiaTypingComplete, nextMiaTypingLength } from "@/shared/mia-typing";
 import type { MiaCodeReview } from "@/shared/mia-code-review";
-import { createMiaAgentAction, type MiaAgentAction, type MiaAgentActionKind } from "@/shared/mia-agent";
+import {
+  createMiaAgentAction,
+  getMiaAgentActionDetails,
+  isMiaAgentActionAvailable,
+  type MiaAgentAction,
+  type MiaAgentActionKind,
+} from "@/shared/mia-agent";
 import type { MiaLogoDraft } from "@/shared/mia-logo";
 
 const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>["name"]> = {
@@ -53,8 +59,31 @@ const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>
 const QUICK_PROMPTS = [
   { label: "Créer une page", icon: "auto-awesome" as const, value: "Crée une page d’accueil simple et moderne pour mon application." },
   { label: "Corriger du code", icon: "build" as const, value: "Je veux corriger un problème dans mon code. Explique-moi d’abord ce dont tu as besoin." },
-  { label: "Idée d’application", icon: "lightbulb-outline" as const, value: "J’ai une idée d’application. Aide-moi à la transformer en une première version simple." },
 ];
+
+const AGENT_ACTION_KINDS: MiaAgentActionKind[] = [
+  "review-latest-code",
+  "prepare-html-apk",
+  "use-logo-as-icon",
+  "copy-latest-code",
+  "preview-latest-code",
+  "start-html-project",
+];
+
+const AGENT_ACTION_ICONS: Record<MiaAgentActionKind, React.ComponentProps<typeof MaterialIcons>["name"]> = {
+  "review-latest-code": "fact-check",
+  "prepare-html-apk": "archive",
+  "use-logo-as-icon": "image",
+  "copy-latest-code": "content-copy",
+  "preview-latest-code": "visibility",
+  "start-html-project": "add-comment",
+};
+
+type AgentFeedback = {
+  tone: "success" | "error";
+  title: string;
+  detail: string;
+};
 
 function dateLabel(value: string) {
   const date = new Date(value);
@@ -95,9 +124,11 @@ export default function AssistantScreen() {
   const [reviewCode, setReviewCode] = useState("");
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewResult, setReviewResult] = useState<MiaCodeReview | null>(null);
+  const [reviewError, setReviewError] = useState("");
   const [agentPlannerOpen, setAgentPlannerOpen] = useState(false);
   const [pendingAgentAction, setPendingAgentAction] = useState<MiaAgentAction | null>(null);
   const [agentExecuting, setAgentExecuting] = useState(false);
+  const [agentFeedback, setAgentFeedback] = useState<AgentFeedback | null>(null);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
@@ -108,13 +139,18 @@ export default function AssistantScreen() {
   const messages = activeConversation?.messages ?? [];
   const latestCodeMessage = [...messages].reverse().find((message) => Boolean(message.code)) ?? null;
   const selectedType = PROJECT_TYPES.find((type) => type.id === projectType)!;
+  const agentContext = {
+    hasLatestCode: Boolean(latestCodeMessage?.code),
+    isHtmlProject: projectType === "html",
+    hasLogo: Boolean(logoDraft),
+  };
+  const availableAgentActionKinds = AGENT_ACTION_KINDS.filter((kind) => isMiaAgentActionAvailable(kind, agentContext));
   const preview = useMemo(
     () => previewMessage?.code ? createMiaPreview(previewMessage.code) : null,
     [previewMessage],
   );
   const canSend = Boolean(draft.trim()) && !loading && !typingMessageId;
   const assistantName = provider === "kia" ? "KIA" : "MIA";
-  const assistantService = provider === "kia" ? "Gemini" : "Cloudflare";
 
   useEffect(() => {
     if (!toolsOpen) {
@@ -203,6 +239,7 @@ export default function AssistantScreen() {
     setPreviewMessage(null);
     setTypingMessageId(null);
     setTypingCharacterCount(0);
+    setAgentFeedback(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
@@ -222,6 +259,7 @@ export default function AssistantScreen() {
     setPreviewMessage(null);
     setTypingMessageId(null);
     setTypingCharacterCount(0);
+    setAgentFeedback(null);
   }
 
   function selectProjectType(nextType: ProjectType) {
@@ -303,14 +341,16 @@ export default function AssistantScreen() {
   }
 
   async function handleCopy(message: MiaMessage) {
-    if (!message.code || copyState === "copying") return;
+    if (!message.code || copyState === "copying") return false;
     try {
       setCopyState("copying");
       const copied = await Clipboard.setStringAsync(message.code);
       if (!copied) throw new Error("clipboard-write-failed");
       setCopyState("copied");
+      return true;
     } catch {
       setCopyState("error");
+      return false;
     }
   }
 
@@ -382,11 +422,21 @@ export default function AssistantScreen() {
   function openCodeReview(code = "") {
     setReviewCode(code);
     setReviewResult(null);
+    setReviewError("");
     setError("");
     setReviewOpen(true);
   }
 
   function prepareAgentAction(kind: MiaAgentActionKind) {
+    if (!isMiaAgentActionAvailable(kind, agentContext)) {
+      setAgentPlannerOpen(false);
+      setAgentFeedback({
+        tone: "error",
+        title: "Action indisponible",
+        detail: "Créez d’abord du code ou un logo dans MIA pour utiliser cette action.",
+      });
+      return;
+    }
     setAgentPlannerOpen(false);
     setPendingAgentAction(createMiaAgentAction(kind));
   }
@@ -405,9 +455,13 @@ export default function AssistantScreen() {
         if (!latestCodeMessage?.code) throw new Error("Aucun code généré n’est disponible dans cette discussion.");
         setReviewCode(latestCodeMessage.code);
         setReviewResult(null);
+        setReviewError("");
         setReviewOpen(true);
         setPendingAgentAction(null);
-        await runCodeReview(latestCodeMessage.code);
+        const reviewed = await runCodeReview(latestCodeMessage.code);
+        if (reviewed) {
+          setAgentFeedback({ tone: "success", title: "Diagnostic prêt", detail: "Le résultat est ouvert dans Vérifier mon code." });
+        }
         return;
       }
       if (action.kind === "prepare-html-apk") {
@@ -419,38 +473,48 @@ export default function AssistantScreen() {
       if (action.kind === "copy-latest-code") {
         if (!latestCodeMessage?.code) throw new Error("Aucun code généré n’est disponible dans cette discussion.");
         setPendingAgentAction(null);
-        await handleCopy(latestCodeMessage);
+        if (!await handleCopy(latestCodeMessage)) throw new Error("La copie du code a échoué. Réessayez.");
+        setAgentFeedback({ tone: "success", title: "Code copié", detail: "Vous pouvez maintenant le coller dans une autre application." });
         return;
       }
       if (action.kind === "preview-latest-code") {
         if (!latestCodeMessage?.code) throw new Error("Aucun code généré n’est disponible dans cette discussion.");
         setPendingAgentAction(null);
         setPreviewMessage(latestCodeMessage);
+        setAgentFeedback({ tone: "success", title: "Aperçu ouvert", detail: "Le code est affiché en lecture seule, sans être modifié." });
         return;
       }
       if (action.kind === "start-html-project") {
         setPendingAgentAction(null);
         startNewConversation();
+        setAgentFeedback({ tone: "success", title: "Discussion HTML prête", detail: "Décrivez maintenant l’application que vous voulez créer." });
         return;
       }
       if (!logoDraft) throw new Error("Créez d’abord un logo dans MIA avant de l’utiliser.");
       setPendingAgentAction(null);
       await handleUseLogoForBuild();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Cette action Agent ne peut pas être exécutée pour le moment.");
+      setPendingAgentAction(null);
+      setAgentFeedback({
+        tone: "error",
+        title: "Action non effectuée",
+        detail: caught instanceof Error ? caught.message : "Cette action Agent ne peut pas être exécutée pour le moment.",
+      });
     } finally {
       setAgentExecuting(false);
     }
   }
 
   async function runCodeReview(code: string) {
-    if (reviewLoading) return;
+    if (reviewLoading) return false;
     setReviewLoading(true);
-    setError("");
+    setReviewError("");
     try {
       setReviewResult(await reviewMiaCode({ code, projectType }));
+      return true;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "MIA ne peut pas vérifier ce code pour le moment.");
+      setReviewError(caught instanceof Error ? caught.message : "MIA ne peut pas vérifier ce code pour le moment.");
+      return false;
     } finally {
       setReviewLoading(false);
     }
@@ -553,7 +617,7 @@ export default function AssistantScreen() {
           </Pressable>
           <View style={styles.topIdentity}>
             <View style={[styles.topAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.topAvatarText, { color: colors.background }]}>{provider === "kia" ? "K" : "M"}</Text></View>
-            <View><Text style={[styles.topTitle, { color: colors.foreground }]}>{assistantName}</Text><Text style={[styles.topSubtitle, { color: colors.success }]}>{assistantService} · Prête à vous aider</Text></View>
+            <View><Text style={[styles.topTitle, { color: colors.foreground }]}>{assistantName}</Text><Text style={[styles.topSubtitle, { color: colors.success }]}>Prête à vous aider</Text></View>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={`Nouvelle discussion avec ${assistantName}`} onPress={startNewConversation} style={({ pressed }) => [styles.topIconButton, { borderColor: colors.border }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.primary} name="add" size={24} />
@@ -580,9 +644,8 @@ export default function AssistantScreen() {
           contentContainerStyle={[styles.messagesContent, messages.length === 0 && styles.emptyMessagesContent]}
           ListEmptyComponent={
             <View style={styles.welcome}>
-          <View style={[styles.welcomeOrb, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}55` }]}><Text style={[styles.welcomeOrbText, { color: colors.primary }]}>M</Text></View>
               <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Bonjour, je suis {assistantName}.</Text>
-              <Text style={[styles.welcomeText, { color: colors.muted }]}>Décrivez votre idée, posez une question ou demandez du code. Je vous guide étape par étape.</Text>
+              <Text style={[styles.welcomeText, { color: colors.muted }]}>Écrivez ce que vous voulez créer ou corriger.</Text>
               <View style={styles.quickPromptList}>
                 {QUICK_PROMPTS.map((quick) => (
                   <Pressable key={quick.label} accessibilityRole="button" onPress={() => useQuickPrompt(quick.value)} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
@@ -592,7 +655,6 @@ export default function AssistantScreen() {
                   </Pressable>
                 ))}
               </View>
-              <Text style={[styles.localNote, { color: colors.muted }]}>Vos discussions restent sur votre téléphone. {assistantName} reçoit seulement les derniers messages nécessaires pour répondre.</Text>
             </View>
           }
           ListFooterComponent={loading ? (
@@ -603,6 +665,7 @@ export default function AssistantScreen() {
           ) : null}
         />
 
+        {agentFeedback ? <View style={[styles.agentFeedback, { backgroundColor: agentFeedback.tone === "success" ? `${colors.success}12` : `${colors.error}12`, borderColor: agentFeedback.tone === "success" ? `${colors.success}66` : `${colors.error}66` }]}><MaterialIcons color={agentFeedback.tone === "success" ? colors.success : colors.error} name={agentFeedback.tone === "success" ? "check-circle" : "error-outline"} size={18} /><View style={styles.agentFeedbackCopy}><Text style={[styles.agentFeedbackTitle, { color: colors.foreground }]}>{agentFeedback.title}</Text><Text style={[styles.agentFeedbackText, { color: colors.muted }]}>{agentFeedback.detail}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Fermer le résultat Agent" onPress={() => setAgentFeedback(null)} style={styles.agentFeedbackClose}><MaterialIcons color={colors.muted} name="close" size={18} /></Pressable></View> : null}
         {error ? <View style={[styles.errorBox, { backgroundColor: `${colors.error}12`, borderColor: `${colors.error}66` }]}><MaterialIcons color={colors.error} name="error-outline" size={18} /><Text style={[styles.errorText, { color: colors.error }]}>{error}</Text></View> : null}
 
         <View style={[styles.composerArea, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
@@ -624,7 +687,7 @@ export default function AssistantScreen() {
               <MaterialIcons color={canSend ? colors.background : colors.muted} name="arrow-upward" size={22} />
             </Pressable>
           </View>
-          <Text style={[styles.composerHint, { color: colors.muted }]}>{assistantName} peut expliquer, créer ou corriger du code. 20 demandes par heure.</Text>
+          <Text style={[styles.composerHint, { color: colors.muted }]}>{assistantName} peut expliquer, créer ou corriger votre code.</Text>
         </View>
       </KeyboardAvoidingView>
 
@@ -747,6 +810,7 @@ export default function AssistantScreen() {
                 <Text style={[styles.toolLead, { color: colors.foreground }]}>Collez le code à contrôler. MIA adapte son diagnostic au type de projet {selectedType.shortLabel}.</Text>
                 <TextInput value={reviewCode} onChangeText={setReviewCode} maxLength={60000} multiline textAlignVertical="top" placeholder="Collez votre code ici…" placeholderTextColor={colors.muted} style={[styles.reviewCodeInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
                 <Pressable accessibilityRole="button" disabled={reviewLoading} onPress={() => void handleCodeReview()} style={({ pressed }) => [styles.toolPrimaryButton, { backgroundColor: colors.success }, (pressed || reviewLoading) && styles.pressed]}>{reviewLoading ? <ActivityIndicator color={colors.background} /> : <MaterialIcons color={colors.background} name="fact-check" size={19} />}<Text style={[styles.toolPrimaryText, { color: colors.background }]}>{reviewLoading ? "Vérification…" : "Vérifier le code"}</Text></Pressable>
+                {reviewError ? <View style={[styles.reviewError, { backgroundColor: `${colors.error}12`, borderColor: `${colors.error}66` }]}><MaterialIcons color={colors.error} name="error-outline" size={18} /><Text style={[styles.errorText, { color: colors.error }]}>{reviewError}</Text></View> : null}
                 {reviewResult ? <View style={styles.reviewResults}>
                   <View style={[styles.reviewSummary, { backgroundColor: reviewResult.blockers.length ? `${colors.error}12` : `${colors.success}12`, borderColor: reviewResult.blockers.length ? `${colors.error}66` : `${colors.success}66` }]}><MaterialIcons color={reviewResult.blockers.length ? colors.error : colors.success} name={reviewResult.blockers.length ? "error-outline" : "check-circle"} size={20} /><Text style={[styles.reviewSummaryText, { color: colors.foreground }]}>{reviewResult.summary}</Text></View>
                   {reviewResult.blockers.map((item, index) => <View key={`blocker-${index}`} style={[styles.reviewItem, { borderColor: `${colors.error}66`, backgroundColor: `${colors.error}0A` }]}><MaterialIcons color={colors.error} name="block" size={17} /><View style={styles.reviewCopy}><Text style={[styles.reviewItemTitle, { color: colors.error }]}>{item.title}{item.line ? ` · ligne ${item.line}` : ""}</Text><Text style={[styles.reviewItemText, { color: colors.foreground }]}>{item.detail}</Text></View></View>)}
@@ -787,12 +851,12 @@ export default function AssistantScreen() {
               <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Mode Agent</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>L’action ne démarre jamais à cette étape.</Text></View>
               <Pressable accessibilityRole="button" accessibilityLabel="Fermer le Mode Agent" onPress={() => setAgentPlannerOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
             </View>
-            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code} onPress={() => prepareAgentAction("review-latest-code")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code ? 1 : 0.5 }, pressed && latestCodeMessage?.code && styles.pressed]}><MaterialIcons color={colors.success} name="fact-check" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Vérifier le dernier code</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{latestCodeMessage?.code ? "Diagnostic avant compilation" : "Générez ou ouvrez d’abord un code"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
-            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code || projectType !== "html"} onPress={() => prepareAgentAction("prepare-html-apk")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code && projectType === "html" ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code && projectType === "html" ? 1 : 0.5 }, pressed && latestCodeMessage?.code && projectType === "html" && styles.pressed]}><MaterialIcons color={colors.primary} name="archive" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Préparer l’APK HTML</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{projectType === "html" ? "Ouvre le formulaire, sans lancer la compilation" : "Disponible pour un projet HTML"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
-            <Pressable accessibilityRole="button" disabled={!logoDraft} onPress={() => prepareAgentAction("use-logo-as-icon")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: logoDraft ? colors.surface : colors.background, borderColor: colors.border, opacity: logoDraft ? 1 : 0.5 }, pressed && logoDraft && styles.pressed]}><MaterialIcons color={colors.primary} name="image" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Utiliser le logo comme icône</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{logoDraft ? "Enregistre le dernier logo pour l’APK" : "Créez d’abord un logo dans MIA"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
-            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code} onPress={() => prepareAgentAction("copy-latest-code")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code ? 1 : 0.5 }, pressed && latestCodeMessage?.code && styles.pressed]}><MaterialIcons color={colors.success} name="content-copy" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Copier le dernier code</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{latestCodeMessage?.code ? "Copie locale après confirmation" : "Générez ou ouvrez d’abord un code"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
-            <Pressable accessibilityRole="button" disabled={!latestCodeMessage?.code} onPress={() => prepareAgentAction("preview-latest-code")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: latestCodeMessage?.code ? colors.surface : colors.background, borderColor: colors.border, opacity: latestCodeMessage?.code ? 1 : 0.5 }, pressed && latestCodeMessage?.code && styles.pressed]}><MaterialIcons color={colors.primary} name="visibility" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Relire le dernier code</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{latestCodeMessage?.code ? "Ouvre l’aperçu, sans modifier le code" : "Générez ou ouvrez d’abord un code"}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
-            <Pressable accessibilityRole="button" onPress={() => prepareAgentAction("start-html-project")} style={({ pressed }) => [styles.agentChoice, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.primary} name="add-comment" size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>Nouvelle discussion HTML</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>Conserve l’historique et repart sur un projet HTML</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>
+            {!agentContext.hasLatestCode && !agentContext.hasLogo ? <View style={[styles.agentEmptyHint, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons color={colors.primary} name="info-outline" size={18} /><Text style={[styles.agentEmptyHintText, { color: colors.muted }]}>Créez d’abord du code ou un logo pour débloquer d’autres actions.</Text></View> : null}
+            {availableAgentActionKinds.map((kind) => {
+              const action = getMiaAgentActionDetails(kind);
+              const actionColor = kind === "review-latest-code" || kind === "copy-latest-code" ? colors.success : colors.primary;
+              return <Pressable key={kind} accessibilityRole="button" onPress={() => prepareAgentAction(kind)} style={({ pressed }) => [styles.agentChoice, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={actionColor} name={AGENT_ACTION_ICONS[kind]} size={21} /><View style={styles.agentChoiceCopy}><Text style={[styles.agentChoiceTitle, { color: colors.foreground }]}>{action.title}</Text><Text style={[styles.agentChoiceText, { color: colors.muted }]}>{action.detail}</Text></View><MaterialIcons color={colors.muted} name="chevron-right" size={21} /></Pressable>;
+            })}
           </View>
         </View>
       </Modal>
@@ -847,14 +911,11 @@ const styles = StyleSheet.create({
   messagesContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20, gap: 14 },
   emptyMessagesContent: { flexGrow: 1, justifyContent: "center" },
   welcome: { alignItems: "center", paddingHorizontal: 10, paddingTop: 18 },
-  welcomeOrb: { width: 74, height: 74, borderRadius: 37, borderWidth: 1, alignItems: "center", justifyContent: "center", marginBottom: 18 },
-  welcomeOrbText: { fontSize: 34, fontWeight: "900" },
-  welcomeTitle: { fontSize: 25, fontWeight: "900", textAlign: "center", lineHeight: 31 },
-  welcomeText: { marginTop: 9, maxWidth: 340, fontSize: 14, fontWeight: "500", textAlign: "center", lineHeight: 21 },
-  quickPromptList: { width: "100%", marginTop: 26, gap: 9 },
+  welcomeTitle: { fontSize: 23, fontWeight: "900", textAlign: "center", lineHeight: 29 },
+  welcomeText: { marginTop: 7, maxWidth: 340, fontSize: 14, fontWeight: "500", textAlign: "center", lineHeight: 20 },
+  quickPromptList: { width: "100%", marginTop: 18, gap: 9 },
   quickPrompt: { minHeight: 48, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14 },
   quickPromptText: { flex: 1, fontSize: 13, fontWeight: "700" },
-  localNote: { marginTop: 24, maxWidth: 320, textAlign: "center", fontSize: 11, lineHeight: 16 },
   messageRow: { flexDirection: "row", gap: 9, maxWidth: "100%" },
   messageRowAssistant: { alignSelf: "flex-start", paddingRight: 30 },
   messageRowUser: { alignSelf: "flex-end", paddingLeft: 42 },
@@ -886,6 +947,11 @@ const styles = StyleSheet.create({
   typingText: { fontSize: 13, fontWeight: "600" },
   errorBox: { marginHorizontal: 16, marginBottom: 8, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10 },
   errorText: { flex: 1, fontSize: 12, fontWeight: "600", lineHeight: 17 },
+  agentFeedback: { marginHorizontal: 16, marginBottom: 8, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10 },
+  agentFeedbackCopy: { flex: 1 },
+  agentFeedbackTitle: { fontSize: 12, fontWeight: "900", lineHeight: 17 },
+  agentFeedbackText: { marginTop: 2, fontSize: 11, fontWeight: "500", lineHeight: 16 },
+  agentFeedbackClose: { width: 24, minHeight: 24, alignItems: "center", justifyContent: "center" },
   composerArea: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 10 },
   composer: { minHeight: 52, borderWidth: 1, borderRadius: 18, flexDirection: "row", alignItems: "flex-end", paddingLeft: 13, paddingRight: 6, paddingTop: 6, paddingBottom: 6 },
   composerInput: { flex: 1, minHeight: 37, maxHeight: 100, fontSize: 14, fontWeight: "500", lineHeight: 20, paddingTop: 8, paddingRight: 8 },
@@ -919,6 +985,8 @@ const styles = StyleSheet.create({
   toolIconLabel: { fontSize: 8, fontWeight: "900", letterSpacing: 0.4 },
   toolChoice: { minHeight: 70, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 },
   agentSheet: { borderTopWidth: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingTop: 20, gap: 11 },
+  agentEmptyHint: { borderWidth: 1, borderRadius: 13, flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 11 },
+  agentEmptyHintText: { flex: 1, fontSize: 11, fontWeight: "600", lineHeight: 16 },
   agentChoice: { minHeight: 72, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13 },
   agentChoiceCopy: { flex: 1 },
   agentChoiceTitle: { fontSize: 13, fontWeight: "900" },
@@ -962,6 +1030,7 @@ const styles = StyleSheet.create({
   toolSecondaryText: { fontSize: 13, fontWeight: "900" },
   toolNote: { fontSize: 11, lineHeight: 16, textAlign: "center", paddingHorizontal: 8, paddingTop: 2 },
   reviewCodeInput: { minHeight: 168, maxHeight: 380, borderWidth: 1, borderRadius: 12, padding: 12, fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }), fontSize: 12, lineHeight: 18 },
+  reviewError: { borderWidth: 1, borderRadius: 13, flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 11 },
   reviewResults: { gap: 10, marginTop: 2 },
   reviewSummary: { borderWidth: 1, borderRadius: 14, flexDirection: "row", alignItems: "flex-start", gap: 9, padding: 12 },
   reviewSummaryText: { flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 19 },

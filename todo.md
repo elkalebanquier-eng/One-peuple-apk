@@ -642,3 +642,23 @@
 - [x] Ajouter une description courte et simple sous chaque outil du menu.
 - [x] Vérifier le typage et les tests après cette clarification.
 - [x] Compiler et remettre directement l’APK debug actualisée.
+
+## Simplification MIA et correction du Mode Agent
+
+- [x] Réduire les éléments qui surchargent encore l’interface MIA sur téléphone.
+- [x] Diagnostiquer pourquoi une action confirmée du Mode Agent ne produit pas de résultat.
+- [x] Corriger les actions locales du Mode Agent et afficher un résultat clair après confirmation.
+- [ ] Tester les parcours MIA et Agent puis compiler une APK debug de livraison.
+
+## Connecteurs personnels optionnels
+
+- [x] Vérifier une connexion GitHub mobile sécurisée, sans jeton stocké dans l’APK.
+- [x] Définir ce qui est possible pour une connexion navigateur sur téléphone sans reproduire ni accéder aux sessions externes de l’utilisateur.
+- [x] Proposer une intégration optionnelle, avec permissions minimales et déconnexion claire.
+
+## Écran Connecteurs MIA
+
+- [x] Créer un écran Connecteurs inspiré de la capture, avec les services clairement présentés.
+- [x] Indiquer l’état réel de GitHub, Cloudflare et Gemini sans afficher de secret.
+- [x] Expliquer dans l’application que la connexion au navigateur ne donne pas accès aux sessions existantes.
+- [ ] Tester l’écran et intégrer les corrections MIA/Agent dans une APK debug de livraison.

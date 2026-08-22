@@ -15,6 +15,12 @@ export type MiaAgentAction = {
   consequence: string;
 };
 
+export type MiaAgentActionContext = {
+  hasLatestCode: boolean;
+  isHtmlProject: boolean;
+  hasLogo: boolean;
+};
+
 const ACTION_COPY: Record<MiaAgentActionKind, Omit<MiaAgentAction, "id">> = {
   "review-latest-code": {
     kind: "review-latest-code",
@@ -60,10 +66,22 @@ const ACTION_COPY: Record<MiaAgentActionKind, Omit<MiaAgentAction, "id">> = {
   },
 };
 
+export function getMiaAgentActionDetails(kind: MiaAgentActionKind) {
+  return ACTION_COPY[kind];
+}
+
+/** Returns only actions that can be completed with the data currently on screen. */
+export function isMiaAgentActionAvailable(kind: MiaAgentActionKind, context: MiaAgentActionContext) {
+  if (kind === "start-html-project") return true;
+  if (kind === "use-logo-as-icon") return context.hasLogo;
+  if (kind === "prepare-html-apk") return context.hasLatestCode && context.isHtmlProject;
+  return context.hasLatestCode;
+}
+
 export function createMiaAgentAction(kind: MiaAgentActionKind): MiaAgentAction {
   return {
     id: `mia-agent-${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    ...ACTION_COPY[kind],
+    ...getMiaAgentActionDetails(kind),
   };
 }
 
