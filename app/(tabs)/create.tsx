@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ComponentProps } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -8,21 +8,25 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
 
+import { LocalHtmlPreviewModal } from "@/components/local-html-preview-modal";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { prepareAssistantHtmlSource, takeAssistantDraft, takeMiaLogoDraft } from "@/lib/ai-code-assistant";
+import { prepareAssistantHtmlSource, reviewMiaCode, takeAssistantDraft, takeMiaLogoDraft } from "@/lib/ai-code-assistant";
 import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type BuildMode, type ProjectType } from "@/lib/build-store";
 import { enableBuildNotifications } from "@/lib/build-notifications";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
+import { extractLocalHtmlPreviewFromZip } from "@/lib/html-preview";
+import { createLocalHtmlPreview, type LocalHtmlPreview } from "@/shared/html-preview";
 import { inspectProjectSource } from "@/lib/project-preflight";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
 import { prepareStarterProject } from "@/lib/starter-project";
 import { DEFAULT_APP_VERSION, getProjectPackageName, readAppIdentity } from "@/shared/app-identity";
 import type { ProjectPreflight } from "@/shared/project-preflight";
 import { STARTER_PROJECTS, type StarterProjectId } from "@/shared/starter-projects";
+import type { MiaCodeReview } from "@/shared/mia-code-review";
 
 type IconName = ComponentProps<typeof MaterialIcons>["name"];
-type SelectedSource = Pick<DocumentPicker.DocumentPickerAsset, "name" | "size" | "uri"> & { preparedFromHtml?: boolean; preparedFromTemplate?: boolean };
+type SelectedSource = Pick<DocumentPicker.DocumentPickerAsset, "name" | "size" | "uri"> & { preparedFromHtml?: boolean; preparedFromTemplate?: boolean; previewHtml?: string };
 type SelectedAppIcon = { name: string; size?: number; uri: string };
 
 const TYPE_ICONS: Record<ProjectType, IconName> = { expo: "code", android: "android", html: "language" };
@@ -38,10 +42,44 @@ export default function NewBuildScreen() {
   const [buildMode, setBuildMode] = useState<BuildMode>("debug");
   const [saving, setSaving] = useState(false);
   const [preflight, setPreflight] = useState<ProjectPreflight | null>(null);
+  const [htmlPreview, setHtmlPreview] = useState<LocalHtmlPreview | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIssue, setPreviewIssue] = useState<string | null>(null);
+  const [reviewResult, setReviewResult] = useState<MiaCodeReview | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
   const appIdentity = useMemo(() => readAppIdentity(packageName, appVersion), [appVersion, packageName]);
   const canPrepare = Boolean(projectType && archive && preflight && !preflight.hasBlockers && projectName.trim() && appIdentity.valid && !saving);
+  const diagnosticGroups = useMemo(() => [
+    { id: "blocker", label: "Problèmes critiques", icon: "cancel" as IconName, color: colors.error, findings: preflight?.findings.filter((finding) => finding.level === "blocker") ?? [] },
+    { id: "warning", label: "À vérifier", icon: "info-outline" as IconName, color: colors.warning, findings: preflight?.findings.filter((finding) => finding.level === "warning") ?? [] },
+    { id: "check", label: "Ce qui est bon", icon: "check-circle" as IconName, color: colors.success, findings: preflight?.findings.filter((finding) => finding.level === "check") ?? [] },
+  ], [colors.error, colors.success, colors.warning, preflight]);
+
+  function resetCodeTools() {
+    setHtmlPreview(null);
+    setPreviewOpen(false);
+    setPreviewIssue(null);
+    setReviewResult(null);
+    setReviewError(null);
+    setReviewLoading(false);
+  }
+
+  async function prepareLocalHtmlTools(nextType: ProjectType, source: SelectedSource) {
+    resetCodeTools();
+    if (nextType !== "html") return;
+    try {
+      const preview = source.previewHtml
+        ? createLocalHtmlPreview(source.previewHtml)
+        : await extractLocalHtmlPreviewFromZip(source.uri);
+      setHtmlPreview(preview);
+      if (!preview) setPreviewIssue("Aucun index.html n’a été trouvé pour l’aperçu. Le diagnostic de structure reste disponible.");
+    } catch (error) {
+      setPreviewIssue(error instanceof Error ? error.message : "L’aperçu local n’a pas pu être préparé.");
+    }
+  }
 
   async function inspectSelectedSource(nextType: ProjectType, source: SelectedSource) {
     try {
@@ -68,11 +106,12 @@ export default function NewBuildScreen() {
       try {
         let importedCode = false;
         let importedLogo = false;
-        if (draft) {
+          if (draft) {
           const prepared = await prepareAssistantHtmlSource(draft.code);
           if (!active) return;
           setProjectType("html");
           setArchive(prepared);
+          await prepareLocalHtmlTools("html", prepared);
           await inspectSelectedSource("html", prepared);
           setProjectName(draft.projectName);
           setPackageName(getProjectPackageName(draft.projectName));
@@ -146,6 +185,7 @@ export default function NewBuildScreen() {
       const rawSource: SelectedSource = { name: selectedName, size: selected.size, uri: selected.uri };
       const source: SelectedSource | PreparedHtmlSource = directHtml ? await prepareDirectHtmlSource(selected) : rawSource;
       setArchive(source);
+      await prepareLocalHtmlTools(projectType, source);
       await inspectSelectedSource(projectType, source);
       if (!projectName.trim()) {
         const suggestedName = selectedName.replace(/\.(zip|html?)$/i, "");
@@ -162,6 +202,7 @@ export default function NewBuildScreen() {
       const source = prepareStarterProject(starterId);
       setProjectType(source.projectType);
       setArchive(source);
+      await prepareLocalHtmlTools(source.projectType, source);
       setProjectName(source.projectName);
       setPackageName(getProjectPackageName(source.projectName));
       await inspectSelectedSource(source.projectType, source);
@@ -240,6 +281,32 @@ export default function NewBuildScreen() {
     }
   }
 
+  function requestMiaReview() {
+    if (!htmlPreview || reviewLoading) return;
+    Alert.alert(
+      "Envoyer index.html à MIA ?",
+      "MIA recevra uniquement le code affiché pour chercher des problèmes probables. La compilation ne démarrera pas.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Analyser avec MIA", onPress: () => { void runMiaReview(); } },
+      ],
+    );
+  }
+
+  async function runMiaReview() {
+    if (!htmlPreview || reviewLoading) return;
+    try {
+      setReviewLoading(true);
+      setReviewError(null);
+      setReviewResult(await reviewMiaCode({ code: htmlPreview.code, projectType: "html" }));
+    } catch (error) {
+      setReviewResult(null);
+      setReviewError(error instanceof Error ? error.message : "La vérification MIA n’a pas pu être terminée.");
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
   return (
     <ScreenContainer className="flex-1" edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -299,7 +366,7 @@ export default function NewBuildScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 accessibilityLabel={type.label}
-                onPress={() => { setProjectType(type.id); setArchive(null); setPreflight(null); }}
+                onPress={() => { setProjectType(type.id); setArchive(null); setPreflight(null); resetCodeTools(); }}
                 style={({ pressed }) => [styles.typeRow, { backgroundColor: selected ? `${colors.primary}13` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && styles.pressed]}
               >
                 <View style={[styles.typeIcon, { backgroundColor: selected ? colors.primary : colors.background }]}>
@@ -339,14 +406,28 @@ export default function NewBuildScreen() {
           <View style={[styles.selectedFile, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}55` }]}> 
             <View style={[styles.fileCheck, { backgroundColor: `${colors.success}22` }]}><MaterialIcons color={colors.success} name="check" size={18} /></View>
             <View style={styles.fileCopy}><Text numberOfLines={1} style={[styles.fileName, { color: colors.foreground }]}>{archive.name}</Text><Text style={[styles.fileDetail, { color: colors.muted }]}>{formatBytes(archive.size)} · {archive.preparedFromTemplate ? "Modèle prêt à modifier" : archive.preparedFromHtml ? "HTML prêt à compiler" : "Fichier reconnu"}</Text></View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => { setArchive(null); setPreflight(null); }} style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="close" size={20} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Retirer le fichier" onPress={() => { setArchive(null); setPreflight(null); resetCodeTools(); }} style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}><MaterialIcons color={colors.muted} name="close" size={20} /></Pressable>
           </View>
         ) : null}
 
         {preflight ? (
           <View style={[styles.preflightPanel, { backgroundColor: preflight.hasBlockers ? `${colors.error}10` : `${colors.success}10`, borderColor: preflight.hasBlockers ? `${colors.error}55` : `${colors.success}55` }]}>
             <View style={styles.preflightHeader}><MaterialIcons color={preflight.hasBlockers ? colors.error : colors.success} name={preflight.hasBlockers ? "warning-amber" : "verified"} size={20} /><View><Text style={[styles.preflightTitle, { color: colors.foreground }]}>{preflight.hasBlockers ? "À corriger avant l’envoi" : "Contrôle avant envoi terminé"}</Text><Text style={[styles.preflightSubtitle, { color: colors.muted }]}>{preflight.entryCount} fichier{preflight.entryCount > 1 ? "s" : ""} vérifié{preflight.entryCount > 1 ? "s" : ""} sur votre téléphone</Text></View></View>
-            {preflight.findings.map((finding, index) => <View key={`${finding.level}-${index}`} style={styles.preflightFinding}><MaterialIcons color={finding.level === "blocker" ? colors.error : finding.level === "warning" ? colors.primary : colors.success} name={finding.level === "blocker" ? "cancel" : finding.level === "warning" ? "info-outline" : "check-circle"} size={15} /><Text style={[styles.preflightFindingText, { color: colors.muted }]}>{finding.message}</Text></View>)}
+            <Text style={[styles.preflightLocalLabel, { color: colors.muted }]}>Contrôle local de la structure : aucun fichier n’est envoyé.</Text>
+            {diagnosticGroups.map((group) => group.findings.length ? <View key={group.id} style={styles.preflightGroup}><View style={styles.preflightGroupTitle}><MaterialIcons color={group.color} name={group.icon} size={15} /><Text style={[styles.preflightGroupLabel, { color: group.color }]}>{group.label}</Text></View>{group.findings.map((finding, index) => <View key={`${group.id}-${index}`} style={styles.preflightFinding}><MaterialIcons color={group.color} name={group.icon} size={15} /><Text style={[styles.preflightFindingText, { color: colors.muted }]}>{finding.message}</Text></View>)}</View> : null)}
+          </View>
+        ) : null}
+
+        {projectType === "html" && (htmlPreview || previewIssue) ? (
+          <View style={[styles.codeToolsPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.codeToolsHeader}><View style={[styles.optionalBadge, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="visibility" size={17} /></View><View style={styles.codeToolsCopy}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Vérifier mon HTML avant compilation</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>L’aperçu reste sur le téléphone. L’analyse MIA est optionnelle.</Text></View></View>
+            {htmlPreview ? <View style={styles.codeToolsActions}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir l’aperçu de mon HTML" onPress={() => setPreviewOpen(true)} style={({ pressed }) => [styles.codeToolButton, { backgroundColor: `${colors.primary}14`, borderColor: `${colors.primary}55` }, pressed && styles.pressed]}><MaterialIcons color={colors.primary} name="visibility" size={18} /><Text style={[styles.codeToolButtonText, { color: colors.primary }]}>Aperçu de mon HTML</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Demander une analyse MIA de mon code" disabled={reviewLoading} onPress={requestMiaReview} style={({ pressed }) => [styles.codeToolButton, { backgroundColor: colors.background, borderColor: colors.border }, pressed && !reviewLoading && styles.pressed, reviewLoading && styles.disabled]}>{reviewLoading ? <ActivityIndicator color={colors.primary} size="small" /> : <MaterialIcons color={colors.primary} name="auto-awesome" size={18} />}<Text style={[styles.codeToolButtonText, { color: colors.foreground }]}>{reviewLoading ? "MIA analyse…" : "Analyser mon code avec MIA"}</Text></Pressable>
+            </View> : null}
+            {previewIssue ? <Text style={[styles.previewIssue, { color: colors.warning }]}>{previewIssue}</Text> : null}
+            {reviewError ? <Text style={[styles.previewIssue, { color: colors.error }]}>{reviewError}</Text> : null}
+            {reviewResult ? <View style={[styles.reviewPanel, { borderTopColor: colors.border }]}><Text style={[styles.reviewSummary, { color: colors.foreground }]}>{reviewResult.summary}</Text>{reviewResult.blockers.length ? <View style={styles.reviewSection}><Text style={[styles.reviewLabel, { color: colors.error }]}>Problèmes critiques</Text>{reviewResult.blockers.map((item, index) => <Text key={`blocker-${index}`} style={[styles.reviewItem, { color: colors.muted }]}>• <Text style={{ fontWeight: "800" }}>{item.title}{item.line ? ` (ligne ${item.line})` : ""}</Text> — {item.detail}</Text>)}</View> : null}{reviewResult.warnings.length ? <View style={styles.reviewSection}><Text style={[styles.reviewLabel, { color: colors.warning }]}>Avertissements</Text>{reviewResult.warnings.map((item, index) => <Text key={`warning-${index}`} style={[styles.reviewItem, { color: colors.muted }]}>• <Text style={{ fontWeight: "800" }}>{item.title}{item.line ? ` (ligne ${item.line})` : ""}</Text> — {item.detail}</Text>)}</View> : null}{reviewResult.fixes.length ? <View style={styles.reviewSection}><Text style={[styles.reviewLabel, { color: colors.primary }]}>Conseils MIA</Text>{reviewResult.fixes.map((item, index) => <Text key={`fix-${index}`} style={[styles.reviewItem, { color: colors.muted }]}>• {item}</Text>)}</View> : null}</View> : null}
           </View>
         ) : null}
 
@@ -439,6 +520,7 @@ export default function NewBuildScreen() {
           <MaterialIcons color={canPrepare ? colors.background : colors.muted} name="arrow-forward" size={23} />
         </Pressable>
       </ScrollView>
+      <LocalHtmlPreviewModal preview={htmlPreview} visible={previewOpen} onClose={() => setPreviewOpen(false)} />
     </ScreenContainer>
   );
 }
@@ -497,8 +579,24 @@ const styles = StyleSheet.create({
   preflightHeader: { flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 9 },
   preflightTitle: { fontSize: 13, fontWeight: "900" },
   preflightSubtitle: { fontSize: 10.5, marginTop: 1 },
+  preflightLocalLabel: { fontSize: 10.5, lineHeight: 15, marginBottom: 4 },
+  preflightGroup: { marginTop: 8 },
+  preflightGroupTitle: { flexDirection: "row", alignItems: "center", gap: 6 },
+  preflightGroupLabel: { fontSize: 11, fontWeight: "900" },
   preflightFinding: { flexDirection: "row", alignItems: "flex-start", gap: 7, marginTop: 6 },
   preflightFindingText: { flex: 1, fontSize: 10.5, lineHeight: 15 },
+  codeToolsPanel: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: -17, marginBottom: 27 },
+  codeToolsHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  codeToolsCopy: { flex: 1 },
+  codeToolsActions: { gap: 9, marginTop: 12 },
+  codeToolButton: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 9 },
+  codeToolButtonText: { flex: 1, fontSize: 12, fontWeight: "800" },
+  previewIssue: { fontSize: 11, lineHeight: 16, marginTop: 11 },
+  reviewPanel: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 12, paddingTop: 12 },
+  reviewSummary: { fontSize: 12, fontWeight: "700", lineHeight: 18 },
+  reviewSection: { marginTop: 10 },
+  reviewLabel: { fontSize: 11, fontWeight: "900", marginBottom: 3 },
+  reviewItem: { fontSize: 10.5, lineHeight: 16, marginTop: 2 },
   removeButton: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   optionalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 9, marginBottom: 12 },
   optionalBadge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
@@ -528,4 +626,5 @@ const styles = StyleSheet.create({
   submitTitle: { fontSize: 15, fontWeight: "900" },
   submitText: { marginTop: 2, fontSize: 11, fontWeight: "600", opacity: 0.78 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  disabled: { opacity: 0.6 },
 });

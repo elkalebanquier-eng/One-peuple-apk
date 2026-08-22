@@ -10,6 +10,8 @@ export type PreparedStarterProject = {
   projectName: string;
   projectType: "html" | "expo" | "android";
   preparedFromTemplate: true;
+  /** HTML du modèle conservé en mémoire seulement, pour l’aperçu local. */
+  previewHtml?: string;
 };
 
 /** Prépare un ZIP local utilisable par le compilateur, même sans ordinateur. */
@@ -20,5 +22,13 @@ export function prepareStarterProject(id: StarterProjectId): PreparedStarterProj
   const target = new File(Paths.cache, `mia-starter-${starter.id}-${Date.now()}.zip`);
   target.create({ intermediates: true, overwrite: true });
   target.write(archive);
-  return { name: `modele-${starter.id}.zip`, size: archive.length, uri: target.uri, projectName: starter.projectName, projectType: starter.projectType, preparedFromTemplate: true };
+  return {
+    name: `modele-${starter.id}.zip`,
+    size: archive.length,
+    uri: target.uri,
+    projectName: starter.projectName,
+    projectType: starter.projectType,
+    preparedFromTemplate: true,
+    previewHtml: starter.projectType === "html" ? starter.files.find((file) => file.name === "index.html")?.content : undefined,
+  };
 }

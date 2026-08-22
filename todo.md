@@ -611,3 +611,16 @@
 
 - [x] Documenter la configuration gratuite de Gemini via le service sécurisé, sans clé dans l’APK.
 - [x] Expliquer le contrôle final nécessaire avant d’activer KIA dans MIA💻.
+
+## Diagnostic MIA et aperçu HTML natif
+
+- [ ] Afficher avant compilation un rapport MIA séparant problèmes critiques, avertissements et éléments corrects.
+- [ ] Ajouter des conseils concrets de correction et un accès direct à MIA pour les problèmes détectés.
+- [ ] Ajouter un aperçu natif et sûr de la structure d’un fichier index.html, sans WebView ni données réelles.
+- [ ] Tester, compiler puis livrer l’APK debug avec le diagnostic et l’aperçu HTML.
+
+## Aperçu WebView local autorisé
+
+- [ ] Ajouter un WebView exclusivement local pour prévisualiser index.html dans MIA💻.
+- [ ] Bloquer les sites externes, les fichiers du téléphone et les données réelles dans l’aperçu.
+- [ ] Tester l’aperçu isolé puis compiler l’APK debug de livraison.

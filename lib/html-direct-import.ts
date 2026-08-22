@@ -9,6 +9,8 @@ export type PreparedHtmlSource = {
   size: number;
   uri: string;
   preparedFromHtml: boolean;
+  /** Conservé uniquement en mémoire pour l’aperçu local avant compilation. */
+  previewHtml?: string;
 };
 
 /**
@@ -21,12 +23,12 @@ export async function prepareDirectHtmlSource(asset: DocumentPickerAsset): Promi
   }
 
   const source = new File(asset.uri);
-  const html = await source.bytes();
-  if (html.length === 0) {
+  const htmlBytes = await source.bytes();
+  if (htmlBytes.length === 0) {
     throw new Error("Le fichier HTML est vide.");
   }
 
-  const archive = createSingleFileZip("index.html", html);
+  const archive = createSingleFileZip("index.html", htmlBytes);
   if (archive.length > MAX_SOURCE_SIZE) {
     throw new Error("Le fichier HTML dépasse la taille maximale de 50 Mo.");
   }
@@ -39,5 +41,6 @@ export async function prepareDirectHtmlSource(asset: DocumentPickerAsset): Promi
     size: archive.length,
     uri: target.uri,
     preparedFromHtml: true,
+    previewHtml: new TextDecoder().decode(htmlBytes),
   };
 }
