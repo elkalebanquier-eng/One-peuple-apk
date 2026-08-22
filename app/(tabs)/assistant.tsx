@@ -684,17 +684,17 @@ export default function AssistantScreen() {
             </View>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openLogoCreator(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}66` }, pressed && styles.pressed]}>
               <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="brush" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.primary }]}>LOGO</Text></View>
-              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Créer un logo</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Préparez une icône pour votre future APK.</Text></View>
+              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Créer un logo</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Crée une icône carrée à utiliser dans votre future APK.</Text></View>
               <MaterialIcons color={colors.primary} name="chevron-right" size={22} />
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openCodeReview(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.success}0D`, borderColor: `${colors.success}66` }, pressed && styles.pressed]}>
               <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.success}18` }]}><MaterialIcons color={colors.success} name="fact-check" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.success }]}>CODE</Text></View>
-              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Vérifier mon code</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Demandez un diagnostic avant de lancer une APK.</Text></View>
+              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Vérifier mon code</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Analyse votre code avant la compilation et explique les problèmes.</Text></View>
               <MaterialIcons color={colors.success} name="chevron-right" size={22} />
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); setAgentPlannerOpen(true); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
               <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.foreground}12` }]}><MaterialIcons color={colors.foreground} name="verified-user" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.muted }]}>AGENT</Text></View>
-              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Mode Agent</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Actions avancées avec confirmation obligatoire.</Text></View>
+              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Mode Agent</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Prépare une action, puis vous demande toujours votre accord.</Text></View>
               <MaterialIcons color={colors.muted} name="chevron-right" size={22} />
             </Pressable>
           </Animated.View>

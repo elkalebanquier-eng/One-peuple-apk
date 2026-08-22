@@ -636,3 +636,9 @@
 - [x] Ajouter des icônes descriptives aux actions du menu Outils.
 - [x] Animer l’ouverture du menu Outils avec une transition courte et fluide.
 - [x] Tester l’interface puis compiler une APK debug de livraison.
+
+## Descriptions des outils MIA
+
+- [x] Ajouter une description courte et simple sous chaque outil du menu.
+- [x] Vérifier le typage et les tests après cette clarification.
+- [ ] Compiler et remettre directement l’APK debug actualisée.
