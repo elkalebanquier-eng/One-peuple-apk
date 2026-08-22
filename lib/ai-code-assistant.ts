@@ -35,6 +35,7 @@ import {
   type MiaLogoDraft,
   type MiaLogoRequest,
 } from "@/shared/mia-logo";
+import { getKiaUnavailableMessage } from "@/shared/kia-availability";
 
 const ASSISTANT_API_URL = "https://one-app-ai.oneapp-kikokalok.workers.dev/api";
 const ASSISTANT_URL = `${ASSISTANT_API_URL}/code`;
@@ -110,7 +111,7 @@ export async function sendMiaMessage(input: MiaChatInput): Promise<MiaChatRespon
   const message = input.message.trim();
   const provider = input.provider ?? "mia";
   if (!message) throw new Error(`Écrivez un message pour ${provider === "kia" ? "KIA" : "MIA"}.`);
-  if (provider === "kia") throw new Error("KIA est temporairement indisponible pendant la migration. Utilisez MIA pour le moment.");
+  if (provider === "kia") throw new Error(getKiaUnavailableMessage());
 
   const response = await fetch(ASSISTANT_URL, {
     method: "POST",

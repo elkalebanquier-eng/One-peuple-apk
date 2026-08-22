@@ -597,3 +597,12 @@
 - [x] Ajouter un bouton d’aide après une erreur de compilation pour obtenir une explication MIA adaptée.
 - [x] Ajouter des modèles de départ pour HTML, Expo/React Native et Android natif, utilisables depuis le téléphone.
 - [ ] Tester, compiler puis livrer directement l’APK debug avec ces améliorations.
+
+## Services connectés MIA💻
+
+- [x] Vérifier l’état réel des connexions GitHub, Cloudflare et Gemini disponibles pour le projet.
+- [x] Adapter les services à un usage personnel sans distribution ni compte GitHub personnel.
+- [x] Ajouter un écran « Services MIA » qui montre des statuts simples sans secret ni infrastructure technique.
+- [x] Conserver les projets uniquement sur le téléphone et garder GitHub invisible pour la compilation, selon le choix de l’utilisateur.
+- [x] Préparer Gemini pour une activation ultérieure sans intégrer de clé dans l’APK.
+- [ ] Tester, compiler puis livrer une APK debug avec les services connectés.
