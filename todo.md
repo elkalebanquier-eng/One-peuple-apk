@@ -648,7 +648,7 @@
 - [x] Réduire les éléments qui surchargent encore l’interface MIA sur téléphone.
 - [x] Diagnostiquer pourquoi une action confirmée du Mode Agent ne produit pas de résultat.
 - [x] Corriger les actions locales du Mode Agent et afficher un résultat clair après confirmation.
-- [ ] Tester les parcours MIA et Agent puis compiler une APK debug de livraison.
+- [x] Tester les parcours MIA et Agent puis compiler une APK debug de livraison.
 
 ## Connecteurs personnels optionnels
 
@@ -661,4 +661,4 @@
 - [x] Créer un écran Connecteurs inspiré de la capture, avec les services clairement présentés.
 - [x] Indiquer l’état réel de GitHub, Cloudflare et Gemini sans afficher de secret.
 - [x] Expliquer dans l’application que la connexion au navigateur ne donne pas accès aux sessions existantes.
-- [ ] Tester l’écran et intégrer les corrections MIA/Agent dans une APK debug de livraison.
+- [x] Tester l’écran et intégrer les corrections MIA/Agent dans une APK debug de livraison.
