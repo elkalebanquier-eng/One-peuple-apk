@@ -635,4 +635,4 @@
 
 - [x] Ajouter des icônes descriptives aux actions du menu Outils.
 - [x] Animer l’ouverture du menu Outils avec une transition courte et fluide.
-- [ ] Tester l’interface puis compiler une APK debug de livraison.
+- [x] Tester l’interface puis compiler une APK debug de livraison.
