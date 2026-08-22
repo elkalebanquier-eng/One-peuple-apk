@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -78,6 +79,7 @@ export default function AssistantScreen() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [typePickerOpen, setTypePickerOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsEntrance = useRef(new Animated.Value(0)).current;
   const [previewMessage, setPreviewMessage] = useState<MiaMessage | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
@@ -113,6 +115,21 @@ export default function AssistantScreen() {
   const canSend = Boolean(draft.trim()) && !loading && !typingMessageId;
   const assistantName = provider === "kia" ? "KIA" : "MIA";
   const assistantService = provider === "kia" ? "Gemini" : "Cloudflare";
+
+  useEffect(() => {
+    if (!toolsOpen) {
+      toolsEntrance.setValue(0);
+      return;
+    }
+
+    const entrance = Animated.timing(toolsEntrance, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    });
+    entrance.start();
+    return () => entrance.stop();
+  }, [toolsEntrance, toolsOpen]);
 
   useEffect(() => {
     let active = true;
@@ -650,27 +667,37 @@ export default function AssistantScreen() {
 
       <Modal visible={toolsOpen} transparent animationType="fade" onRequestClose={() => setToolsOpen(false)}>
         <View style={styles.sheetBackdrop}>
-          <View style={[styles.toolSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <Animated.View style={[
+            styles.toolSheet,
+            { backgroundColor: colors.background, borderColor: colors.border },
+            {
+              opacity: toolsEntrance,
+              transform: [
+                { translateY: toolsEntrance.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) },
+                { scale: toolsEntrance.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) },
+              ],
+            },
+          ]}>
             <View style={styles.typeSheetHeader}>
               <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Outils MIA</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Des actions utiles, rangées au même endroit.</Text></View>
               <Pressable accessibilityRole="button" onPress={() => setToolsOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
             </View>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openLogoCreator(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}66` }, pressed && styles.pressed]}>
-              <View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="brush" size={20} /></View>
+              <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="brush" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.primary }]}>LOGO</Text></View>
               <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Créer un logo</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Préparez une icône pour votre future APK.</Text></View>
               <MaterialIcons color={colors.primary} name="chevron-right" size={22} />
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openCodeReview(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.success}0D`, borderColor: `${colors.success}66` }, pressed && styles.pressed]}>
-              <View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.success}18` }]}><MaterialIcons color={colors.success} name="fact-check" size={20} /></View>
+              <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.success}18` }]}><MaterialIcons color={colors.success} name="fact-check" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.success }]}>CODE</Text></View>
               <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Vérifier mon code</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Demandez un diagnostic avant de lancer une APK.</Text></View>
               <MaterialIcons color={colors.success} name="chevron-right" size={22} />
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); setAgentPlannerOpen(true); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
-              <View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.foreground}12` }]}><MaterialIcons color={colors.foreground} name="verified-user" size={20} /></View>
+              <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.foreground}12` }]}><MaterialIcons color={colors.foreground} name="verified-user" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.muted }]}>AGENT</Text></View>
               <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Mode Agent</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Actions avancées avec confirmation obligatoire.</Text></View>
               <MaterialIcons color={colors.muted} name="chevron-right" size={22} />
             </Pressable>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -888,6 +915,8 @@ const styles = StyleSheet.create({
   typeChoiceCopy: { flex: 1 },
   typeChoiceTitle: { fontSize: 13, fontWeight: "800" },
   typeChoiceText: { marginTop: 2, fontSize: 11, lineHeight: 15 },
+  toolIconStack: { width: 40, alignItems: "center", gap: 3 },
+  toolIconLabel: { fontSize: 8, fontWeight: "900", letterSpacing: 0.4 },
   toolChoice: { minHeight: 70, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 },
   agentSheet: { borderTopWidth: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingTop: 20, gap: 11 },
   agentChoice: { minHeight: 72, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13 },

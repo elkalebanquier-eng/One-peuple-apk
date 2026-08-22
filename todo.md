@@ -630,3 +630,9 @@
 - [x] Réduire les éléments visibles en même temps dans la conversation MIA sur téléphone.
 - [x] Regrouper les actions secondaires sans retirer les fonctions de code, copie et préparation d’APK.
 - [x] Tester l’interface simplifiée puis compiler une APK debug de livraison.
+
+## Menu Outils plus lisible
+
+- [x] Ajouter des icônes descriptives aux actions du menu Outils.
+- [x] Animer l’ouverture du menu Outils avec une transition courte et fluide.
+- [ ] Tester l’interface puis compiler une APK debug de livraison.
