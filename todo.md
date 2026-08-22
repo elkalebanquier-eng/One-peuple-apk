@@ -629,4 +629,4 @@
 
 - [x] Réduire les éléments visibles en même temps dans la conversation MIA sur téléphone.
 - [x] Regrouper les actions secondaires sans retirer les fonctions de code, copie et préparation d’APK.
-- [ ] Tester l’interface simplifiée puis compiler une APK debug de livraison.
+- [x] Tester l’interface simplifiée puis compiler une APK debug de livraison.
