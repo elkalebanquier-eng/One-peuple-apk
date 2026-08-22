@@ -641,4 +641,4 @@
 
 - [x] Ajouter une description courte et simple sous chaque outil du menu.
 - [x] Vérifier le typage et les tests après cette clarification.
-- [ ] Compiler et remettre directement l’APK debug actualisée.
+- [x] Compiler et remettre directement l’APK debug actualisée.
