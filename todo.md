@@ -606,3 +606,8 @@
 - [x] Conserver les projets uniquement sur le téléphone et garder GitHub invisible pour la compilation, selon le choix de l’utilisateur.
 - [x] Préparer Gemini pour une activation ultérieure sans intégrer de clé dans l’APK.
 - [x] Tester, compiler puis livrer une APK debug avec les services connectés.
+
+## Activation sécurisée de KIA
+
+- [x] Documenter la configuration gratuite de Gemini via le service sécurisé, sans clé dans l’APK.
+- [x] Expliquer le contrôle final nécessaire avant d’activer KIA dans MIA💻.
