@@ -77,6 +77,7 @@ export default function AssistantScreen() {
   const [error, setError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [typePickerOpen, setTypePickerOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [previewMessage, setPreviewMessage] = useState<MiaMessage | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
@@ -181,6 +182,7 @@ export default function AssistantScreen() {
     setCopyState("idle");
     setHistoryOpen(false);
     setTypePickerOpen(false);
+    setToolsOpen(false);
     setPreviewMessage(null);
     setTypingMessageId(null);
     setTypingCharacterCount(0);
@@ -199,6 +201,7 @@ export default function AssistantScreen() {
     setError("");
     setCopyState("idle");
     setHistoryOpen(false);
+    setToolsOpen(false);
     setPreviewMessage(null);
     setTypingMessageId(null);
     setTypingCharacterCount(0);
@@ -540,31 +543,15 @@ export default function AssistantScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.projectStrip}>
+        <View style={[styles.utilityBar, { borderBottomColor: colors.border }]}>
           <Pressable accessibilityRole="button" onPress={() => setTypePickerOpen(true)} style={({ pressed }) => [styles.projectChip, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}12` }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.primary} name={TYPE_ICONS[projectType]} size={16} />
             <Text style={[styles.projectChipText, { color: colors.primary }]}>{selectedType.shortLabel}</Text>
             <MaterialIcons color={colors.primary} name="keyboard-arrow-down" size={17} />
           </Pressable>
-          <Text numberOfLines={1} style={[styles.projectStripText, { color: colors.muted }]}>{activeConversation ? "Discussion enregistrée sur ce téléphone" : "Choisissez le type avant de commencer"}</Text>
-        </View>
-
-        <View style={[styles.providerStrip, { borderBottomColor: colors.border }]}> 
-          <View style={[styles.providerChoice, { backgroundColor: `${colors.primary}16`, borderColor: colors.primary }]}> 
-            <Text style={[styles.providerChoiceText, { color: colors.primary }]}>MIA · Cloudflare</Text>
-            <MaterialIcons color={colors.primary} name="check-circle" size={16} />
-          </View>
-          <Text style={[styles.kiaUnavailableText, { color: colors.muted }]}>KIA · Gemini est momentanément indisponible pendant la migration gratuite.</Text>
-        </View>
-
-        <View style={[styles.agentStrip, { borderBottomColor: colors.border, backgroundColor: `${colors.success}08` }]}>
-          <View style={styles.agentStripCopy}>
-            <View style={styles.agentTitleRow}><MaterialIcons color={colors.success} name="verified-user" size={16} /><Text style={[styles.agentStripTitle, { color: colors.foreground }]}>Mode Agent</Text></View>
-            <Text style={[styles.agentStripText, { color: colors.muted }]}>Chaque action vous demande une confirmation.</Text>
-          </View>
-          <Pressable accessibilityRole="button" onPress={() => setAgentPlannerOpen(true)} style={({ pressed }) => [styles.agentOpenButton, { borderColor: colors.success, backgroundColor: `${colors.success}10` }, pressed && styles.pressed]}>
-            <Text style={[styles.agentOpenText, { color: colors.success }]}>Choisir</Text>
-            <MaterialIcons color={colors.success} name="arrow-forward" size={17} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les outils MIA" onPress={() => setToolsOpen(true)} style={({ pressed }) => [styles.toolsButton, { borderColor: colors.border, backgroundColor: colors.surface }, pressed && styles.pressed]}>
+            <MaterialIcons color={colors.foreground} name="tune" size={18} />
+            <Text style={[styles.toolsButtonText, { color: colors.foreground }]}>Outils</Text>
           </Pressable>
         </View>
 
@@ -578,7 +565,7 @@ export default function AssistantScreen() {
             <View style={styles.welcome}>
           <View style={[styles.welcomeOrb, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}55` }]}><Text style={[styles.welcomeOrbText, { color: colors.primary }]}>M</Text></View>
               <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Bonjour, je suis {assistantName}.</Text>
-              <Text style={[styles.welcomeText, { color: colors.muted }]}>Je travaille avec {assistantService}. Parlez-moi de votre idée, posez une question ou demandez-moi du code. Je vous réponds simplement et je prépare le fichier quand vous en avez besoin.</Text>
+              <Text style={[styles.welcomeText, { color: colors.muted }]}>Décrivez votre idée, posez une question ou demandez du code. Je vous guide étape par étape.</Text>
               <View style={styles.quickPromptList}>
                 {QUICK_PROMPTS.map((quick) => (
                   <Pressable key={quick.label} accessibilityRole="button" onPress={() => useQuickPrompt(quick.value)} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
@@ -587,16 +574,6 @@ export default function AssistantScreen() {
                     <MaterialIcons color={colors.muted} name="arrow-upward" size={17} />
                   </Pressable>
                 ))}
-                <Pressable accessibilityRole="button" onPress={openLogoCreator} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}66` }, pressed && styles.pressed]}>
-                  <MaterialIcons color={colors.primary} name="brush" size={18} />
-                  <Text style={[styles.quickPromptText, { color: colors.foreground }]}>Créer un logo</Text>
-                  <MaterialIcons color={colors.primary} name="auto-awesome" size={17} />
-                </Pressable>
-                <Pressable accessibilityRole="button" onPress={() => openCodeReview()} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: `${colors.success}0E`, borderColor: `${colors.success}66` }, pressed && styles.pressed]}>
-                  <MaterialIcons color={colors.success} name="fact-check" size={18} />
-                  <Text style={[styles.quickPromptText, { color: colors.foreground }]}>Vérifier mon code</Text>
-                  <MaterialIcons color={colors.success} name="arrow-upward" size={17} />
-                </Pressable>
               </View>
               <Text style={[styles.localNote, { color: colors.muted }]}>Vos discussions restent sur votre téléphone. {assistantName} reçoit seulement les derniers messages nécessaires pour répondre.</Text>
             </View>
@@ -667,6 +644,32 @@ export default function AssistantScreen() {
               const selected = type.id === projectType;
               return <Pressable key={type.id} accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => selectProjectType(type.id)} style={({ pressed }) => [styles.typeChoice, { backgroundColor: selected ? `${colors.primary}12` : colors.surface, borderColor: selected ? colors.primary : colors.border }, pressed && styles.pressed]}><View style={[styles.typeChoiceIcon, { backgroundColor: selected ? colors.primary : colors.background }]}><MaterialIcons color={selected ? colors.background : colors.primary} name={TYPE_ICONS[type.id]} size={20} /></View><View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>{type.label}</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>{type.expected}</Text></View>{selected ? <MaterialIcons color={colors.primary} name="check-circle" size={21} /> : null}</Pressable>;
             })}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={toolsOpen} transparent animationType="fade" onRequestClose={() => setToolsOpen(false)}>
+        <View style={styles.sheetBackdrop}>
+          <View style={[styles.toolSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={styles.typeSheetHeader}>
+              <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Outils MIA</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Des actions utiles, rangées au même endroit.</Text></View>
+              <Pressable accessibilityRole="button" onPress={() => setToolsOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
+            </View>
+            <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openLogoCreator(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}66` }, pressed && styles.pressed]}>
+              <View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="brush" size={20} /></View>
+              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Créer un logo</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Préparez une icône pour votre future APK.</Text></View>
+              <MaterialIcons color={colors.primary} name="chevron-right" size={22} />
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openCodeReview(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.success}0D`, borderColor: `${colors.success}66` }, pressed && styles.pressed]}>
+              <View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.success}18` }]}><MaterialIcons color={colors.success} name="fact-check" size={20} /></View>
+              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Vérifier mon code</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Demandez un diagnostic avant de lancer une APK.</Text></View>
+              <MaterialIcons color={colors.success} name="chevron-right" size={22} />
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); setAgentPlannerOpen(true); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
+              <View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.foreground}12` }]}><MaterialIcons color={colors.foreground} name="verified-user" size={20} /></View>
+              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Mode Agent</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Actions avancées avec confirmation obligatoire.</Text></View>
+              <MaterialIcons color={colors.muted} name="chevron-right" size={22} />
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -797,7 +800,7 @@ const styles = StyleSheet.create({
   topTitle: { fontSize: 17, fontWeight: "800", lineHeight: 20 },
   topSubtitle: { fontSize: 11, fontWeight: "700", lineHeight: 15 },
   topIconButton: { width: 40, height: 40, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  projectStrip: { minHeight: 46, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16 },
+  utilityBar: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, paddingHorizontal: 16 },
   providerStrip: { gap: 8, borderBottomWidth: 1, paddingHorizontal: 16, paddingBottom: 10 },
   providerChoice: { minHeight: 42, borderWidth: 1, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 12 },
   providerChoiceText: { fontSize: 11, fontWeight: "800" },
@@ -811,6 +814,8 @@ const styles = StyleSheet.create({
   agentOpenText: { fontSize: 11, fontWeight: "900" },
   projectChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
   projectChipText: { fontSize: 12, fontWeight: "800" },
+  toolsButton: { minHeight: 37, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 11 },
+  toolsButtonText: { fontSize: 12, fontWeight: "800" },
   projectStripText: { flex: 1, fontSize: 11, fontWeight: "600" },
   messagesContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20, gap: 14 },
   emptyMessagesContent: { flexGrow: 1, justifyContent: "center" },
@@ -876,12 +881,14 @@ const styles = StyleSheet.create({
   conversationDelete: { width: 42, minHeight: 48, borderLeftWidth: 1, alignItems: "center", justifyContent: "center" },
   sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.58)" },
   typeSheet: { borderTopWidth: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingTop: 20, gap: 10 },
+  toolSheet: { borderTopWidth: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingTop: 20, gap: 10 },
   typeSheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   typeChoice: { minHeight: 65, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 },
   typeChoiceIcon: { width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   typeChoiceCopy: { flex: 1 },
   typeChoiceTitle: { fontSize: 13, fontWeight: "800" },
   typeChoiceText: { marginTop: 2, fontSize: 11, lineHeight: 15 },
+  toolChoice: { minHeight: 70, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 },
   agentSheet: { borderTopWidth: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingTop: 20, gap: 11 },
   agentChoice: { minHeight: 72, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13 },
   agentChoiceCopy: { flex: 1 },

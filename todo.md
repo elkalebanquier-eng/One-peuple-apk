@@ -624,3 +624,9 @@
 - [x] Ajouter un WebView exclusivement local pour prévisualiser index.html dans MIA💻.
 - [x] Bloquer les sites externes, les fichiers du téléphone et les données réelles dans l’aperçu.
 - [x] Tester l’aperçu isolé puis compiler l’APK debug de livraison.
+
+## Allègement de l’espace MIA
+
+- [x] Réduire les éléments visibles en même temps dans la conversation MIA sur téléphone.
+- [x] Regrouper les actions secondaires sans retirer les fonctions de code, copie et préparation d’APK.
+- [ ] Tester l’interface simplifiée puis compiler une APK debug de livraison.
