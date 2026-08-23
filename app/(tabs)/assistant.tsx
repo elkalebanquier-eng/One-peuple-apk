@@ -765,8 +765,7 @@ export default function AssistantScreen() {
             <MaterialIcons color={colors.primary} name="keyboard-arrow-down" size={17} />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les Connecteurs" onPress={() => router.push("/connectors")} style={({ pressed }) => [styles.connectorsButton, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}12` }, pressed && styles.pressed]}>
-            <MaterialIcons color={colors.primary} name="hub" size={17} />
-            <Text style={[styles.connectorsButtonText, { color: colors.primary }]}>Connecteurs</Text>
+            <MaterialIcons color={colors.primary} name="hub" size={19} />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les outils MIA" onPress={() => setToolsOpen(true)} style={({ pressed }) => [styles.toolsButton, { borderColor: colors.border, backgroundColor: colors.surface }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.foreground} name="tune" size={18} />
@@ -1009,8 +1008,7 @@ const styles = StyleSheet.create({
   agentOpenText: { fontSize: 11, fontWeight: "900" },
   projectChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
   projectChipText: { fontSize: 12, fontWeight: "800" },
-  connectorsButton: { flex: 1, minHeight: 37, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 8 },
-  connectorsButtonText: { fontSize: 11, fontWeight: "900" },
+  connectorsButton: { width: 37, minHeight: 37, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   toolsButton: { minHeight: 37, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 11 },
   toolsButtonText: { fontSize: 12, fontWeight: "800" },
   projectStripText: { flex: 1, fontSize: 11, fontWeight: "600" },

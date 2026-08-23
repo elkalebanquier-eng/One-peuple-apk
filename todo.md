@@ -707,3 +707,9 @@
 - [x] Réduire les textes d’accueil et les encadrés non essentiels pour une conversation plus aérée.
 - [x] Conserver seulement les raccourcis utiles, sans panneau permanent ni bouton inactif.
 - [x] Tester l’interface puis compiler une APK debug de livraison.
+
+## Bouton Connecteurs minimal
+
+- [x] Remplacer le texte Connecteurs par une icône dans la barre MIA.
+- [x] Conserver une étiquette d’accessibilité explicite pour le bouton.
+- [ ] Tester puis compiler une APK debug de livraison.
