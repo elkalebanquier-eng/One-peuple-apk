@@ -719,3 +719,9 @@
 - [x] Afficher une explication courte lors du premier appui sur l’icône Connecteurs.
 - [x] Enregistrer localement l’affichage afin de ne pas gêner les utilisations suivantes.
 - [x] Tester puis compiler une APK debug de livraison.
+
+## Sélecteur de projet compact
+
+- [x] Réduire la hauteur et l’espacement du sélecteur HTML, Expo et Android.
+- [x] Conserver des zones tactiles claires et un libellé accessible.
+- [ ] Tester puis compiler et remettre directement l’APK debug actualisée.
