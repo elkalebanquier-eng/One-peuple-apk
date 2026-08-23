@@ -712,4 +712,4 @@
 
 - [x] Remplacer le texte Connecteurs par une icône dans la barre MIA.
 - [x] Conserver une étiquette d’accessibilité explicite pour le bouton.
-- [ ] Tester puis compiler une APK debug de livraison.
+- [x] Tester puis compiler une APK debug de livraison.
