@@ -713,3 +713,9 @@
 - [x] Remplacer le texte Connecteurs par une icône dans la barre MIA.
 - [x] Conserver une étiquette d’accessibilité explicite pour le bouton.
 - [x] Tester puis compiler une APK debug de livraison.
+
+## Infobulle Connecteurs
+
+- [x] Afficher une explication courte lors du premier appui sur l’icône Connecteurs.
+- [x] Enregistrer localement l’affichage afin de ne pas gêner les utilisations suivantes.
+- [ ] Tester puis compiler une APK debug de livraison.

@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Clipboard from "expo-clipboard";
 import { router, useFocusEffect } from "expo-router";
@@ -40,6 +41,7 @@ import {
   type MiaConversation,
   type MiaMessage,
 } from "@/shared/mia-chat";
+import { MIA_CONNECTORS_HINT_STORAGE_KEY, shouldShowMiaConnectorsHint } from "@/shared/mia-interface-hints";
 import { MIA_TYPING_INTERVAL_MS, isMiaTypingComplete, nextMiaTypingLength } from "@/shared/mia-typing";
 import type { MiaCodeReview } from "@/shared/mia-code-review";
 import {
@@ -124,6 +126,7 @@ export default function AssistantScreen() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [typePickerOpen, setTypePickerOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [connectorsHintVisible, setConnectorsHintVisible] = useState(false);
   const toolsEntrance = useRef(new Animated.Value(0)).current;
   const [previewMessage, setPreviewMessage] = useState<MiaMessage | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
@@ -255,6 +258,20 @@ export default function AssistantScreen() {
     setTypingCharacterCount(0);
     setAgentFeedback(null);
     requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  async function handleConnectorsPress() {
+    try {
+      const savedValue = await AsyncStorage.getItem(MIA_CONNECTORS_HINT_STORAGE_KEY);
+      if (shouldShowMiaConnectorsHint(savedValue)) {
+        setConnectorsHintVisible(true);
+        void AsyncStorage.setItem(MIA_CONNECTORS_HINT_STORAGE_KEY, "1");
+        return;
+      }
+    } catch {
+      // Si la préférence locale est indisponible, le Connecteur reste utilisable.
+    }
+    router.push("/connectors");
   }
 
   function openConversation(conversation: MiaConversation) {
@@ -764,7 +781,7 @@ export default function AssistantScreen() {
             <Text style={[styles.projectChipText, { color: colors.primary }]}>{selectedType.shortLabel}</Text>
             <MaterialIcons color={colors.primary} name="keyboard-arrow-down" size={17} />
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les Connecteurs" onPress={() => router.push("/connectors")} style={({ pressed }) => [styles.connectorsButton, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}12` }, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les Connecteurs" onPress={() => void handleConnectorsPress()} style={({ pressed }) => [styles.connectorsButton, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}12` }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.primary} name="hub" size={19} />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les outils MIA" onPress={() => setToolsOpen(true)} style={({ pressed }) => [styles.toolsButton, { borderColor: colors.border, backgroundColor: colors.surface }, pressed && styles.pressed]}>
@@ -772,6 +789,16 @@ export default function AssistantScreen() {
             <Text style={[styles.toolsButtonText, { color: colors.foreground }]}>Outils</Text>
           </Pressable>
         </View>
+
+        {connectorsHintVisible ? (
+          <View accessibilityLiveRegion="polite" style={[styles.connectorsHint, { backgroundColor: colors.surface, borderColor: `${colors.primary}66` }]}>
+            <MaterialIcons color={colors.primary} name="hub" size={16} />
+            <Text style={[styles.connectorsHintText, { color: colors.foreground }]}>Ici, vous pouvez relier vos services.</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Fermer l’aide Connecteurs" onPress={() => setConnectorsHintVisible(false)} style={({ pressed }) => [styles.connectorsHintClose, pressed && styles.pressed]}>
+              <Text style={[styles.connectorsHintCloseText, { color: colors.primary }]}>Compris</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <FlatList
           data={messages}
@@ -1009,6 +1036,10 @@ const styles = StyleSheet.create({
   projectChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
   projectChipText: { fontSize: 12, fontWeight: "800" },
   connectorsButton: { width: 37, minHeight: 37, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  connectorsHint: { alignSelf: "flex-end", maxWidth: 286, minHeight: 42, marginTop: 8, marginRight: 16, borderWidth: 1, borderRadius: 13, flexDirection: "row", alignItems: "center", gap: 7, paddingLeft: 10, paddingRight: 8 },
+  connectorsHintText: { flex: 1, fontSize: 11, fontWeight: "600", lineHeight: 15 },
+  connectorsHintClose: { minHeight: 30, justifyContent: "center", paddingHorizontal: 4 },
+  connectorsHintCloseText: { fontSize: 11, fontWeight: "900" },
   toolsButton: { minHeight: 37, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 11 },
   toolsButtonText: { fontSize: 12, fontWeight: "800" },
   projectStripText: { flex: 1, fontSize: 11, fontWeight: "600" },
