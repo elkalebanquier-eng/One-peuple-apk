@@ -749,4 +749,4 @@
 - [x] Afficher une animation de chargement fluide dès l’appui sur Connecter.
 - [x] Empêcher les doubles appuis et annoncer l’état de préparation aux technologies d’assistance.
 - [x] Afficher un retour clair si l’autorisation est en préparation, indisponible ou annulée.
-- [ ] Tester puis compiler et remettre directement l’APK debug actualisée.
+- [x] Tester puis compiler et remettre directement l’APK debug actualisée.
