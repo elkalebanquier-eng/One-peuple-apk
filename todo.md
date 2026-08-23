@@ -665,7 +665,7 @@
 
 ## Fenêtre GitHub interactive
 
-- [ ] Ajouter une fenêtre modale pour expliquer et configurer l’autorisation GitHub.
+- [x] Ajouter une fenêtre modale pour expliquer et configurer l’autorisation GitHub.
 - [ ] Exiger une confirmation avant d’ouvrir le parcours officiel GitHub.
-- [ ] Ne conserver aucun mot de passe, cookie ou jeton GitHub dans l’APK.
-- [ ] Tester puis remettre directement une APK debug actualisée.
+- [x] Ne conserver aucun mot de passe, cookie ou jeton GitHub dans l’APK.
+- [x] Tester puis remettre directement une APK debug actualisée.
