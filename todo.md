@@ -718,4 +718,4 @@
 
 - [x] Afficher une explication courte lors du premier appui sur l’icône Connecteurs.
 - [x] Enregistrer localement l’affichage afin de ne pas gêner les utilisations suivantes.
-- [ ] Tester puis compiler une APK debug de livraison.
+- [x] Tester puis compiler une APK debug de livraison.
