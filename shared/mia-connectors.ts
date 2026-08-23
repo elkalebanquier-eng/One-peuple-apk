@@ -38,6 +38,12 @@ export type MiaConnector = {
   permissions: string[];
 };
 
+export type MiaConnectorAction = {
+  label: string;
+  accessibilityLabel: string;
+  available: boolean;
+};
+
 /**
  * Catalogue des connecteurs proposés dans MIA. Leur présence dans cette liste
  * ne vaut jamais connexion : chaque service devient actif uniquement après son
@@ -75,6 +81,20 @@ export function connectorStateLabel(state: MiaConnectorState) {
   if (state === "internal") return "Service MIA";
   if (state === "catalog") return "Catalogue";
   return "Désactivé";
+}
+
+/**
+ * Le libellé reste uniforme dans l’interface. Une autorisation n’est toutefois
+ * réellement disponible qu’une fois le relais officiel du service configuré.
+ */
+export function getMiaConnectorAction(connector: MiaConnector): MiaConnectorAction {
+  if (connector.state === "internal") {
+    return { label: "Service MIA", accessibilityLabel: `${connector.title} est déjà utilisé par MIA`, available: false };
+  }
+  if (connector.state === "disabled") {
+    return { label: "Indisponible", accessibilityLabel: `${connector.title} est indisponible`, available: false };
+  }
+  return { label: "Connecter", accessibilityLabel: `Connecter ${connector.title}`, available: false };
 }
 
 export function filterMiaConnectors(query: string, category: MiaConnectorCategory) {

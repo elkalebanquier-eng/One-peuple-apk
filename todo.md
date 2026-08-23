@@ -725,3 +725,21 @@
 - [x] Réduire la hauteur et l’espacement du sélecteur HTML, Expo et Android.
 - [x] Conserver des zones tactiles claires et un libellé accessible.
 - [x] Tester puis compiler et remettre directement l’APK debug actualisée.
+
+## Connecteurs simples et autorisés
+
+- [x] Réduire l’écran à des services utiles, une recherche facultative et une action Connecter explicite.
+- [x] Remplacer les statuts et textes techniques par une explication courte avant l’autorisation.
+- [x] Préparer un parcours uniforme : Connecter, autorisation officielle dans le navigateur, retour dans MIA, état connecté et déconnexion.
+- [x] Ne rendre actif qu’un service dont le relais OAuth, les permissions et le retour sécurisé sont réellement configurés.
+- [x] Préserver l’interdiction de lire les mots de passe, cookies, sessions ou secrets du téléphone.
+- [ ] Tester l’interface simplifiée puis compiler une APK debug.
+
+## Tous les connecteurs, un même parcours simple
+
+- [x] Remplacer les fiches longues par une feuille courte avec une action Connecter ou En préparation claire.
+- [x] Afficher la même séquence pour chaque service : description courte, permissions choisies, Connecter, retour, état et Déconnecter.
+- [x] Distinguer visuellement les services actifs, configurables et en préparation sans faux statut connecté.
+- [ ] Préparer les points d’autorisation officielle nécessaires à chaque famille de services sans placer de secret dans MIA.
+- [ ] Activer uniquement les services ayant un client officiel, un relais sécurisé et un retour d’autorisation testé.
+- [ ] Tester le catalogue complet puis compiler une APK debug de livraison.

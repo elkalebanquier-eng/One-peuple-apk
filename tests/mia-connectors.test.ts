@@ -4,6 +4,7 @@ import {
   CONNECTOR_CATEGORIES,
   connectorStateLabel,
   filterMiaConnectors,
+  getMiaConnectorAction,
   MIA_CONNECTORS,
 } from "../shared/mia-connectors";
 
@@ -33,5 +34,15 @@ describe("catalogue de connecteurs MIA", () => {
     expect(connectorStateLabel("internal")).toBe("Service MIA");
     expect(connectorStateLabel("catalog")).toBe("Catalogue");
     expect(connectorStateLabel("disabled")).toBe("Désactivé");
+  });
+
+  it("propose une action simple sans annoncer une connexion réelle", () => {
+    const github = MIA_CONNECTORS.find((connector) => connector.id === "github");
+    const cloudflare = MIA_CONNECTORS.find((connector) => connector.id === "cloudflare");
+    const gemini = MIA_CONNECTORS.find((connector) => connector.id === "gemini");
+
+    expect(github && getMiaConnectorAction(github)).toMatchObject({ label: "Connecter", available: false });
+    expect(cloudflare && getMiaConnectorAction(cloudflare)).toMatchObject({ label: "Service MIA", available: false });
+    expect(gemini && getMiaConnectorAction(gemini)).toMatchObject({ label: "Indisponible", available: false });
   });
 });
