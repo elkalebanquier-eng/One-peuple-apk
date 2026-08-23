@@ -733,7 +733,7 @@
 - [x] Préparer un parcours uniforme : Connecter, autorisation officielle dans le navigateur, retour dans MIA, état connecté et déconnexion.
 - [x] Ne rendre actif qu’un service dont le relais OAuth, les permissions et le retour sécurisé sont réellement configurés.
 - [x] Préserver l’interdiction de lire les mots de passe, cookies, sessions ou secrets du téléphone.
-- [ ] Tester l’interface simplifiée puis compiler une APK debug.
+- [x] Tester l’interface simplifiée puis compiler une APK debug.
 
 ## Tous les connecteurs, un même parcours simple
 
@@ -742,4 +742,4 @@
 - [x] Distinguer visuellement les services actifs, configurables et en préparation sans faux statut connecté.
 - [ ] Préparer les points d’autorisation officielle nécessaires à chaque famille de services sans placer de secret dans MIA.
 - [ ] Activer uniquement les services ayant un client officiel, un relais sécurisé et un retour d’autorisation testé.
-- [ ] Tester le catalogue complet puis compiler une APK debug de livraison.
+- [x] Tester le catalogue complet puis compiler une APK debug de livraison.
