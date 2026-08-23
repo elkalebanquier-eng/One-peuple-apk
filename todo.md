@@ -743,3 +743,10 @@
 - [ ] Préparer les points d’autorisation officielle nécessaires à chaque famille de services sans placer de secret dans MIA.
 - [ ] Activer uniquement les services ayant un client officiel, un relais sécurisé et un retour d’autorisation testé.
 - [x] Tester le catalogue complet puis compiler une APK debug de livraison.
+
+## Chargement du bouton Connecter
+
+- [x] Afficher une animation de chargement fluide dès l’appui sur Connecter.
+- [x] Empêcher les doubles appuis et annoncer l’état de préparation aux technologies d’assistance.
+- [x] Afficher un retour clair si l’autorisation est en préparation, indisponible ou annulée.
+- [ ] Tester puis compiler et remettre directement l’APK debug actualisée.

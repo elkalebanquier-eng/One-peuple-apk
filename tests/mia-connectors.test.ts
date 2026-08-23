@@ -5,6 +5,7 @@ import {
   connectorStateLabel,
   filterMiaConnectors,
   getMiaConnectorAction,
+  getMiaConnectorPreparationLabel,
   MIA_CONNECTORS,
 } from "../shared/mia-connectors";
 
@@ -44,5 +45,11 @@ describe("catalogue de connecteurs MIA", () => {
     expect(github && getMiaConnectorAction(github)).toMatchObject({ label: "Connecter", available: false });
     expect(cloudflare && getMiaConnectorAction(cloudflare)).toMatchObject({ label: "Service MIA", available: false });
     expect(gemini && getMiaConnectorAction(gemini)).toMatchObject({ label: "Indisponible", available: false });
+  });
+
+  it("annonce une préparation sans déclarer le service connecté", () => {
+    const github = MIA_CONNECTORS.find((connector) => connector.id === "github");
+
+    expect(github && getMiaConnectorPreparationLabel(github)).toBe("Préparation de l’autorisation pour GitHub");
   });
 });

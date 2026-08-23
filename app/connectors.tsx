@@ -1,5 +1,5 @@
 import { type ComponentProps, useMemo, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 
@@ -9,6 +9,7 @@ import {
   CONNECTOR_CATEGORIES,
   filterMiaConnectors,
   getMiaConnectorAction,
+  getMiaConnectorPreparationLabel,
   type MiaConnector,
   type MiaConnectorCategory,
   type MiaConnectorState,
@@ -49,29 +50,36 @@ export default function ConnectorsScreen() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<MiaConnectorCategory>("Tous");
   const [selectedConnector, setSelectedConnector] = useState<MiaConnector | null>(null);
+  const [preparingConnectorId, setPreparingConnectorId] = useState<MiaConnector["id"] | null>(null);
 
   const connectors = useMemo(() => filterMiaConnectors(query, category), [category, query]);
 
   const openConnector = (connector: MiaConnector) => setSelectedConnector(connector);
 
   const startConnectorAuthorization = (connector: MiaConnector) => {
-    const action = getMiaConnectorAction(connector);
-    if (connector.state === "internal") {
-      Alert.alert("Déjà utilisé par MIA", "Ce service aide déjà MIA sans relier votre compte personnel.", [{ text: "Compris" }]);
-      return;
-    }
-    if (connector.state === "disabled") {
-      Alert.alert("Service indisponible", "Ce service est désactivé. Aucun compte n’est relié.", [{ text: "Compris" }]);
-      return;
-    }
-    Alert.alert(
-      `Connecter ${connector.title}`,
-      "Le parcours est prêt : MIA ouvrira l’autorisation officielle du service, vous choisirez les permissions, puis vous reviendrez ici. Pour le moment, le relais sécurisé de ce service n’est pas encore configuré : aucun compte, mot de passe, cookie ou jeton ne sera demandé.",
-      [
-        { text: "Annuler", style: "cancel" },
-        { text: "Compris", onPress: () => setSelectedConnector(null) },
-      ],
-    );
+    if (preparingConnectorId) return;
+    setPreparingConnectorId(connector.id);
+
+    setTimeout(() => {
+      const finishPreparation = () => setPreparingConnectorId(null);
+      if (connector.state === "internal") {
+        Alert.alert("Déjà utilisé par MIA", "Ce service aide déjà MIA sans relier votre compte personnel.", [{ text: "Compris", onPress: finishPreparation }], { onDismiss: finishPreparation });
+        return;
+      }
+      if (connector.state === "disabled") {
+        Alert.alert("Service indisponible", "Ce service est désactivé. Aucun compte n’est relié.", [{ text: "Compris", onPress: finishPreparation }], { onDismiss: finishPreparation });
+        return;
+      }
+      Alert.alert(
+        `Connecter ${connector.title}`,
+        "Le parcours est prêt : MIA ouvrira l’autorisation officielle du service, vous choisirez les permissions, puis vous reviendrez ici. Pour le moment, le relais sécurisé de ce service n’est pas encore configuré : aucun compte, mot de passe, cookie ou jeton ne sera demandé.",
+        [
+          { text: "Annuler", style: "cancel", onPress: finishPreparation },
+          { text: "Compris", onPress: () => { finishPreparation(); setSelectedConnector(null); } },
+        ],
+        { onDismiss: finishPreparation },
+      );
+    }, 240);
   };
 
   const showSecurityExplanation = () => {
@@ -135,7 +143,11 @@ export default function ConnectorsScreen() {
             <Text style={[styles.permissionsTitle, { color: colors.foreground }]}>Ce que vous autorisez</Text>
             {selectedConnector.permissions.map((permission) => <View key={permission} style={styles.permissionLine}><MaterialIcons color={colors.success} name="check-circle" size={18} /><Text style={[styles.permissionText, { color: colors.muted }]}>{permission}</Text></View>)}
             <View style={[styles.protectedBox, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}4D` }]}><MaterialIcons color={colors.primary} name="lock" size={19} /><Text style={[styles.protectedText, { color: colors.muted }]}>L’autorisation officielle s’ouvre toujours dans le navigateur, jamais dans vos sessions existantes.</Text></View>
-            <Pressable accessibilityRole="button" accessibilityLabel={getMiaConnectorAction(selectedConnector).accessibilityLabel} onPress={() => startConnectorAuthorization(selectedConnector)} style={({ pressed }) => [styles.authorizeButton, { backgroundColor: stateColor(selectedConnector.state, colors) }, pressed && styles.pressed]}><MaterialIcons color={colors.background} name="lock-open" size={19} /><Text style={[styles.addText, { color: colors.background }]}>{getMiaConnectorAction(selectedConnector).label}</Text></Pressable>
+            {(() => {
+              const action = getMiaConnectorAction(selectedConnector);
+              const isPreparing = preparingConnectorId === selectedConnector.id;
+              return <Pressable accessibilityRole="button" accessibilityLabel={isPreparing ? getMiaConnectorPreparationLabel(selectedConnector) : action.accessibilityLabel} accessibilityState={{ busy: isPreparing, disabled: isPreparing }} disabled={isPreparing} onPress={() => startConnectorAuthorization(selectedConnector)} style={({ pressed }) => [styles.authorizeButton, { backgroundColor: stateColor(selectedConnector.state, colors) }, isPreparing && styles.authorizeButtonPreparing, pressed && !isPreparing && styles.pressed]}>{isPreparing ? <ActivityIndicator color={colors.background} size="small" /> : <MaterialIcons color={colors.background} name="lock-open" size={19} />}<Text style={[styles.addText, { color: colors.background }]}>{isPreparing ? "Préparation…" : action.label}</Text></Pressable>;
+            })()}
             <Pressable accessibilityRole="button" onPress={() => { setSelectedConnector(null); showSecurityExplanation(); }} style={({ pressed }) => [styles.cancelButton, { borderColor: colors.border }, pressed && styles.pressed]}><Text style={[styles.cancelText, { color: colors.foreground }]}>Comment ça marche ?</Text></Pressable>
           </View> : null}
         </View>
@@ -189,6 +201,7 @@ const styles = StyleSheet.create({
   protectedBox: { marginTop: 16, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 11 },
   protectedText: { flex: 1, fontSize: 10, lineHeight: 15 },
   authorizeButton: { minHeight: 50, marginTop: 18, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  authorizeButtonPreparing: { opacity: 0.78 },
   addText: { fontSize: 14, fontWeight: "900" },
   cancelButton: { minHeight: 44, marginTop: 9, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   cancelText: { fontSize: 13, fontWeight: "800" },

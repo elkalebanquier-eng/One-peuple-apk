@@ -97,6 +97,10 @@ export function getMiaConnectorAction(connector: MiaConnector): MiaConnectorActi
   return { label: "Connecter", accessibilityLabel: `Connecter ${connector.title}`, available: false };
 }
 
+export function getMiaConnectorPreparationLabel(connector: Pick<MiaConnector, "title">) {
+  return `Préparation de l’autorisation pour ${connector.title}`;
+}
+
 export function filterMiaConnectors(query: string, category: MiaConnectorCategory) {
   const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
   return MIA_CONNECTORS.filter((connector) => {
