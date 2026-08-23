@@ -58,8 +58,8 @@ const TYPE_ICONS: Record<ProjectType, React.ComponentProps<typeof MaterialIcons>
 };
 
 const QUICK_PROMPTS = [
-  { label: "Créer une page", icon: "auto-awesome" as const, value: "Crée une page d’accueil simple et moderne pour mon application." },
-  { label: "Corriger du code", icon: "build" as const, value: "Je veux corriger un problème dans mon code. Explique-moi d’abord ce dont tu as besoin." },
+  { label: "Créer", icon: "auto-awesome" as const, value: "Crée une page d’accueil simple et moderne pour mon application." },
+  { label: "Corriger", icon: "build" as const, value: "Je veux corriger un problème dans mon code. Explique-moi d’abord ce dont tu as besoin." },
 ];
 
 const AGENT_ACTION_KINDS: MiaAgentActionKind[] = [
@@ -764,6 +764,10 @@ export default function AssistantScreen() {
             <Text style={[styles.projectChipText, { color: colors.primary }]}>{selectedType.shortLabel}</Text>
             <MaterialIcons color={colors.primary} name="keyboard-arrow-down" size={17} />
           </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les Connecteurs" onPress={() => router.push("/connectors")} style={({ pressed }) => [styles.connectorsButton, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}12` }, pressed && styles.pressed]}>
+            <MaterialIcons color={colors.primary} name="hub" size={17} />
+            <Text style={[styles.connectorsButtonText, { color: colors.primary }]}>Connecteurs</Text>
+          </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir les outils MIA" onPress={() => setToolsOpen(true)} style={({ pressed }) => [styles.toolsButton, { borderColor: colors.border, backgroundColor: colors.surface }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.foreground} name="tune" size={18} />
             <Text style={[styles.toolsButtonText, { color: colors.foreground }]}>Outils</Text>
@@ -779,13 +783,11 @@ export default function AssistantScreen() {
           ListEmptyComponent={
             <View style={styles.welcome}>
               <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Bonjour, je suis {assistantName}.</Text>
-              <Text style={[styles.welcomeText, { color: colors.muted }]}>Écrivez ce que vous voulez créer ou corriger.</Text>
               <View style={styles.quickPromptList}>
                 {QUICK_PROMPTS.map((quick) => (
                   <Pressable key={quick.label} accessibilityRole="button" onPress={() => useQuickPrompt(quick.value)} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
                     <MaterialIcons color={colors.primary} name={quick.icon} size={18} />
                     <Text style={[styles.quickPromptText, { color: colors.foreground }]}>{quick.label}</Text>
-                    <MaterialIcons color={colors.muted} name="arrow-upward" size={17} />
                   </Pressable>
                 ))}
               </View>
@@ -821,7 +823,6 @@ export default function AssistantScreen() {
               <MaterialIcons color={canSend ? colors.background : colors.muted} name="arrow-upward" size={22} />
             </Pressable>
           </View>
-          <Text style={[styles.composerHint, { color: colors.muted }]}>{assistantName} peut expliquer, créer ou corriger votre code.</Text>
         </View>
       </KeyboardAvoidingView>
 
@@ -994,7 +995,7 @@ const styles = StyleSheet.create({
   topTitle: { fontSize: 17, fontWeight: "800", lineHeight: 20 },
   topSubtitle: { fontSize: 11, fontWeight: "700", lineHeight: 15 },
   topIconButton: { width: 40, height: 40, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  utilityBar: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, paddingHorizontal: 16 },
+  utilityBar: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 8, borderBottomWidth: 1, paddingHorizontal: 16 },
   providerStrip: { gap: 8, borderBottomWidth: 1, paddingHorizontal: 16, paddingBottom: 10 },
   providerChoice: { minHeight: 42, borderWidth: 1, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 12 },
   providerChoiceText: { fontSize: 11, fontWeight: "800" },
@@ -1008,17 +1009,18 @@ const styles = StyleSheet.create({
   agentOpenText: { fontSize: 11, fontWeight: "900" },
   projectChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
   projectChipText: { fontSize: 12, fontWeight: "800" },
+  connectorsButton: { flex: 1, minHeight: 37, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 8 },
+  connectorsButtonText: { fontSize: 11, fontWeight: "900" },
   toolsButton: { minHeight: 37, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 11 },
   toolsButtonText: { fontSize: 12, fontWeight: "800" },
   projectStripText: { flex: 1, fontSize: 11, fontWeight: "600" },
   messagesContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20, gap: 14 },
   emptyMessagesContent: { flexGrow: 1, justifyContent: "center" },
-  welcome: { alignItems: "center", paddingHorizontal: 10, paddingTop: 18 },
-  welcomeTitle: { fontSize: 23, fontWeight: "900", textAlign: "center", lineHeight: 29 },
-  welcomeText: { marginTop: 7, maxWidth: 340, fontSize: 14, fontWeight: "500", textAlign: "center", lineHeight: 20 },
-  quickPromptList: { width: "100%", marginTop: 18, gap: 9 },
-  quickPrompt: { minHeight: 48, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14 },
-  quickPromptText: { flex: 1, fontSize: 13, fontWeight: "700" },
+  welcome: { alignItems: "center", paddingHorizontal: 10, paddingTop: 12 },
+  welcomeTitle: { fontSize: 22, fontWeight: "900", textAlign: "center", lineHeight: 27 },
+  quickPromptList: { width: "100%", flexDirection: "row", marginTop: 16, gap: 9 },
+  quickPrompt: { flex: 1, minHeight: 48, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 10 },
+  quickPromptText: { fontSize: 12, fontWeight: "800" },
   messageRow: { flexDirection: "row", gap: 9, maxWidth: "100%" },
   messageRowAssistant: { alignSelf: "flex-start", paddingRight: 30 },
   messageRowUser: { alignSelf: "flex-end", paddingLeft: 42 },
@@ -1071,11 +1073,10 @@ const styles = StyleSheet.create({
   agentFeedbackTitle: { fontSize: 12, fontWeight: "900", lineHeight: 17 },
   agentFeedbackText: { marginTop: 2, fontSize: 11, fontWeight: "500", lineHeight: 16 },
   agentFeedbackClose: { width: 24, minHeight: 24, alignItems: "center", justifyContent: "center" },
-  composerArea: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 10 },
+  composerArea: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
   composer: { minHeight: 52, borderWidth: 1, borderRadius: 18, flexDirection: "row", alignItems: "flex-end", paddingLeft: 13, paddingRight: 6, paddingTop: 6, paddingBottom: 6 },
   composerInput: { flex: 1, minHeight: 37, maxHeight: 100, fontSize: 14, fontWeight: "500", lineHeight: 20, paddingTop: 8, paddingRight: 8 },
   sendButton: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  composerHint: { paddingTop: 7, paddingBottom: 8, textAlign: "center", fontSize: 10, fontWeight: "500" },
   modalHeader: { minHeight: 66, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, paddingHorizontal: 16 },
   modalTitle: { fontSize: 18, fontWeight: "900", lineHeight: 22 },
   modalSubtitle: { marginTop: 2, fontSize: 11, fontWeight: "500" },

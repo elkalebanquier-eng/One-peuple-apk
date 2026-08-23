@@ -699,3 +699,11 @@
 - [x] Tester le parcours puis compiler une APK debug de livraison.
 - [x] Demander une confirmation explicite avant d’envoyer le brief logo au relais IA.
 - [x] Conserver l’aperçu du logo et ses actions dans l’historique local de la discussion.
+
+## Accès Connecteurs et interface MIA allégée
+
+- [x] Ajouter un bouton Connecteurs visible dans l’en-tête de la conversation MIA.
+- [x] Préserver l’accès aux discussions et à la nouvelle conversation avec des actions compactes.
+- [x] Réduire les textes d’accueil et les encadrés non essentiels pour une conversation plus aérée.
+- [x] Conserver seulement les raccourcis utiles, sans panneau permanent ni bouton inactif.
+- [ ] Tester l’interface puis compiler une APK debug de livraison.
