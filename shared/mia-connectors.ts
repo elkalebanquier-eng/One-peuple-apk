@@ -84,8 +84,8 @@ export function connectorStateLabel(state: MiaConnectorState) {
 }
 
 /**
- * Le libellé reste uniforme dans l’interface. Une autorisation n’est toutefois
- * réellement disponible qu’une fois le relais officiel du service configuré.
+ * Une autorisation ne devient disponible qu’après la configuration vérifiée
+ * d’un relais officiel. Aucun élément actuel du catalogue ne déclenche OAuth.
  */
 export function getMiaConnectorAction(connector: MiaConnector): MiaConnectorAction {
   if (connector.state === "internal") {
@@ -94,7 +94,10 @@ export function getMiaConnectorAction(connector: MiaConnector): MiaConnectorActi
   if (connector.state === "disabled") {
     return { label: "Indisponible", accessibilityLabel: `${connector.title} est indisponible`, available: false };
   }
-  return { label: "Connecter", accessibilityLabel: `Connecter ${connector.title}`, available: false };
+  if (connector.state === "planned") {
+    return { label: "En préparation", accessibilityLabel: `${connector.title} est en préparation`, available: false };
+  }
+  return { label: "Bientôt disponible", accessibilityLabel: `${connector.title} sera disponible après configuration officielle`, available: false };
 }
 
 export function getMiaConnectorPreparationLabel(connector: Pick<MiaConnector, "title">) {

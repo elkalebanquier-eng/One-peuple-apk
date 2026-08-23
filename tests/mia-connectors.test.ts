@@ -37,17 +37,21 @@ describe("catalogue de connecteurs MIA", () => {
     expect(connectorStateLabel("disabled")).toBe("Désactivé");
   });
 
-  it("propose une action simple sans annoncer une connexion réelle", () => {
+  it("présente des états honnêtes tant qu’aucun relais OAuth n’est disponible", () => {
     const github = MIA_CONNECTORS.find((connector) => connector.id === "github");
     const cloudflare = MIA_CONNECTORS.find((connector) => connector.id === "cloudflare");
     const gemini = MIA_CONNECTORS.find((connector) => connector.id === "gemini");
+    const browser = MIA_CONNECTORS.find((connector) => connector.id === "browser");
 
-    expect(github && getMiaConnectorAction(github)).toMatchObject({ label: "Connecter", available: false });
+    expect(github && getMiaConnectorAction(github)).toMatchObject({ label: "En préparation", available: false });
     expect(cloudflare && getMiaConnectorAction(cloudflare)).toMatchObject({ label: "Service MIA", available: false });
     expect(gemini && getMiaConnectorAction(gemini)).toMatchObject({ label: "Indisponible", available: false });
+    expect(browser && getMiaConnectorAction(browser)).toMatchObject({ label: "Bientôt disponible", available: false });
+    expect(MIA_CONNECTORS.every((connector) => getMiaConnectorAction(connector).available === false)).toBe(true);
+    expect(MIA_CONNECTORS.some((connector) => getMiaConnectorAction(connector).label === "Connecter")).toBe(false);
   });
 
-  it("annonce une préparation sans déclarer le service connecté", () => {
+  it("garde un libellé de préparation réservé à une future autorisation vérifiée", () => {
     const github = MIA_CONNECTORS.find((connector) => connector.id === "github");
 
     expect(github && getMiaConnectorPreparationLabel(github)).toBe("Préparation de l’autorisation pour GitHub");

@@ -750,3 +750,11 @@
 - [x] Empêcher les doubles appuis et annoncer l’état de préparation aux technologies d’assistance.
 - [x] Afficher un retour clair si l’autorisation est en préparation, indisponible ou annulée.
 - [x] Tester puis compiler et remettre directement l’APK debug actualisée.
+
+## Correctifs du parcours Connecteurs
+
+- [x] Remplacer l’alerte Android blanche par une feuille de confirmation intégrée au thème sombre.
+- [x] Ne lancer l’animation de chargement qu’après une confirmation explicite de l’utilisateur : aucun chargement n’est accessible sans relais OAuth vérifié.
+- [x] Empêcher un service sans relais OAuth configuré d’afficher un faux parcours de connexion.
+- [x] Présenter les services non activables avec un état court « Bientôt disponible » et un retour clair.
+- [ ] Tester le parcours corrigé puis compiler une APK debug de livraison.
