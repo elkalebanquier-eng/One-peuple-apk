@@ -8,6 +8,18 @@ export const MIA_PROVIDERS = ["mia", "kia"] as const;
 export type MiaProvider = (typeof MIA_PROVIDERS)[number];
 export type MiaMessageRole = "user" | "assistant";
 
+export type MiaLogoMessage = {
+  kind: "request" | "result";
+  appName: string;
+  description: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  uri?: string;
+  name?: string;
+  size?: number;
+  source?: "cloudflare-ai" | "local-template";
+};
+
 export type MiaMessage = {
   id: string;
   role: MiaMessageRole;
@@ -15,6 +27,7 @@ export type MiaMessage = {
   createdAt: string;
   code?: string;
   checklist?: string[];
+  logo?: MiaLogoMessage;
 };
 
 export type MiaConversation = {
@@ -52,6 +65,44 @@ function cleanChecklist(value: unknown) {
       .map((item) => item.trim().slice(0, 240))
       .slice(0, 4)
     : [];
+}
+
+function cleanColor(value: unknown) {
+  const color = typeof value === "string" ? value.trim().slice(0, 7) : "";
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : undefined;
+}
+
+function readLogoMessage(value: unknown): MiaLogoMessage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = value as Partial<MiaLogoMessage>;
+  const appName = typeof candidate.appName === "string" ? candidate.appName.trim().slice(0, 48) : "";
+  const description = typeof candidate.description === "string" ? candidate.description.trim().slice(0, 600) : "";
+  if (!appName || !description || (candidate.kind !== "request" && candidate.kind !== "result")) return undefined;
+
+  if (candidate.kind === "request") {
+    return {
+      kind: "request",
+      appName,
+      description,
+      primaryColor: cleanColor(candidate.primaryColor),
+      secondaryColor: cleanColor(candidate.secondaryColor),
+    };
+  }
+
+  const uri = typeof candidate.uri === "string" ? candidate.uri.trim().slice(0, 2_000) : "";
+  const name = typeof candidate.name === "string" ? candidate.name.trim().slice(0, 100) : "";
+  if (!uri || !name || (candidate.source !== "cloudflare-ai" && candidate.source !== "local-template")) return undefined;
+  return {
+    kind: "result",
+    appName,
+    description,
+    primaryColor: cleanColor(candidate.primaryColor),
+    secondaryColor: cleanColor(candidate.secondaryColor),
+    uri,
+    name,
+    size: typeof candidate.size === "number" && Number.isFinite(candidate.size) && candidate.size > 0 ? candidate.size : undefined,
+    source: candidate.source,
+  };
 }
 
 export function makeMiaTitle(text: string) {
@@ -98,6 +149,7 @@ function readMessage(value: unknown): MiaMessage | null {
       ? candidate.code.trim().slice(0, 120_000)
       : undefined,
     checklist: cleanChecklist(candidate.checklist),
+    logo: readLogoMessage(candidate.logo),
   };
 }
 

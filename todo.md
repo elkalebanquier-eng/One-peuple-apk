@@ -669,3 +669,33 @@
 - [ ] Exiger une confirmation avant d’ouvrir le parcours officiel GitHub.
 - [x] Ne conserver aucun mot de passe, cookie ou jeton GitHub dans l’APK.
 - [x] Tester puis remettre directement une APK debug actualisée.
+
+## Connecteur GitHub réel
+
+- [ ] Créer un relais OAuth GitHub sécurisé, sans identifiant secret dans l’APK.
+- [ ] Ouvrir l’autorisation GitHub officielle uniquement après confirmation de l’utilisateur.
+- [ ] Afficher l’état connecté, les dépôts autorisés et une déconnexion révocable.
+- [ ] Tester le connecteur puis livrer une APK debug actualisée.
+
+## Centre de connecteurs multi-services
+
+- [ ] Concevoir un cadre commun pour plusieurs connecteurs, avec état, permissions et déconnexion.
+- [ ] Présenter clairement GitHub, navigateur, Cloudflare, Gemini et les futurs services sans faux état de connexion.
+- [ ] Ajouter un parcours de configuration réutilisable pour chaque connecteur.
+- [ ] Intégrer les premiers connecteurs réellement autorisables et tester l’ensemble.
+
+## Catalogue étendu de connecteurs
+
+- [ ] Étendre le catalogue à de nombreux services compatibles sans annoncer de connexion inexistante.
+- [ ] Ajouter une recherche et des catégories pour parcourir les connecteurs sur téléphone.
+- [ ] Prévoir pour chaque service une fiche de permissions, un état et une déconnexion.
+- [ ] Conserver l’interdiction de lire les sessions, mots de passe, cookies ou secrets du navigateur.
+
+## Génération de logo dans MIA
+
+- [x] Rechercher les solutions de génération de logo utilisables sans clé dans l’APK.
+- [x] Comparer les options de coût, confidentialité, qualité et intégration mobile.
+- [x] Intégrer la création de logo directement dans la conversation MIA avec un résultat visible.
+- [ ] Tester le parcours puis compiler une APK debug de livraison.
+- [x] Demander une confirmation explicite avant d’envoyer le brief logo au relais IA.
+- [x] Conserver l’aperçu du logo et ses actions dans l’historique local de la discussion.

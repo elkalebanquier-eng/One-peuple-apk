@@ -66,6 +66,66 @@ describe("conversation MIA", () => {
     expect(readMiaConversations([firstConversation, kiaConversation]).map((conversation) => conversation.provider)).toEqual(["mia", "kia"]);
   });
 
+  it("conserve un brief logo local sans image tant que l’utilisateur ne confirme pas la création", () => {
+    const withLogoRequest: MiaConversation = {
+      ...firstConversation,
+      id: "logo-request",
+      messages: [{
+        id: "logo-brief",
+        role: "assistant",
+        content: "Décrivez le logo ici.",
+        createdAt: "2026-08-19T08:02:00.000Z",
+        logo: {
+          kind: "request",
+          appName: "Mon application",
+          description: "Un symbole simple et lisible.",
+          primaryColor: "#d4af37",
+          secondaryColor: "#0a0a0f",
+        },
+      }],
+    };
+
+    const message = readMiaConversations([withLogoRequest])[0]?.messages[0];
+    expect(message?.logo).toEqual({
+      kind: "request",
+      appName: "Mon application",
+      description: "Un symbole simple et lisible.",
+      primaryColor: "#D4AF37",
+      secondaryColor: "#0A0A0F",
+    });
+    expect(message?.logo?.uri).toBeUndefined();
+  });
+
+  it("conserve uniquement un résultat logo IA local complet et rejette les sources inconnues", () => {
+    const valid: MiaConversation = {
+      ...firstConversation,
+      id: "logo-result",
+      messages: [{
+        id: "logo-image",
+        role: "assistant",
+        content: "Voici votre logo.",
+        createdAt: "2026-08-19T08:03:00.000Z",
+        logo: {
+          kind: "result",
+          appName: "Mon application",
+          description: "Un symbole simple et lisible.",
+          uri: "file:///data/user/0/app/files/mia-logo.png",
+          name: "mia-logo.png",
+          size: 12345,
+          source: "cloudflare-ai",
+        },
+      }],
+    };
+    const unsafe: MiaConversation = {
+      ...valid,
+      id: "unsafe-logo-result",
+      messages: [{ ...valid.messages[0]!, logo: { ...valid.messages[0]!.logo!, source: "other" as "cloudflare-ai" } }],
+    };
+
+    expect(readMiaConversations([valid])[0]?.messages[0]?.logo?.source).toBe("cloudflare-ai");
+    expect(readMiaConversations([unsafe])[0]?.messages[0]?.logo).toBeUndefined();
+  });
+
   it("place une discussion mise à jour en tête sans en créer un doublon", () => {
     const changed = {
       ...firstConversation,

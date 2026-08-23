@@ -34,6 +34,7 @@ import {
 import { PROJECT_TYPES, type ProjectType } from "@/lib/build-store";
 import {
   createMiaPreview,
+  type MiaLogoMessage,
   type MiaProvider,
   makeMiaTitle,
   type MiaConversation,
@@ -85,6 +86,21 @@ type AgentFeedback = {
   detail: string;
 };
 
+type LogoFormValues = Pick<MiaLogoMessage, "appName" | "description" | "primaryColor" | "secondaryColor">;
+
+function logoDraftFromMessage(logo: MiaLogoMessage | undefined): MiaLogoDraft | null {
+  if (!logo || logo.kind !== "result" || !logo.uri || !logo.name) return null;
+  return {
+    id: `conversation-${logo.name}-${logo.uri}`,
+    appName: logo.appName,
+    description: logo.description,
+    uri: logo.uri,
+    name: logo.name,
+    size: logo.size,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function dateLabel(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Discussion";
@@ -113,12 +129,8 @@ export default function AssistantScreen() {
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [typingCharacterCount, setTypingCharacterCount] = useState(0);
-  const [logoOpen, setLogoOpen] = useState(false);
-  const [logoName, setLogoName] = useState("");
-  const [logoDescription, setLogoDescription] = useState("");
-  const [logoPrimaryColor, setLogoPrimaryColor] = useState("#D4AF37");
-  const [logoSecondaryColor, setLogoSecondaryColor] = useState("#0A0A0F");
   const [logoDraft, setLogoDraft] = useState<MiaLogoDraft | null>(null);
+  const [logoForms, setLogoForms] = useState<Record<string, LogoFormValues>>({});
   const [logoLoading, setLogoLoading] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewCode, setReviewCode] = useState("");
@@ -138,18 +150,20 @@ export default function AssistantScreen() {
   const provider = activeConversation?.provider ?? draftProvider;
   const messages = activeConversation?.messages ?? [];
   const latestCodeMessage = [...messages].reverse().find((message) => Boolean(message.code)) ?? null;
+  const latestConversationLogo = [...messages].reverse().find((message) => message.logo?.kind === "result")?.logo;
+  const activeLogoDraft = logoDraft ?? logoDraftFromMessage(latestConversationLogo);
   const selectedType = PROJECT_TYPES.find((type) => type.id === projectType)!;
   const agentContext = {
     hasLatestCode: Boolean(latestCodeMessage?.code),
     isHtmlProject: projectType === "html",
-    hasLogo: Boolean(logoDraft),
+    hasLogo: Boolean(activeLogoDraft),
   };
   const availableAgentActionKinds = AGENT_ACTION_KINDS.filter((kind) => isMiaAgentActionAvailable(kind, agentContext));
   const preview = useMemo(
     () => previewMessage?.code ? createMiaPreview(previewMessage.code) : null,
     [previewMessage],
   );
-  const canSend = Boolean(draft.trim()) && !loading && !typingMessageId;
+  const canSend = Boolean(draft.trim()) && !loading && !logoLoading && !typingMessageId;
   const assistantName = provider === "kia" ? "KIA" : "MIA";
 
   useEffect(() => {
@@ -376,27 +390,110 @@ export default function AssistantScreen() {
     }
   }
 
-  function openLogoCreator() {
-    setLogoName(logoDraft?.appName || activeConversation?.title || "Mon application");
-    setLogoDescription(logoDraft?.description || "");
-    setLogoPrimaryColor("#D4AF37");
-    setLogoSecondaryColor("#0A0A0F");
+  async function openLogoConversation() {
+    const now = new Date().toISOString();
+    const base: MiaConversation = activeConversation ?? {
+      id: `${provider}-conversation-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      provider,
+      title: "Créer un logo",
+      projectType,
+      createdAt: now,
+      updatedAt: now,
+      messages: [],
+    };
+    const form: LogoFormValues = {
+      appName: activeLogoDraft?.appName || "Mon application",
+      description: activeLogoDraft?.description || "",
+      primaryColor: "#D4AF37",
+      secondaryColor: "#0A0A0F",
+    };
+    const message: MiaMessage = {
+      id: messageId("assistant"),
+      role: "assistant",
+      content: "Décrivez le logo ici. Je ne l’enverrai au relais IA qu’après votre confirmation.",
+      createdAt: now,
+      logo: { kind: "request", ...form },
+    };
     setError("");
-    setLogoOpen(true);
+    setToolsOpen(false);
+    try {
+      await persistConversation({ ...base, updatedAt: now, messages: [...base.messages, message] });
+      setLogoForms((current) => ({ ...current, [message.id]: form }));
+    } catch {
+      setError("La demande de logo ne peut pas être ajoutée à cette discussion.");
+    }
   }
 
-  async function handleGenerateLogo() {
-    if (logoLoading) return;
+  function updateLogoForm(message: MiaMessage, field: keyof LogoFormValues, value: string) {
+    if (message.logo?.kind !== "request") return;
+    setLogoForms((current) => ({
+      ...current,
+      [message.id]: { ...message.logo, ...current[message.id], [field]: value },
+    }));
+  }
+
+  async function confirmConversationLogo(message: MiaMessage, values?: LogoFormValues) {
+    const source = values ?? message.logo;
+    if (!source || !source.appName.trim() || !source.description.trim()) {
+      setError("Indiquez le nom de l’application et décrivez le symbole avant de créer le logo.");
+      return;
+    }
+    const request: LogoFormValues = {
+      appName: source.appName.trim(),
+      description: source.description.trim(),
+      primaryColor: source.primaryColor,
+      secondaryColor: source.secondaryColor,
+    };
+    if (activeConversation) {
+      try {
+        const updatedMessage: MiaMessage = { ...message, logo: { kind: "request", ...request } };
+        await persistConversation({
+          ...activeConversation,
+          updatedAt: activeConversation.updatedAt,
+          messages: activeConversation.messages.map((entry) => entry.id === message.id ? updatedMessage : entry),
+        });
+      } catch {
+        setError("Le brief de logo ne peut pas être conservé sur ce téléphone.");
+        return;
+      }
+    }
+    Alert.alert(
+      "Envoyer ce brief à MIA ?",
+      "MIA va envoyer cette description au relais IA Cloudflare pour créer une image. Aucune clé n’est stockée dans votre APK.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Créer le logo", onPress: () => void generateConversationLogo(request) },
+      ],
+    );
+  }
+
+  async function generateConversationLogo(request: LogoFormValues) {
+    const base = activeConversation;
+    if (!base || logoLoading) return;
     setLogoLoading(true);
     setError("");
     try {
-      const nextLogo = await generateMiaLogo({
-        appName: logoName,
-        description: logoDescription,
-        primaryColor: logoPrimaryColor,
-        secondaryColor: logoSecondaryColor,
-      });
+      const nextLogo = await generateMiaLogo(request);
+      const createdAt = new Date().toISOString();
+      const result: MiaMessage = {
+        id: messageId("assistant"),
+        role: "assistant",
+        content: `Voici votre logo pour ${nextLogo.appName}. Il a été créé par MIA via l’IA Cloudflare et reste enregistré sur ce téléphone.`,
+        createdAt,
+        logo: {
+          kind: "result",
+          appName: nextLogo.appName,
+          description: nextLogo.description,
+          primaryColor: request.primaryColor,
+          secondaryColor: request.secondaryColor,
+          uri: nextLogo.uri,
+          name: nextLogo.name,
+          size: nextLogo.size,
+          source: "cloudflare-ai",
+        },
+      };
       setLogoDraft(nextLogo);
+      await persistConversation({ ...base, updatedAt: createdAt, messages: [...base.messages, result] });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "MIA ne peut pas créer ce logo pour le moment.");
     } finally {
@@ -404,15 +501,26 @@ export default function AssistantScreen() {
     }
   }
 
-  async function handleUseLogoForBuild() {
-    if (!logoDraft) return;
+  async function handleUseLogoForBuild(draft = activeLogoDraft) {
+    if (!draft) return;
     try {
-      await saveMiaLogoDraft(logoDraft);
-      setLogoOpen(false);
+      await saveMiaLogoDraft(draft);
+      setLogoDraft(draft);
+      setAgentFeedback({ tone: "success", title: "Icône enregistrée", detail: "Ce logo sera proposé dans le formulaire de compilation de votre prochaine APK." });
+    } catch {
+      setError("Le logo ne peut pas être conservé sur ce téléphone.");
+    }
+  }
+
+  async function prepareApkWithLogo(draft = activeLogoDraft) {
+    if (!draft) return;
+    try {
+      await saveMiaLogoDraft(draft);
+      setLogoDraft(draft);
       Alert.alert(
-        "Logo prêt",
-        "Le logo MIA est enregistré. Le formulaire de compilation va l’utiliser comme icône de votre APK.",
-        [{ text: "Continuer", onPress: () => router.navigate("/(tabs)/create") }],
+        "Logo prêt pour l’APK",
+        "L’icône est conservée sur ce téléphone. Ouvrez maintenant la préparation de l’APK.",
+        [{ text: "Préparer l’APK", onPress: () => router.navigate("/(tabs)/create") }],
       );
     } catch {
       setError("Le logo ne peut pas être conservé sur ce téléphone.");
@@ -548,6 +656,8 @@ export default function AssistantScreen() {
     const assistant = item.role === "assistant";
     const typing = assistant && item.id === typingMessageId;
     const visibleContent = typing ? item.content.slice(0, typingCharacterCount) : item.content;
+    const logoForm = item.logo?.kind === "request" ? logoForms[item.id] ?? item.logo : null;
+    const resultLogo = logoDraftFromMessage(item.logo);
     return (
       <View style={[styles.messageRow, assistant ? styles.messageRowAssistant : styles.messageRowUser]}>
         {assistant ? <View style={[styles.miaAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.miaAvatarText, { color: colors.background }]}>{provider === "kia" ? "K" : "M"}</Text></View> : null}
@@ -568,6 +678,30 @@ export default function AssistantScreen() {
               {typing ? <Text style={[styles.typingCursor, { color: colors.primary }]}>▍</Text> : null}
             </Text>
           </View>
+          {logoForm ? (
+            <View style={[styles.logoRequestCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={styles.logoCardTitleRow}><View style={[styles.logoCardIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="brush" size={18} /></View><View style={styles.logoCardTitleCopy}><Text style={[styles.logoCardTitle, { color: colors.foreground }]}>Brief du logo</Text><Text style={[styles.logoCardHint, { color: colors.muted }]}>MIA ne crée rien avant votre confirmation.</Text></View></View>
+              <Text style={[styles.toolLabel, { color: colors.foreground }]}>Nom de l’application</Text>
+              <TextInput value={logoForm.appName} onChangeText={(value) => updateLogoForm(item, "appName", value)} editable={!logoLoading} maxLength={48} placeholder="Ex. Ma boutique" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
+              <Text style={[styles.toolLabel, { color: colors.foreground }]}>Symbole et style</Text>
+              <TextInput value={logoForm.description} onChangeText={(value) => updateLogoForm(item, "description", value)} editable={!logoLoading} maxLength={600} multiline textAlignVertical="top" placeholder="Ex. un sac moderne, symbole central, style simple…" placeholderTextColor={colors.muted} style={[styles.logoDescriptionInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
+              <View style={styles.colorRow}>
+                <View style={styles.colorField}><Text style={[styles.toolLabel, { color: colors.foreground }]}>Couleur 1</Text><TextInput value={logoForm.primaryColor ?? ""} onChangeText={(value) => updateLogoForm(item, "primaryColor", value)} editable={!logoLoading} autoCapitalize="characters" maxLength={7} placeholder="#D4AF37" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} /></View>
+                <View style={styles.colorField}><Text style={[styles.toolLabel, { color: colors.foreground }]}>Couleur 2</Text><TextInput value={logoForm.secondaryColor ?? ""} onChangeText={(value) => updateLogoForm(item, "secondaryColor", value)} editable={!logoLoading} autoCapitalize="characters" maxLength={7} placeholder="#0A0A0F" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} /></View>
+              </View>
+              <Pressable accessibilityRole="button" disabled={logoLoading} onPress={() => void confirmConversationLogo(item, logoForm)} style={({ pressed }) => [styles.logoGenerateButton, { backgroundColor: colors.primary }, (pressed || logoLoading) && styles.pressed]}>{logoLoading ? <ActivityIndicator color={colors.background} /> : <MaterialIcons color={colors.background} name="auto-awesome" size={18} />}<Text style={[styles.logoGenerateText, { color: colors.background }]}>{logoLoading ? "Création…" : "Confirmer et créer"}</Text></Pressable>
+              <Text style={[styles.logoPrivacyNote, { color: colors.muted }]}>Maximum trois logos par heure. Votre brief est envoyé uniquement après confirmation ; l’image reste sur votre téléphone.</Text>
+            </View>
+          ) : null}
+          {resultLogo && item.logo?.kind === "result" ? (
+            <View style={[styles.logoResultCard, { backgroundColor: colors.background, borderColor: `${colors.primary}66` }]}>
+              <View style={styles.logoCardTitleRow}><View style={[styles.logoCardIcon, { backgroundColor: `${colors.success}18` }]}><MaterialIcons color={colors.success} name="auto-awesome" size={18} /></View><View style={styles.logoCardTitleCopy}><Text style={[styles.logoCardTitle, { color: colors.foreground }]}>{item.logo.appName}</Text><Text style={[styles.logoCardHint, { color: colors.muted }]}>{item.logo.source === "cloudflare-ai" ? "Image IA Cloudflare · stockée localement" : "Modèle local · stocké localement"}</Text></View></View>
+              <Image accessibilityLabel={`Logo créé pour ${item.logo.appName}`} source={{ uri: resultLogo.uri }} style={styles.logoConversationImage} />
+              <Text style={[styles.logoResultDescription, { color: colors.muted }]}>{item.logo.description}</Text>
+              <View style={styles.logoActionRow}><Pressable accessibilityRole="button" onPress={() => void handleUseLogoForBuild(resultLogo)} style={({ pressed }) => [styles.logoSecondaryAction, { borderColor: colors.success, backgroundColor: `${colors.success}0D` }, pressed && styles.pressed]}><MaterialIcons color={colors.success} name="check-circle" size={17} /><Text style={[styles.logoSecondaryActionText, { color: colors.success }]}>Utiliser</Text></Pressable><Pressable accessibilityRole="button" disabled={logoLoading} onPress={() => void confirmConversationLogo(item, item.logo)} style={({ pressed }) => [styles.logoSecondaryAction, { borderColor: colors.border, backgroundColor: colors.surface }, (pressed || logoLoading) && styles.pressed]}><MaterialIcons color={colors.foreground} name="refresh" size={17} /><Text style={[styles.logoSecondaryActionText, { color: colors.foreground }]}>Regénérer</Text></Pressable></View>
+              <Pressable accessibilityRole="button" onPress={() => void prepareApkWithLogo(resultLogo)} style={({ pressed }) => [styles.prepareInline, { backgroundColor: colors.primary }, pressed && styles.pressed]}><Text style={[styles.prepareInlineText, { color: colors.background }]}>Préparer l’APK avec ce logo</Text><MaterialIcons color={colors.background} name="arrow-forward" size={18} /></Pressable>
+            </View>
+          ) : null}
           {item.code ? (
             <View style={[styles.codeAttachment, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <View style={styles.codeAttachmentHeader}>
@@ -745,7 +879,7 @@ export default function AssistantScreen() {
               <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Outils MIA</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Des actions utiles, rangées au même endroit.</Text></View>
               <Pressable accessibilityRole="button" onPress={() => setToolsOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
             </View>
-            <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openLogoCreator(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}66` }, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" onPress={() => void openLogoConversation()} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}66` }, pressed && styles.pressed]}>
               <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="brush" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.primary }]}>LOGO</Text></View>
               <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Créer un logo</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Crée une icône carrée à utiliser dans votre future APK.</Text></View>
               <MaterialIcons color={colors.primary} name="chevron-right" size={22} />
@@ -762,37 +896,6 @@ export default function AssistantScreen() {
             </Pressable>
           </Animated.View>
         </View>
-      </Modal>
-
-      <Modal visible={logoOpen} animationType="slide" onRequestClose={() => setLogoOpen(false)}>
-        <ScreenContainer className="flex-1" edges={["top", "bottom", "left", "right"]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <View><Text style={[styles.modalTitle, { color: colors.foreground }]}>Créer un logo</Text><Text style={[styles.modalSubtitle, { color: colors.muted }]}>Une icône carrée, prête pour une APK.</Text></View>
-            <Pressable accessibilityRole="button" onPress={() => setLogoOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={22} /></Pressable>
-          </View>
-          <FlatList
-            data={["logo-form"]}
-            keyExtractor={(item) => item}
-            contentContainerStyle={styles.aiToolContent}
-            renderItem={() => (
-              <View style={styles.aiToolForm}>
-                <Text style={[styles.toolLead, { color: colors.foreground }]}>Décrivez un symbole simple. Évitez le texte très petit : il est moins lisible comme icône.</Text>
-                <Text style={[styles.toolLabel, { color: colors.foreground }]}>Nom de l’application</Text>
-                <TextInput value={logoName} onChangeText={setLogoName} maxLength={48} placeholder="Ex. Ma boutique" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
-                <Text style={[styles.toolLabel, { color: colors.foreground }]}>Description du logo</Text>
-                <TextInput value={logoDescription} onChangeText={setLogoDescription} maxLength={600} multiline textAlignVertical="top" placeholder="Ex. un sac moderne, symbole central, style simple…" placeholderTextColor={colors.muted} style={[styles.toolTextArea, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
-                <View style={styles.colorRow}>
-                  <View style={styles.colorField}><Text style={[styles.toolLabel, { color: colors.foreground }]}>Couleur 1</Text><TextInput value={logoPrimaryColor} onChangeText={setLogoPrimaryColor} autoCapitalize="characters" maxLength={7} placeholder="#D4AF37" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} /></View>
-                  <View style={styles.colorField}><Text style={[styles.toolLabel, { color: colors.foreground }]}>Couleur 2</Text><TextInput value={logoSecondaryColor} onChangeText={setLogoSecondaryColor} autoCapitalize="characters" maxLength={7} placeholder="#0A0A0F" placeholderTextColor={colors.muted} style={[styles.toolInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} /></View>
-                </View>
-                {logoDraft ? <View style={[styles.logoPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}><Image accessibilityLabel="Aperçu du logo créé par MIA" source={{ uri: logoDraft.uri }} style={styles.logoPreviewImage} /><Text style={[styles.logoPreviewName, { color: colors.foreground }]}>{logoDraft.appName}</Text><Text style={[styles.logoPreviewHint, { color: colors.muted }]}>{logoDraft.description}</Text></View> : null}
-                <Pressable accessibilityRole="button" disabled={logoLoading} onPress={() => void handleGenerateLogo()} style={({ pressed }) => [styles.toolPrimaryButton, { backgroundColor: colors.primary }, (pressed || logoLoading) && styles.pressed]}>{logoLoading ? <ActivityIndicator color={colors.background} /> : <MaterialIcons color={colors.background} name="auto-awesome" size={19} />}<Text style={[styles.toolPrimaryText, { color: colors.background }]}>{logoDraft ? "Regénérer le logo" : "Créer le logo"}</Text></Pressable>
-                {logoDraft ? <Pressable accessibilityRole="button" onPress={() => void handleUseLogoForBuild()} style={({ pressed }) => [styles.toolSecondaryButton, { borderColor: colors.success, backgroundColor: `${colors.success}12` }, pressed && styles.pressed]}><MaterialIcons color={colors.success} name="check-circle" size={19} /><Text style={[styles.toolSecondaryText, { color: colors.success }]}>Utiliser comme icône de l’APK</Text></Pressable> : null}
-                <Text style={[styles.toolNote, { color: colors.muted }]}>Maximum trois logos par heure. L’image choisie reste uniquement sur votre téléphone.</Text>
-              </View>
-            )}
-          />
-        </ScreenContainer>
       </Modal>
 
       <Modal visible={reviewOpen} animationType="slide" onRequestClose={() => setReviewOpen(false)}>
@@ -929,6 +1032,22 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 14, fontWeight: "500", lineHeight: 21 },
   typingCursor: { fontSize: 13, fontWeight: "900" },
   codeAttachment: { marginTop: 8, borderWidth: 1, borderRadius: 15, padding: 10 },
+  logoRequestCard: { marginTop: 8, borderWidth: 1, borderRadius: 15, padding: 11, gap: 8 },
+  logoResultCard: { marginTop: 8, borderWidth: 1, borderRadius: 15, padding: 11, gap: 9 },
+  logoCardTitleRow: { flexDirection: "row", alignItems: "center", gap: 9 },
+  logoCardIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  logoCardTitleCopy: { flex: 1 },
+  logoCardTitle: { fontSize: 13, fontWeight: "900", lineHeight: 18 },
+  logoCardHint: { marginTop: 1, fontSize: 11, fontWeight: "500", lineHeight: 15 },
+  logoDescriptionInput: { minHeight: 88, borderWidth: 1, borderRadius: 12, padding: 11, fontSize: 13, fontWeight: "500", lineHeight: 19 },
+  logoGenerateButton: { minHeight: 46, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 2 },
+  logoGenerateText: { fontSize: 13, fontWeight: "900" },
+  logoPrivacyNote: { fontSize: 10, lineHeight: 15, textAlign: "center", paddingHorizontal: 4 },
+  logoConversationImage: { alignSelf: "center", width: 164, height: 164, borderRadius: 22 },
+  logoResultDescription: { fontSize: 11, fontWeight: "500", lineHeight: 16, textAlign: "center" },
+  logoActionRow: { flexDirection: "row", gap: 8 },
+  logoSecondaryAction: { flex: 1, minHeight: 39, borderRadius: 10, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
+  logoSecondaryActionText: { fontSize: 11, fontWeight: "900" },
   codeAttachmentHeader: { flexDirection: "row", alignItems: "center", gap: 9 },
   codeFileIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   codeAttachmentCopy: { flex: 1 },
