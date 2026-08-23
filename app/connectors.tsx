@@ -1,5 +1,5 @@
-import { type ComponentProps } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { type ComponentProps, useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 
@@ -16,7 +16,7 @@ const CONNECTOR_ICONS: Record<MiaConnector["id"], AppIcon> = {
   gemini: "auto-awesome",
 };
 
-function ConnectorRow({ connector, border }: { connector: MiaConnector; border?: string }) {
+function ConnectorRow({ connector, border, onPress }: { connector: MiaConnector; border?: string; onPress?: () => void }) {
   const colors = useColors();
   const stateColors: Record<MiaConnectorState, string> = {
     planned: colors.warning,
@@ -26,7 +26,7 @@ function ConnectorRow({ connector, border }: { connector: MiaConnector; border?:
   };
   const accent = stateColors[connector.state];
 
-  return (
+  const content = (
     <View style={[styles.row, border ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: border } : null]}>
       <View style={[styles.icon, { backgroundColor: `${accent}18` }]}>
         <MaterialIcons color={accent} name={CONNECTOR_ICONS[connector.id]} size={21} />
@@ -38,18 +38,46 @@ function ConnectorRow({ connector, border }: { connector: MiaConnector; border?:
         </View>
         <Text style={[styles.rowDetail, { color: colors.muted }]}>{connector.detail}</Text>
       </View>
+      {onPress ? <MaterialIcons color={colors.muted} name="chevron-right" size={21} /> : null}
     </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Configurer ${connector.title}`} onPress={onPress} style={({ pressed }) => pressed && styles.rowPressed}>
+      {content}
+    </Pressable>
   );
 }
 
 export default function ConnectorsScreen() {
   const colors = useColors();
+  const [githubSetupOpen, setGithubSetupOpen] = useState(false);
+  const [buildStatusAccess, setBuildStatusAccess] = useState(true);
+  const [githubPreparationDone, setGithubPreparationDone] = useState(false);
 
   const explainAuthorization = () => {
     Alert.alert(
       "Connexion sécurisée",
       "Lorsque GitHub sera activé, MIA ouvrira uniquement la page officielle d’autorisation. Vous choisirez les dépôts autorisés. Aucun mot de passe, cookie de navigateur ou jeton personnel ne sera affiché ni enregistré dans l’APK.",
       [{ text: "Compris" }],
+    );
+  };
+
+  const openGithubSetup = () => {
+    setGithubPreparationDone(false);
+    setGithubSetupOpen(true);
+  };
+
+  const prepareGithubAuthorization = () => {
+    Alert.alert(
+      "Préparer l’autorisation GitHub ?",
+      "MIA mémorisera uniquement vos choix de permission pour cette préparation. Aucun mot de passe, cookie, jeton ou compte GitHub n’est récupéré dans cette étape.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Préparer", onPress: () => setGithubPreparationDone(true) },
+      ],
     );
   };
 
@@ -73,15 +101,50 @@ export default function ConnectorsScreen() {
 
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Connecteurs</Text>
         <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {MIA_CONNECTORS.map((connector, index) => <ConnectorRow key={connector.id} connector={connector} border={index < MIA_CONNECTORS.length - 1 ? colors.border : undefined} />)}
+          {MIA_CONNECTORS.map((connector, index) => <ConnectorRow key={connector.id} connector={connector} border={index < MIA_CONNECTORS.length - 1 ? colors.border : undefined} onPress={connector.id === "github" ? openGithubSetup : undefined} />)}
         </View>
 
-        <Pressable accessibilityRole="button" onPress={explainAuthorization} style={({ pressed }) => [styles.addButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" onPress={openGithubSetup} style={({ pressed }) => [styles.addButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}>
           <MaterialIcons color={colors.background} name="add-link" size={20} />
-          <Text style={[styles.addText, { color: colors.background }]}>Comprendre les connexions</Text>
+          <Text style={[styles.addText, { color: colors.background }]}>Configurer GitHub</Text>
         </Pressable>
-        <Text style={[styles.hint, { color: colors.muted }]}>GitHub n’est pas encore relié dans cette version. La compilation personnelle actuelle fonctionne sans compte GitHub connecté dans MIA.</Text>
+        <Pressable accessibilityRole="button" onPress={explainAuthorization} style={styles.infoButton}>
+          <Text style={[styles.hint, { color: colors.muted }]}>GitHub n’est pas encore relié dans cette version. Touchez ici pour comprendre les connexions.</Text>
+        </Pressable>
       </ScrollView>
+
+      <Modal transparent visible={githubSetupOpen} animationType="fade" onRequestClose={() => setGithubSetupOpen(false)}>
+        <View style={styles.sheetBackdrop}>
+          <View style={[styles.githubSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={styles.sheetHeader}>
+              <View style={[styles.githubIcon, { backgroundColor: `${colors.primary}16` }]}><MaterialIcons color={colors.primary} name="code" size={25} /></View>
+              <View style={styles.sheetTitleCopy}><Text style={[styles.sheetTitle, { color: colors.foreground }]}>Configurer GitHub</Text><Text style={[styles.sheetSubtitle, { color: colors.muted }]}>Vous gardez le contrôle sur les accès.</Text></View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Fermer la configuration GitHub" onPress={() => setGithubSetupOpen(false)} style={({ pressed }) => [styles.closeButton, { borderColor: colors.border }, pressed && styles.pressed]}><MaterialIcons color={colors.foreground} name="close" size={21} /></Pressable>
+            </View>
+
+            <Text style={[styles.sheetLead, { color: colors.muted }]}>MIA demandera uniquement une autorisation officielle GitHub lorsque le relais sécurisé sera configuré. Cette APK ne stocke aucun mot de passe, cookie ou jeton GitHub.</Text>
+
+            <View style={[styles.permissionBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <MaterialIcons color={colors.success} name="folder-special" size={20} />
+              <View style={styles.permissionCopy}><Text style={[styles.permissionTitle, { color: colors.foreground }]}>Dépôts que vous choisissez</Text><Text style={[styles.permissionDetail, { color: colors.muted }]}>MIA ne demandera pas l’accès à tous vos dépôts.</Text></View>
+            </View>
+            <View style={[styles.permissionBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <MaterialIcons color={colors.primary} name="build" size={20} />
+              <View style={styles.permissionCopy}><Text style={[styles.permissionTitle, { color: colors.foreground }]}>Suivi des compilations</Text><Text style={[styles.permissionDetail, { color: colors.muted }]}>Autorise uniquement l’affichage de l’état de vos compilations choisies.</Text></View>
+              <Switch accessibilityLabel="Autoriser le suivi des compilations" value={buildStatusAccess} onValueChange={setBuildStatusAccess} trackColor={{ false: colors.border, true: `${colors.primary}99` }} thumbColor={buildStatusAccess ? colors.primary : colors.muted} />
+            </View>
+
+            {githubPreparationDone ? (
+              <View style={[styles.readyNotice, { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}4D` }]}><MaterialIcons color={colors.success} name="verified-user" size={20} /><Text style={[styles.readyText, { color: colors.muted }]}>Préparation terminée. Aucun compte n’est encore connecté : l’autorisation GitHub réelle sera ouverte seulement après la configuration du relais sécurisé.</Text></View>
+            ) : null}
+
+            <Pressable accessibilityRole="button" onPress={prepareGithubAuthorization} style={({ pressed }) => [styles.authorizeButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}>
+              <MaterialIcons color={colors.background} name="lock-open" size={19} /><Text style={[styles.addText, { color: colors.background }]}>Préparer l’autorisation</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setGithubSetupOpen(false)} style={({ pressed }) => [styles.cancelButton, { borderColor: colors.border }, pressed && styles.pressed]}><Text style={[styles.cancelText, { color: colors.foreground }]}>Fermer</Text></Pressable>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -100,6 +163,7 @@ const styles = StyleSheet.create({
   sectionTitle: { marginTop: 26, marginBottom: 11, fontSize: 18, fontWeight: "900" },
   panel: { borderWidth: 1, borderRadius: 20, overflow: "hidden" },
   row: { minHeight: 91, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14, paddingVertical: 12 },
+  rowPressed: { opacity: 0.74 },
   icon: { width: 41, height: 41, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   copy: { flex: 1 },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
@@ -109,6 +173,25 @@ const styles = StyleSheet.create({
   rowDetail: { marginTop: 4, fontSize: 11, lineHeight: 16 },
   addButton: { minHeight: 50, borderRadius: 14, marginTop: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   addText: { fontSize: 14, fontWeight: "900" },
-  hint: { marginTop: 11, paddingHorizontal: 8, textAlign: "center", fontSize: 11, lineHeight: 16 },
+  infoButton: { marginTop: 8 },
+  hint: { paddingHorizontal: 8, textAlign: "center", fontSize: 11, lineHeight: 16 },
+  sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(8, 12, 20, 0.48)" },
+  githubSheet: { borderTopWidth: 1, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 26 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", gap: 11 },
+  githubIcon: { width: 45, height: 45, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  sheetTitleCopy: { flex: 1 },
+  sheetTitle: { fontSize: 18, lineHeight: 22, fontWeight: "900" },
+  sheetSubtitle: { marginTop: 2, fontSize: 11, fontWeight: "600" },
+  closeButton: { width: 38, height: 38, borderWidth: 1, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  sheetLead: { marginTop: 18, fontSize: 12, lineHeight: 18 },
+  permissionBox: { minHeight: 70, marginTop: 12, borderWidth: 1, borderRadius: 16, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 11 },
+  permissionCopy: { flex: 1 },
+  permissionTitle: { fontSize: 12, fontWeight: "900" },
+  permissionDetail: { marginTop: 3, fontSize: 10, lineHeight: 14 },
+  readyNotice: { marginTop: 14, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 11 },
+  readyText: { flex: 1, fontSize: 10, lineHeight: 15 },
+  authorizeButton: { minHeight: 50, marginTop: 18, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  cancelButton: { minHeight: 44, marginTop: 9, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  cancelText: { fontSize: 13, fontWeight: "800" },
   pressed: { opacity: 0.76, transform: [{ scale: 0.98 }] },
 });

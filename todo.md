@@ -662,3 +662,10 @@
 - [x] Indiquer l’état réel de GitHub, Cloudflare et Gemini sans afficher de secret.
 - [x] Expliquer dans l’application que la connexion au navigateur ne donne pas accès aux sessions existantes.
 - [x] Tester l’écran et intégrer les corrections MIA/Agent dans une APK debug de livraison.
+
+## Fenêtre GitHub interactive
+
+- [ ] Ajouter une fenêtre modale pour expliquer et configurer l’autorisation GitHub.
+- [ ] Exiger une confirmation avant d’ouvrir le parcours officiel GitHub.
+- [ ] Ne conserver aucun mot de passe, cookie ou jeton GitHub dans l’APK.
+- [ ] Tester puis remettre directement une APK debug actualisée.
