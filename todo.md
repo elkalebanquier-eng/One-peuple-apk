@@ -686,16 +686,16 @@
 
 ## Catalogue étendu de connecteurs
 
-- [ ] Étendre le catalogue à de nombreux services compatibles sans annoncer de connexion inexistante.
-- [ ] Ajouter une recherche et des catégories pour parcourir les connecteurs sur téléphone.
-- [ ] Prévoir pour chaque service une fiche de permissions, un état et une déconnexion.
-- [ ] Conserver l’interdiction de lire les sessions, mots de passe, cookies ou secrets du navigateur.
+- [x] Étendre le catalogue à de nombreux services compatibles sans annoncer de connexion inexistante.
+- [x] Ajouter une recherche et des catégories pour parcourir les connecteurs sur téléphone.
+- [x] Prévoir pour chaque service une fiche de permissions, un état et une déconnexion.
+- [x] Conserver l’interdiction de lire les sessions, mots de passe, cookies ou secrets du navigateur.
 
 ## Génération de logo dans MIA
 
 - [x] Rechercher les solutions de génération de logo utilisables sans clé dans l’APK.
 - [x] Comparer les options de coût, confidentialité, qualité et intégration mobile.
 - [x] Intégrer la création de logo directement dans la conversation MIA avec un résultat visible.
-- [ ] Tester le parcours puis compiler une APK debug de livraison.
+- [x] Tester le parcours puis compiler une APK debug de livraison.
 - [x] Demander une confirmation explicite avant d’envoyer le brief logo au relais IA.
 - [x] Conserver l’aperçu du logo et ses actions dans l’historique local de la discussion.
