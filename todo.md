@@ -757,4 +757,4 @@
 - [x] Ne lancer l’animation de chargement qu’après une confirmation explicite de l’utilisateur : aucun chargement n’est accessible sans relais OAuth vérifié.
 - [x] Empêcher un service sans relais OAuth configuré d’afficher un faux parcours de connexion.
 - [x] Présenter les services non activables avec un état court « Bientôt disponible » et un retour clair.
-- [ ] Tester le parcours corrigé puis compiler une APK debug de livraison.
+- [x] Tester le parcours corrigé puis compiler une APK debug de livraison — TypeScript, 89 tests et build GitHub Actions 32664216863 réussis.
