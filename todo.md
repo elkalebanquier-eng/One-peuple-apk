@@ -758,3 +758,26 @@
 - [x] Empêcher un service sans relais OAuth configuré d’afficher un faux parcours de connexion.
 - [x] Présenter les services non activables avec un état court « Bientôt disponible » et un retour clair.
 - [x] Tester le parcours corrigé puis compiler une APK debug de livraison — TypeScript, 89 tests et build GitHub Actions 32664216863 réussis.
+
+## Activation OAuth GitHub officielle
+
+- [x] Vérifier les exigences actuelles de GitHub pour une application OAuth mobile avec PKCE et retour externe.
+- [x] Confirmer le relais HTTPS sécurisé qui recevra le retour GitHub et gardera le secret hors de MIA💻 — Worker `mia-github-oauth` déployé avec stockage PKCE temporaire et URL de retour joignable.
+- [x] Conserver GitHub en « Bientôt disponible » à la demande de l’utilisateur ; aucune application OAuth GitHub ne sera configurée maintenant.
+- [x] Désactiver l’URL publique du relais OAuth préparé tout en conservant son code sans secret pour une future activation choisie.
+- [x] Vérifier que MIA💻 n’annonce aucune connexion GitHub active ni aucune demande de compte.
+
+## Relais de compilation GitHub sans jeton personnel expirant
+
+- [x] Identifier le seul relais Cloudflare qui utilise le jeton « apk-builder », sans lire ni afficher sa valeur — le relais `mia-build-relay` ne l’utilise pas ; sa seule liaison secrète est interne.
+- [x] Vérifier les possibilités actuelles de jeton d’installation GitHub App renouvelable pour lancer les builds — le build actuel utilise déjà une identité OIDC GitHub Actions renouvelée automatiquement.
+- [x] Conserver le relais OIDC actuel selon le choix utilisateur ; ne pas créer de jeton personnel permanent.
+- [x] Vérifier que le déclenchement et le suivi de build fonctionnent sans jeton personnel dans MIA💻.
+- [x] Laisser le jeton personnel expirant inchangé à la demande de l’utilisateur ; il n’est pas requis par le relais de compilation MIA💻.
+
+## Vérification renforcée de la compilation APK
+
+- [x] Contrôler l’identité utilisée par le workflow de build sans lire ni afficher de secret — le workflow obtient une identité OIDC GitHub Actions à chaque exécution.
+- [x] Vérifier que le relais de compilation refuse les identités expirées et accepte uniquement les identités automatiques GitHub Actions valides — signature GitHub, dépôt, branche, workflow, audience et expiration sont vérifiés ; une demande sans identité reçoit HTTP 401.
+- [x] Confirmer que l’expiration du jeton personnel « apk-builder » ne peut pas empêcher un nouveau build MIA💻 — les trois derniers passages planifiés du worker ont réussi avec OIDC.
+- [x] Vérifier que le connecteur GitHub reste séparé et fermé sans affecter la compilation APK — relais OAuth public désactivé ; le relais de compilation OIDC reste distinct.
