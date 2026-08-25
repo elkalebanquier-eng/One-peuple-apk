@@ -16,7 +16,9 @@ import { createLocalBuildDraft, formatBytes, PROJECT_TYPES, submitBuildJob, type
 import { enableBuildNotifications } from "@/lib/build-notifications";
 import { prepareDirectHtmlSource, type PreparedHtmlSource } from "@/lib/html-direct-import";
 import { extractLocalHtmlPreviewFromZip } from "@/lib/html-preview";
+import { createSafeArchiveRepair } from "@/lib/project-auto-repair";
 import { createLocalHtmlPreview, type LocalHtmlPreview } from "@/shared/html-preview";
+import { getSafeArchiveRepairProposal } from "@/shared/project-auto-repair";
 import { inspectProjectSource } from "@/lib/project-preflight";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
 import { prepareStarterProject } from "@/lib/starter-project";
@@ -49,6 +51,9 @@ export default function NewBuildScreen() {
   const [reviewResult, setReviewResult] = useState<MiaCodeReview | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [repairPreview, setRepairPreview] = useState(false);
+  const [repairLoading, setRepairLoading] = useState(false);
+  const [repairMessage, setRepairMessage] = useState<string | null>(null);
 
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
   const appIdentity = useMemo(() => readAppIdentity(packageName, appVersion), [appVersion, packageName]);
@@ -58,6 +63,10 @@ export default function NewBuildScreen() {
     { id: "warning", label: "À vérifier", icon: "info-outline" as IconName, color: colors.warning, findings: preflight?.findings.filter((finding) => finding.level === "warning") ?? [] },
     { id: "check", label: "Ce qui est bon", icon: "check-circle" as IconName, color: colors.success, findings: preflight?.findings.filter((finding) => finding.level === "check") ?? [] },
   ], [colors.error, colors.success, colors.warning, preflight]);
+  const repairProposal = useMemo(
+    () => preflight ? getSafeArchiveRepairProposal({ preflight, preparedFromHtml: archive?.preparedFromHtml }) : null,
+    [archive?.preparedFromHtml, preflight],
+  );
 
   function resetCodeTools() {
     setHtmlPreview(null);
@@ -66,6 +75,26 @@ export default function NewBuildScreen() {
     setReviewResult(null);
     setReviewError(null);
     setReviewLoading(false);
+  }
+
+  async function applySafeArchiveRepair() {
+    if (!archive || !projectType || !repairProposal || repairLoading) return;
+    setRepairLoading(true);
+    setRepairMessage(null);
+    try {
+      const repaired = await createSafeArchiveRepair({ uri: archive.uri, name: archive.name, projectType, folders: repairProposal.folders });
+      const nextArchive: SelectedSource = { ...archive, name: repaired.name, size: repaired.size, uri: repaired.uri, preparedFromTemplate: false };
+      const nextPreflight = await inspectProjectSource({ projectType, uri: repaired.uri });
+      setArchive(nextArchive);
+      setPreflight(nextPreflight);
+      setRepairPreview(false);
+      resetCodeTools();
+      setRepairMessage(`${repaired.removedEntries} élément${repaired.removedEntries > 1 ? "s" : ""} généré${repaired.removedEntries > 1 ? "s ont" : " a"} été retiré${repaired.removedEntries > 1 ? "s" : ""} d’une copie locale. Votre ZIP original reste inchangé.`);
+    } catch (error) {
+      setRepairMessage(error instanceof Error ? error.message : "La copie nettoyée n’a pas pu être créée.");
+    } finally {
+      setRepairLoading(false);
+    }
   }
 
   async function prepareLocalHtmlTools(nextType: ProjectType, source: SelectedSource) {
@@ -422,6 +451,11 @@ export default function NewBuildScreen() {
             <View style={styles.preflightHeader}><MaterialIcons color={preflight.hasBlockers ? colors.error : colors.success} name={preflight.hasBlockers ? "warning-amber" : "verified"} size={20} /><View><Text style={[styles.preflightTitle, { color: colors.foreground }]}>{preflight.hasBlockers ? "À corriger avant l’envoi" : "Contrôle avant envoi terminé"}</Text><Text style={[styles.preflightSubtitle, { color: colors.muted }]}>{preflight.entryCount} fichier{preflight.entryCount > 1 ? "s" : ""} vérifié{preflight.entryCount > 1 ? "s" : ""} sur votre téléphone</Text></View></View>
             <Text style={[styles.preflightLocalLabel, { color: colors.muted }]}>Contrôle local de la structure : aucun fichier n’est envoyé.</Text>
             {diagnosticGroups.map((group) => group.findings.length ? <View key={group.id} style={styles.preflightGroup}><View style={styles.preflightGroupTitle}><MaterialIcons color={group.color} name={group.icon} size={15} /><Text style={[styles.preflightGroupLabel, { color: group.color }]}>{group.label}</Text></View>{group.findings.map((finding, index) => <View key={`${group.id}-${index}`} style={styles.preflightFinding}><MaterialIcons color={group.color} name={group.icon} size={15} /><Text style={[styles.preflightFindingText, { color: colors.muted }]}>{finding.message}</Text></View>)}</View> : null)}
+            {repairProposal ? <View style={[styles.repairPanel, { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}40` }]}>
+              <View style={styles.repairHeading}><MaterialIcons color={colors.primary} name="auto-fix-high" size={19} /><View style={styles.repairCopy}><Text style={[styles.repairTitle, { color: colors.foreground }]}>Correction automatique possible</Text><Text style={[styles.repairText, { color: colors.muted }]}>{repairProposal.summary}</Text></View></View>
+              {repairPreview ? <View style={styles.repairActions}><Text style={[styles.repairNote, { color: colors.muted }]}>MIA ne modifie pas le code, les dépendances, les permissions, les signatures ou les secrets.</Text><Pressable accessibilityRole="button" accessibilityLabel="Créer une copie nettoyée du ZIP" disabled={repairLoading} onPress={() => { void applySafeArchiveRepair(); }} style={({ pressed }) => [styles.repairPrimaryButton, { backgroundColor: colors.primary }, pressed && !repairLoading && styles.pressed, repairLoading && styles.disabled]}><MaterialIcons color={colors.background} name="auto-fix-high" size={18} /><Text style={[styles.repairPrimaryText, { color: colors.background }]}>{repairLoading ? "Création de la copie…" : "Créer une copie nettoyée"}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setRepairPreview(false)} style={({ pressed }) => [styles.repairCancelButton, { borderColor: colors.border }, pressed && styles.pressed]}><Text style={[styles.repairCancelText, { color: colors.foreground }]}>Annuler</Text></Pressable></View> : <Pressable accessibilityRole="button" onPress={() => setRepairPreview(true)} style={({ pressed }) => [styles.repairPreviewButton, { borderColor: `${colors.primary}55` }, pressed && styles.pressed]}><Text style={[styles.repairPreviewText, { color: colors.primary }]}>Voir ce qui sera corrigé</Text><MaterialIcons color={colors.primary} name="arrow-forward" size={17} /></Pressable>}
+            </View> : null}
+            {repairMessage ? <Text style={[styles.repairResult, { color: preflight.hasBlockers ? colors.error : colors.success }]}>{repairMessage}</Text> : null}
           </View>
         ) : null}
 
@@ -592,6 +626,20 @@ const styles = StyleSheet.create({
   preflightGroupLabel: { fontSize: 11, fontWeight: "900" },
   preflightFinding: { flexDirection: "row", alignItems: "flex-start", gap: 7, marginTop: 6 },
   preflightFindingText: { flex: 1, fontSize: 10.5, lineHeight: 15 },
+  repairPanel: { marginTop: 14, borderWidth: 1, borderRadius: 16, padding: 13 },
+  repairHeading: { flexDirection: "row", alignItems: "flex-start", gap: 9 },
+  repairCopy: { flex: 1 },
+  repairTitle: { fontSize: 13, fontWeight: "900" },
+  repairText: { marginTop: 3, fontSize: 11, lineHeight: 16 },
+  repairPreviewButton: { minHeight: 40, marginTop: 11, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  repairPreviewText: { fontSize: 12, fontWeight: "900" },
+  repairActions: { marginTop: 12 },
+  repairNote: { fontSize: 11, lineHeight: 16 },
+  repairPrimaryButton: { minHeight: 46, marginTop: 11, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  repairPrimaryText: { fontSize: 12, fontWeight: "900" },
+  repairCancelButton: { minHeight: 40, marginTop: 8, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  repairCancelText: { fontSize: 12, fontWeight: "800" },
+  repairResult: { marginTop: -17, marginBottom: 27, fontSize: 11, lineHeight: 16, fontWeight: "700" },
   codeToolsPanel: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: -17, marginBottom: 27 },
   codeToolsHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   codeToolsCopy: { flex: 1 },

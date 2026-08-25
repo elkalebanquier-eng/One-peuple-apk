@@ -789,3 +789,12 @@
 - [x] Ajouter des actions claires pour vérifier le fichier, modifier le projet ou relancer une compilation.
 - [x] Tester les messages et le parcours de relance sur téléphone — TypeScript et 92 tests réussis.
 - [x] Compiler, contrôler et remettre une APK debug avec les erreurs améliorées — build GitHub Actions 32824893454 réussi ; APK vérifiée avec manifeste Android et classes.dex.
+
+## Correction automatique prudente avant compilation
+
+- [x] Recenser les problèmes dont la correction locale est déterministe, sans modifier le code métier ni les secrets.
+- [x] Définir des corrections réversibles, accompagnées d’un résumé lisible pour chaque fichier touché.
+- [x] Ajouter un aperçu des modifications, avec actions « Appliquer », « Annuler » et « Relancer ».
+- [x] Interdire toute correction automatique des dépendances, permissions, signatures, secrets ou configurations de publication.
+- [x] Tester une correction acceptée, annulée et sans proposition — TypeScript et 94 tests réussis.
+- [ ] Compiler, contrôler et remettre une APK debug avec la correction automatique.
