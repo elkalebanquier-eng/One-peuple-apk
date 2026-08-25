@@ -372,7 +372,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
         <View style={[styles.statusMark, { backgroundColor: status.color }]} />
         <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
         <Text numberOfLines={1} style={[styles.statusDetail, { color: colors.muted }]}>
-          {item.message || item.sourceName}
+          {errorHelp ? errorHelp.title : item.message || item.sourceName}
         </Text>
       </View>
 
@@ -382,7 +382,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
             <MaterialIcons color={colors.error} name="lightbulb-outline" size={19} />
             <View style={styles.errorHelpCopy}>
               <Text style={[styles.errorHelpTitle, { color: colors.foreground }]}>{errorHelp.title}</Text>
-              <Text style={[styles.errorHelpText, { color: colors.muted }]}>{errorHelp.summary}</Text>
+            <Text style={[styles.errorHelpText, { color: colors.muted }]}>{errorHelp.summary}</Text>
             </View>
           </View>
           <Text style={[styles.errorHelpNext, { color: colors.muted }]}>{errorHelp.nextStep}</Text>
@@ -393,7 +393,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
             style={({ pressed }) => [styles.errorHelpButton, { backgroundColor: `${colors.primary}17`, borderColor: `${colors.primary}55` }, pressed && styles.pressed]}
           >
             <MaterialIcons color={colors.primary} name="auto-awesome" size={17} />
-            <Text style={[styles.errorHelpButtonText, { color: colors.primary }]}>Comprendre avec MIA</Text>
+            <Text style={[styles.errorHelpButtonText, { color: colors.primary }]}>Demander à MIA</Text>
             <MaterialIcons color={colors.primary} name="arrow-forward" size={17} />
           </Pressable>
         </View>

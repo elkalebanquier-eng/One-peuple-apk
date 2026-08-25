@@ -781,3 +781,11 @@
 - [x] Vérifier que le relais de compilation refuse les identités expirées et accepte uniquement les identités automatiques GitHub Actions valides — signature GitHub, dépôt, branche, workflow, audience et expiration sont vérifiés ; une demande sans identité reçoit HTTP 401.
 - [x] Confirmer que l’expiration du jeton personnel « apk-builder » ne peut pas empêcher un nouveau build MIA💻 — les trois derniers passages planifiés du worker ont réussi avec OIDC.
 - [x] Vérifier que le connecteur GitHub reste séparé et fermé sans affecter la compilation APK — relais OAuth public désactivé ; le relais de compilation OIDC reste distinct.
+
+## Messages d’échec de compilation plus simples
+
+- [x] Recenser les messages d’échec actuellement affichés dans MIA💻 et leurs causes réelles.
+- [x] Transformer chaque erreur fréquente en titre simple, explication courte et conseil concret.
+- [x] Ajouter des actions claires pour vérifier le fichier, modifier le projet ou relancer une compilation.
+- [x] Tester les messages et le parcours de relance sur téléphone — TypeScript et 92 tests réussis.
+- [ ] Compiler, contrôler et remettre une APK debug avec les erreurs améliorées.

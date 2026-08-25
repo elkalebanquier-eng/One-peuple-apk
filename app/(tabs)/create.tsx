@@ -21,6 +21,7 @@ import { inspectProjectSource } from "@/lib/project-preflight";
 import { MAX_SOURCE_SIZE, isHtmlFile, validateProjectArchive } from "@/lib/project-import";
 import { prepareStarterProject } from "@/lib/starter-project";
 import { DEFAULT_APP_VERSION, getProjectPackageName, readAppIdentity } from "@/shared/app-identity";
+import { getBuildErrorHelp } from "@/shared/build-error-help";
 import type { ProjectPreflight } from "@/shared/project-preflight";
 import { STARTER_PROJECTS, type StarterProjectId } from "@/shared/starter-projects";
 import type { MiaCodeReview } from "@/shared/mia-code-review";
@@ -249,7 +250,11 @@ export default function NewBuildScreen() {
       setSaving(true);
       const report = preflight ?? await inspectSelectedSource(projectType, archive);
       if (report.hasBlockers) {
-        Alert.alert("Projet à corriger", "MIA💻 a trouvé au moins un blocage dans la structure du projet. Corrigez les éléments indiqués avant d’envoyer la compilation.");
+        const firstBlocker = report.findings.find((finding) => finding.level === "blocker");
+        Alert.alert(
+          "Le fichier doit être corrigé",
+          `${firstBlocker?.message ?? "MIA💻 a trouvé un blocage dans la structure du projet."}\n\nÀ faire : corrigez cet élément, puis essayez à nouveau.`,
+        );
         return;
       }
       const job = await createLocalBuildDraft({
@@ -275,7 +280,9 @@ export default function NewBuildScreen() {
         [{ text: "Voir mes APK", onPress: () => router.replace("/(tabs)") }],
       );
     } catch (error) {
-      Alert.alert("Compilation non lancée", error instanceof Error ? error.message : "Vérifiez votre connexion et réessayez.");
+      const rawMessage = error instanceof Error ? error.message : "La compilation n’a pas pu démarrer.";
+      const help = getBuildErrorHelp({ projectName, projectType, message: rawMessage });
+      Alert.alert(help.title, `${help.summary}\n\nÀ faire : ${help.nextStep}`);
     } finally {
       setSaving(false);
     }

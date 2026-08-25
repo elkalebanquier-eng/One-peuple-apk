@@ -22,6 +22,33 @@ export function getBuildErrorHelp(input: { projectName: string; projectType: Pro
     };
   }
 
+  if (normalized.includes("limite") || normalized.includes("quota") || normalized.includes("too many") || normalized.includes("429")) {
+    return {
+      title: "La limite de compilations est atteinte",
+      summary: "MIA💻 a atteint le nombre de compilations autorisées pour le moment. Votre fichier reste enregistré sur ce téléphone.",
+      nextStep: "Attendez le prochain créneau indiqué, puis appuyez sur Relancer. Vous ne perdrez pas votre projet.",
+      miaPrompt: `Ma compilation ${typeLabel} « ${input.projectName} » a atteint une limite. Message : ${message}\nExplique-moi quand je pourrai relancer sans modifier mon projet.`,
+    };
+  }
+
+  if (normalized.includes("connexion") || normalized.includes("network") || normalized.includes("fetch") || normalized.includes("timeout") || normalized.includes("timed out") || normalized.includes("interrompu") || normalized.includes("indisponible") || normalized.includes("503") || normalized.includes("502")) {
+    return {
+      title: "La connexion au moteur a été interrompue",
+      summary: "MIA💻 n’a pas pu joindre le service de compilation ou le service répondait trop lentement. Votre projet est toujours sur ce téléphone.",
+      nextStep: "Vérifiez Internet, attendez un instant, puis appuyez sur Relancer. Ne choisissez pas le fichier une seconde fois.",
+      miaPrompt: `Ma compilation ${typeLabel} « ${input.projectName} » n’a pas pu joindre le moteur. Message : ${message}\nIndique-moi les vérifications simples à faire avant de relancer.`,
+    };
+  }
+
+  if (normalized.includes("zip") || normalized.includes("archive") || normalized.includes("trop grand") || normalized.includes("taille")) {
+    return {
+      title: "Le fichier du projet doit être vérifié",
+      summary: "Le fichier envoyé n’a pas le format attendu, est incomplet ou dépasse la taille acceptée.",
+      nextStep: "Vérifiez que vous avez choisi le bon ZIP, retirez les fichiers inutiles, puis importez-le à nouveau.",
+      miaPrompt: `Le fichier de mon projet ${typeLabel} « ${input.projectName} » a été refusé. Message : ${message}\nExplique-moi simplement quel fichier préparer avant un nouvel envoi.`,
+    };
+  }
+
   if (normalized.includes("package.json") || normalized.includes("dependency") || normalized.includes("module")) {
     return {
       title: "Les fichiers Expo à vérifier",
@@ -40,6 +67,15 @@ export function getBuildErrorHelp(input: { projectName: string; projectType: Pro
     };
   }
 
+  if (normalized.includes("keystore") || normalized.includes("sign") || normalized.includes("signature")) {
+    return {
+      title: "La signature de l’APK doit être vérifiée",
+      summary: "Le moteur n’a pas pu terminer la préparation de l’APK signée. Votre code n’est pas forcément en cause.",
+      nextStep: "Relancez une fois. Si le problème revient, demandez à MIA d’expliquer le message avant de modifier le projet.",
+      miaPrompt: `La signature de mon APK ${typeLabel} « ${input.projectName} » a échoué. Message : ${message}\nExplique-moi ce qui doit être vérifié, sans me demander de partager une clé ou un mot de passe.`,
+    };
+  }
+
   if (normalized.includes("index.html") || normalized.includes("html")) {
     return {
       title: "Le fichier HTML de départ manque",
@@ -51,8 +87,8 @@ export function getBuildErrorHelp(input: { projectName: string; projectType: Pro
 
   return {
     title: "Une vérification est nécessaire",
-    summary: "La compilation s’est arrêtée. Le message ci-dessous contient la piste principale à corriger.",
-    nextStep: "Relisez le message, puis demandez à MIA une explication adaptée à votre projet avant de relancer.",
+    summary: "La compilation s’est arrêtée. MIA💻 peut expliquer le problème avec des mots simples avant une nouvelle tentative.",
+    nextStep: "Demandez une explication à MIA, puis relancez seulement après avoir corrigé la piste indiquée.",
     miaPrompt: `Ma compilation ${typeLabel} « ${input.projectName} » a échoué. Message : ${message}\nExplique-moi ce problème avec des mots simples, indique ce que je dois vérifier en premier et propose une correction prudente.`,
   };
 }
