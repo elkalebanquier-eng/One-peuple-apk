@@ -788,4 +788,4 @@
 - [x] Transformer chaque erreur fréquente en titre simple, explication courte et conseil concret.
 - [x] Ajouter des actions claires pour vérifier le fichier, modifier le projet ou relancer une compilation.
 - [x] Tester les messages et le parcours de relance sur téléphone — TypeScript et 92 tests réussis.
-- [ ] Compiler, contrôler et remettre une APK debug avec les erreurs améliorées.
+- [x] Compiler, contrôler et remettre une APK debug avec les erreurs améliorées — build GitHub Actions 32824893454 réussi ; APK vérifiée avec manifeste Android et classes.dex.
