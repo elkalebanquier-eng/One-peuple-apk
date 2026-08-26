@@ -1,0 +1,163 @@
+name: Publish temporary One App APK
+run-name: Publish temporary One App APK
+
+on:
+  workflow_run:
+    workflows: ["Build One App imported project"]
+    types: [completed]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+# This workflow runs from the trusted default branch and never executes source
+# code imported by a One App user. It is the sole workflow with repository write
+# access, narrowly limited to the temporary release lifecycle.
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Find the temporary APK artifact
+        id: artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          ARTIFACT_NAME="$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[] | select(.expired == false and (.name | startswith("one-app-build-"))) | .name' | head -n 1)"
+          if [ -z "$ARTIFACT_NAME" ]; then
+            echo "has_apk=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BUILD_ID="${ARTIFACT_NAME#one-app-}"
+          case "$BUILD_ID" in build-????????????*) ;; *) echo "Invalid build identifier" >&2; exit 1 ;; esac
+          echo "has_apk=true" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download the APK artifact
+        if: ${{ steps.artifact.outputs.has_apk == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ARTIFACT_NAME: ${{ steps.artifact.outputs.artifact_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/one-app-apk"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT_NAME" --dir "$RUNNER_TEMP/one-app-apk"
+          test -f "$RUNNER_TEMP/one-app-apk/one-app-${{ steps.artifact.outputs.build_id }}.apk"
+          test -f "$RUNNER_TEMP/one-app-apk/one-app-${{ steps.artifact.outputs.build_id }}.json"
+          COMPLETION_URL="$(jq -r '.completionUrl' "$RUNNER_TEMP/one-app-apk/one-app-${{ steps.artifact.outputs.build_id }}.json")"
+          PROGRESS_URL="${COMPLETION_URL/publisher-complete/publisher-progress}"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":92,"message":"APK reçue. Vérification finale avant publication."}' "$PROGRESS_URL" || true
+
+      - name: Sign release APK and prepare private key backup
+        if: ${{ steps.artifact.outputs.has_apk == 'true' }}
+        shell: bash
+        env:
+          BUILD_ID: ${{ steps.artifact.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$RUNNER_TEMP/one-app-apk"
+          METADATA="$ARTIFACT_DIR/one-app-$BUILD_ID.json"
+          BUILD_MODE="$(jq -r '.buildMode // "debug"' "$METADATA")"
+          test "$BUILD_MODE" = "debug" || test "$BUILD_MODE" = "signed"
+          COMPLETION_URL="$(jq -r '.completionUrl' "$METADATA")"
+          PROGRESS_URL="${COMPLETION_URL/publisher-complete/publisher-progress}"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":94,"message":"Vérification finale de l’APK en cours."}' "$PROGRESS_URL" || true
+          if [ "$BUILD_MODE" = "debug" ]; then
+            echo "key_backup_path=" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          UNSIGNED_APK="$ARTIFACT_DIR/one-app-$BUILD_ID.apk"
+          KEYSTORE="$RUNNER_TEMP/one-app-$BUILD_ID.jks"
+          KEY_PASSWORD="$(openssl rand -hex 24)"
+          ALIGNED_APK="$RUNNER_TEMP/one-app-$BUILD_ID-aligned.apk"
+          SIGNED_APK="$RUNNER_TEMP/one-app-$BUILD_ID-signed.apk"
+          BUILD_TOOLS="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -x "$BUILD_TOOLS/apksigner"
+          test -x "$BUILD_TOOLS/zipalign"
+          keytool -genkeypair -keystore "$KEYSTORE" -storetype JKS -storepass "$KEY_PASSWORD" -keypass "$KEY_PASSWORD" -alias oneapp -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=One App $BUILD_ID, OU=One App, O=One App, C=FR" -noprompt
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED_APK" "$ALIGNED_APK"
+          "$BUILD_TOOLS/apksigner" sign --ks "$KEYSTORE" --ks-key-alias oneapp --ks-pass "pass:$KEY_PASSWORD" --key-pass "pass:$KEY_PASSWORD" --out "$SIGNED_APK" "$ALIGNED_APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$SIGNED_APK"
+          mv "$SIGNED_APK" "$UNSIGNED_APK"
+
+          INFO_FILE="$RUNNER_TEMP/MOT-DE-PASSE-ET-INFOS-$BUILD_ID.txt"
+          cat > "$INFO_FILE" <<EOF
+          IMPORTANT — clé et mot de passe de signature MIA💻
+
+          Cette clé signe l’application Android : $BUILD_ID
+          Nom de fichier de la clé : one-app-$BUILD_ID.jks
+          Alias : oneapp
+          Mot de passe : $KEY_PASSWORD
+
+          Gardez ce ZIP dans un endroit privé, hors ligne si possible.
+          Ne donnez jamais cette clé ni ce mot de passe à une autre personne.
+          Ils sont nécessaires pour publier une mise à jour de la même application Android.
+          EOF
+          KEY_BACKUP="$RUNNER_TEMP/one-app-cle-$BUILD_ID.zip"
+          zip -j -q "$KEY_BACKUP" "$KEYSTORE" "$INFO_FILE"
+          test -s "$KEY_BACKUP"
+          echo "key_backup_path=$KEY_BACKUP" >> "$GITHUB_ENV"
+
+      - name: Publish a public APK release for 48 hours
+        if: ${{ steps.artifact.outputs.has_apk == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_ID: ${{ steps.artifact.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          TAG="one-app-build-$BUILD_ID"
+          APK="$RUNNER_TEMP/one-app-apk/one-app-$BUILD_ID.apk"
+          COMPLETION_URL="$(jq -r '.completionUrl' "$RUNNER_TEMP/one-app-apk/one-app-$BUILD_ID.json")"
+          PROGRESS_URL="${COMPLETION_URL/publisher-complete/publisher-progress}"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":97,"message":"Publication sécurisée de l’APK en cours."}' "$PROGRESS_URL" || true
+          gh release create "$TAG" "$APK#one-app-$BUILD_ID.apk" --repo "$GITHUB_REPOSITORY" --title "APK One App temporaire" --notes "APK créée par One App. Suppression automatique après 48 heures." --prerelease --target "$GITHUB_SHA"
+
+      - name: Confirm secure completion to One App
+        if: ${{ steps.artifact.outputs.has_apk == 'true' }}
+        shell: bash
+        env:
+          BUILD_ID: ${{ steps.artifact.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          COMPLETION_URL="$(jq -r '.completionUrl' "$RUNNER_TEMP/one-app-apk/one-app-$BUILD_ID.json")"
+          test -n "$COMPLETION_URL" && test "$COMPLETION_URL" != "null"
+          if [ -n "${key_backup_path:-}" ]; then
+            KEY_BACKUP_BASE64="$(base64 -w 0 "$key_backup_path")"
+            jq -n --arg keyBackupBase64 "$KEY_BACKUP_BASE64" '{outcome: "complete", keyBackupBase64: $keyBackupBase64}' > "$RUNNER_TEMP/one-app-completion.json"
+          else
+            printf '%s' '{"outcome":"complete"}' > "$RUNNER_TEMP/one-app-completion.json"
+          fi
+          curl --fail --show-error --request POST --header "Content-Type: application/json" --data-binary @"$RUNNER_TEMP/one-app-completion.json" "$COMPLETION_URL"
+
+  cleanup:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Delete One App APK releases older than 48 hours
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CUTOFF="$(date --utc --date='48 hours ago' +%s)"
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt --jq '.[] | select(.tagName | startswith("one-app-build-")) | [.tagName, .createdAt] | @tsv' | while IFS=$'\t' read -r TAG CREATED_AT; do
+            [ -z "$TAG" ] && continue
+            CREATED_SECONDS="$(date --utc --date="$CREATED_AT" +%s)"
+            if [ "$CREATED_SECONDS" -le "$CUTOFF" ]; then
+              gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+            fi
+          done

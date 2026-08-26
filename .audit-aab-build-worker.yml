@@ -1,0 +1,440 @@
+name: Build One App imported project
+run-name: One App build worker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# GitHub supplies a short-lived OIDC identity for each run. The Cloudflare relay verifies
+# its signature, the exact repository, the main branch, and this workflow before claiming a build.
+permissions:
+  id-token: write
+
+jobs:
+  build:
+    name: Check the One App build queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      # Public Cloudflare relay address. It stores source archives only temporarily during builds.
+      ONE_APP_API_URL: https://mia-build-relay.oneapp-kikokalok.workers.dev
+      WORK_ROOT: /tmp/one-app-build
+    steps:
+      - name: Claim one pending build securely
+        id: claim
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ONE_APP_API_URL"
+          OIDC_SEPARATOR="?"
+          [[ "$ACTIONS_ID_TOKEN_REQUEST_URL" == *"?"* ]] && OIDC_SEPARATOR="&"
+          OIDC_TOKEN="$(curl --fail --silent --show-error --header "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}${OIDC_SEPARATOR}audience=one-app-build-worker" | jq -r '.value')"
+          test -n "$OIDC_TOKEN" && test "$OIDC_TOKEN" != "null"
+          STATUS="$(curl --silent --show-error --output "$RUNNER_TEMP/one-app-job.json" --write-out '%{http_code}' --header "Authorization: Bearer $OIDC_TOKEN" "$ONE_APP_API_URL/api/builds/next")"
+          if [ "$STATUS" = "204" ]; then
+            echo "has_job=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test "$STATUS" = "200"
+          echo "has_job=true" >> "$GITHUB_OUTPUT"
+          echo "build_id=$(jq -r '.id' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "project_type=$(jq -r '.projectType' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "build_mode=$(jq -r '.buildMode // "debug"' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "source_url=$(jq -r '.sourceUrl' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "icon_url=$(jq -r '.iconUrl // empty' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "package_name=$(jq -r '.packageName' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "app_version=$(jq -r '.appVersion' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "version_code=$(jq -r '.versionCode' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "worker_completion_url=$(jq -r '.workerCompletionUrl' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "worker_progress_url=$(jq -r '.workerProgressUrl' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "publisher_completion_url=$(jq -r '.publisherCompletionUrl' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+          echo "publisher_progress_url=$(jq -r '.publisherProgressUrl' "$RUNNER_TEMP/one-app-job.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Download the submitted archive
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        shell: bash
+        env:
+          SOURCE_URL: ${{ steps.claim.outputs.source_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WORK_ROOT"
+          OIDC_SEPARATOR="?"
+          [[ "$ACTIONS_ID_TOKEN_REQUEST_URL" == *"?"* ]] && OIDC_SEPARATOR="&"
+          OIDC_TOKEN="$(curl --fail --silent --show-error --header "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}${OIDC_SEPARATOR}audience=one-app-build-worker" | jq -r '.value')"
+          test -n "$OIDC_TOKEN" && test "$OIDC_TOKEN" != "null"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 2 --header "Authorization: Bearer $OIDC_TOKEN" --output "$WORK_ROOT/source.zip" "$SOURCE_URL"
+          test -s "$WORK_ROOT/source.zip"
+
+      - name: Report project reception
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        shell: bash
+        env:
+          PROGRESS_URL: ${{ steps.claim.outputs.worker_progress_url }}
+        run: |
+          set -euo pipefail
+          test -n "$PROGRESS_URL"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":22,"message":"Projet reçu. Vérification des fichiers en cours."}' "$PROGRESS_URL" || true
+
+      - name: Download the selected application icon
+        if: ${{ steps.claim.outputs.has_job == 'true' && steps.claim.outputs.icon_url != '' }}
+        shell: bash
+        env:
+          ICON_URL: ${{ steps.claim.outputs.icon_url }}
+        run: |
+          set -euo pipefail
+          OIDC_SEPARATOR="?"
+          [[ "$ACTIONS_ID_TOKEN_REQUEST_URL" == *"?"* ]] && OIDC_SEPARATOR="&"
+          OIDC_TOKEN="$(curl --fail --silent --show-error --header "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}${OIDC_SEPARATOR}audience=one-app-build-worker" | jq -r '.value')"
+          test -n "$OIDC_TOKEN" && test "$OIDC_TOKEN" != "null"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 2 --header "Authorization: Bearer $OIDC_TOKEN" --output "$WORK_ROOT/custom-icon.png" "$ICON_URL"
+          test -s "$WORK_ROOT/custom-icon.png"
+
+      - name: Validate and safely extract source archive
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$WORK_ROOT/project"
+          python3 - "$WORK_ROOT/source.zip" "$WORK_ROOT/project" <<'PY'
+          import os
+          import stat
+          import sys
+          import zipfile
+
+          archive_path, destination = sys.argv[1:]
+          blocked_parts = {"node_modules", ".git", "build", "dist", ".gradle", ".idea"}
+          max_files = 10_000
+          max_uncompressed_bytes = 250 * 1024 * 1024
+
+          with zipfile.ZipFile(archive_path) as archive:
+              entries = archive.infolist()
+              if not entries or len(entries) > max_files:
+                  raise SystemExit("The archive is empty or contains too many files.")
+              total = sum(entry.file_size for entry in entries)
+              if total > max_uncompressed_bytes:
+                  raise SystemExit("The archive expands beyond the 250 MB safety limit.")
+              for entry in entries:
+                  normalized = entry.filename.replace("\\", "/")
+                  parts = [part for part in normalized.split("/") if part not in ("", ".")]
+                  if normalized.startswith("/") or ".." in parts or any(part in blocked_parts for part in parts):
+                      raise SystemExit(f"Unsafe or unsupported archive entry: {entry.filename}")
+                  mode = entry.external_attr >> 16
+                  if stat.S_IFMT(mode) == stat.S_IFLNK:
+                      raise SystemExit(f"Symbolic links are not allowed: {entry.filename}")
+              for entry in entries:
+                  target = os.path.realpath(os.path.join(destination, entry.filename))
+                  if not target.startswith(os.path.realpath(destination) + os.sep):
+                      raise SystemExit("Archive path escapes its destination.")
+                  archive.extract(entry, destination)
+          PY
+
+      - name: Locate project root
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        shell: bash
+        env:
+          PROJECT_TYPE: ${{ steps.claim.outputs.project_type }}
+        run: |
+          set -euo pipefail
+          case "$PROJECT_TYPE" in
+            expo) marker="package.json" ;;
+            android) marker="settings.gradle" ;;
+            html) marker="index.html" ;;
+            *) echo "Unsupported project type." >&2; exit 1 ;;
+          esac
+          if [ "$PROJECT_TYPE" = "android" ]; then
+            PROJECT_ROOT="$(find "$WORK_ROOT/project" -maxdepth 3 -type f \( -name 'settings.gradle' -o -name 'settings.gradle.kts' \) -printf '%h\n' | head -n 1)"
+          else
+            PROJECT_ROOT="$(find "$WORK_ROOT/project" -maxdepth 3 -type f -name "$marker" -printf '%h\n' | head -n 1)"
+          fi
+          test -n "$PROJECT_ROOT"
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> "$GITHUB_ENV"
+
+      - name: Report project validation
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        shell: bash
+        env:
+          PROGRESS_URL: ${{ steps.claim.outputs.worker_progress_url }}
+        run: |
+          set -euo pipefail
+          test -n "$PROGRESS_URL"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":35,"message":"Projet vérifié. Préparation de la compilation Android."}' "$PROGRESS_URL" || true
+
+      - name: Set up Node.js for Expo builds
+        if: ${{ steps.claim.outputs.project_type == 'expo' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm for Expo builds
+        if: ${{ steps.claim.outputs.project_type == 'expo' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Install Expo project dependencies
+        if: ${{ steps.claim.outputs.project_type == 'expo' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_ROOT"
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          elif [ -f package-lock.json ]; then
+            npm ci
+          else
+            pnpm install --no-frozen-lockfile
+          fi
+
+      - name: Generate Android project from Expo source
+        if: ${{ steps.claim.outputs.project_type == 'expo' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_ROOT"
+          npx expo prebuild --platform android --non-interactive --clean
+          echo "ANDROID_ROOT=$PROJECT_ROOT/android" >> "$GITHUB_ENV"
+
+      - name: Select supplied Android project
+        if: ${{ steps.claim.outputs.project_type == 'android' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$PROJECT_ROOT/settings.gradle" || test -f "$PROJECT_ROOT/settings.gradle.kts"
+          test -d "$PROJECT_ROOT/app"
+          test -f "$PROJECT_ROOT/gradlew"
+          chmod +x "$PROJECT_ROOT/gradlew"
+          echo "ANDROID_ROOT=$PROJECT_ROOT" >> "$GITHUB_ENV"
+
+      - name: Create an Android wrapper for static HTML
+        if: ${{ steps.claim.outputs.project_type == 'html' }}
+        shell: bash
+        env:
+          APP_PACKAGE: ${{ steps.claim.outputs.package_name }}
+          APP_VERSION: ${{ steps.claim.outputs.app_version }}
+          APP_VERSION_CODE: ${{ steps.claim.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          ANDROID_ROOT="$WORK_ROOT/html-android"
+          test -n "$APP_PACKAGE"
+          test -n "$APP_VERSION"
+          test -n "$APP_VERSION_CODE"
+          APP_PACKAGE_PATH="${APP_PACKAGE//./\/}"
+          mkdir -p "$ANDROID_ROOT/app/src/main/java/$APP_PACKAGE_PATH" "$ANDROID_ROOT/app/src/main/assets"
+          cp -R "$PROJECT_ROOT"/. "$ANDROID_ROOT/app/src/main/assets/"
+          cat > "$ANDROID_ROOT/settings.gradle" <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = "OneAppHtml"
+          include ':app'
+          EOF
+          cat > "$ANDROID_ROOT/build.gradle" <<'EOF'
+          plugins { id 'com.android.application' version '8.7.3' apply false }
+          EOF
+          cat > "$ANDROID_ROOT/app/build.gradle" <<EOF
+          plugins { id 'com.android.application' }
+          android {
+              namespace '$APP_PACKAGE'
+              compileSdk 35
+              defaultConfig { applicationId '$APP_PACKAGE'; minSdk 24; targetSdk 35; versionCode $APP_VERSION_CODE; versionName '$APP_VERSION' }
+          }
+          EOF
+          cat > "$ANDROID_ROOT/app/src/main/AndroidManifest.xml" <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:theme="@style/AppTheme" android:label="One App HTML"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>
+          EOF
+          mkdir -p "$ANDROID_ROOT/app/src/main/res/values"
+          echo '<resources><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar" /></resources>' > "$ANDROID_ROOT/app/src/main/res/values/styles.xml"
+          cat > "$ANDROID_ROOT/app/src/main/java/$APP_PACKAGE_PATH/MainActivity.java" <<EOF
+          package $APP_PACKAGE;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          public class MainActivity extends Activity {
+            @Override public void onCreate(Bundle state) {
+              super.onCreate(state);
+              WebView view = new WebView(this);
+              WebSettings settings = view.getSettings();
+              settings.setJavaScriptEnabled(true);
+              settings.setDomStorageEnabled(true);
+              view.loadUrl("file:///android_asset/index.html");
+              setContentView(view);
+            }
+          }
+          EOF
+          echo "ANDROID_ROOT=$ANDROID_ROOT" >> "$GITHUB_ENV"
+
+      - name: Apply requested package and version to Expo or Android source
+        if: ${{ steps.claim.outputs.project_type == 'expo' || steps.claim.outputs.project_type == 'android' }}
+        shell: bash
+        env:
+          APP_PACKAGE: ${{ steps.claim.outputs.package_name }}
+          APP_VERSION: ${{ steps.claim.outputs.app_version }}
+          APP_VERSION_CODE: ${{ steps.claim.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_PACKAGE"
+          test -n "$APP_VERSION"
+          test -n "$APP_VERSION_CODE"
+          python3 - "$ANDROID_ROOT" "$APP_PACKAGE" "$APP_VERSION" "$APP_VERSION_CODE" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          android_root, package_name, app_version, version_code = sys.argv[1:]
+          app_dir = pathlib.Path(android_root) / "app"
+          gradle = next((path for path in (app_dir / "build.gradle", app_dir / "build.gradle.kts") if path.exists()), None)
+          if gradle is None:
+              raise SystemExit("Android app build file is missing.")
+
+          content = gradle.read_text(encoding="utf-8")
+          old_namespace = None
+          namespace_match = re.search(r'(?m)^(\s*namespace\s*(?:=\s*)?["\'])([^"\']+)(["\'])', content)
+          if namespace_match:
+              old_namespace = namespace_match.group(2)
+              content = content[:namespace_match.start(2)] + package_name + content[namespace_match.end(2):]
+
+          def replace_string(source, field, value):
+              pattern = rf'(?m)^(\s*{field}\s*(?:=\s*)?["\'])([^"\']+)(["\'])'
+              if not re.search(pattern, source):
+                  raise SystemExit(f"Android field {field} is missing.")
+              return re.sub(pattern, lambda match: match.group(1) + value + match.group(3), source, count=1)
+
+          def replace_number(source, field, value):
+              pattern = rf'(?m)^(\s*{field}\s*(?:=\s*)?)(\d+)'
+              if not re.search(pattern, source):
+                  raise SystemExit(f"Android field {field} is missing.")
+              return re.sub(pattern, lambda match: match.group(1) + value, source, count=1)
+
+          content = replace_string(content, "applicationId", package_name)
+          content = replace_string(content, "versionName", app_version)
+          content = replace_number(content, "versionCode", version_code)
+          gradle.write_text(content, encoding="utf-8")
+
+          if old_namespace and old_namespace != package_name:
+              for source in app_dir.joinpath("src", "main").rglob("*"):
+                  if source.suffix not in {".kt", ".java"}:
+                      continue
+                  source_content = source.read_text(encoding="utf-8")
+                  source.write_text(source_content.replace(f"package {old_namespace}", f"package {package_name}"), encoding="utf-8")
+          PY
+
+      - name: Apply the selected application icon
+        if: ${{ steps.claim.outputs.has_job == 'true' && steps.claim.outputs.icon_url != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$WORK_ROOT/custom-icon.png"
+          MANIFEST="$ANDROID_ROOT/app/src/main/AndroidManifest.xml"
+          test -f "$MANIFEST"
+          mkdir -p "$ANDROID_ROOT/app/src/main/res/drawable-nodpi"
+          cp "$WORK_ROOT/custom-icon.png" "$ANDROID_ROOT/app/src/main/res/drawable-nodpi/one_app_custom_icon.png"
+          python3 - "$MANIFEST" <<'PY'
+          import re
+          import sys
+
+          manifest = sys.argv[1]
+          content = open(manifest, encoding="utf-8").read()
+          match = re.search(r"<application\b[^>]*>", content)
+          if not match:
+              raise SystemExit("Android application tag is missing.")
+          tag = match.group(0)
+          if "android:icon=" in tag:
+              replacement = re.sub(r'android:icon="[^"]*"', 'android:icon="@drawable/one_app_custom_icon"', tag, count=1)
+          else:
+              replacement = tag[:-1] + ' android:icon="@drawable/one_app_custom_icon">'
+          open(manifest, "w", encoding="utf-8").write(content[:match.start()] + replacement + content[match.end():])
+          PY
+
+      - name: Set up Java
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK from Expo or Android source
+        if: ${{ steps.claim.outputs.project_type == 'expo' || steps.claim.outputs.project_type == 'android' }}
+        shell: bash
+        env:
+          BUILD_MODE: ${{ steps.claim.outputs.build_mode }}
+          PROGRESS_URL: ${{ steps.claim.outputs.worker_progress_url }}
+        run: |
+          set -euo pipefail
+          cd "$ANDROID_ROOT"
+          TASK="assembleDebug"
+          [ "$BUILD_MODE" = "signed" ] && TASK="assembleRelease"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":55,"message":"Compilation Android en cours. Cela peut prendre quelques minutes."}' "$PROGRESS_URL" || true
+          ./gradlew ":app:$TASK" --no-daemon --stacktrace
+
+      - name: Build APK from HTML source
+        if: ${{ steps.claim.outputs.project_type == 'html' }}
+        shell: bash
+        env:
+          BUILD_MODE: ${{ steps.claim.outputs.build_mode }}
+          PROGRESS_URL: ${{ steps.claim.outputs.worker_progress_url }}
+        run: |
+          set -euo pipefail
+          cd "$ANDROID_ROOT"
+          curl --fail --location --proto '=https' --tlsv1.2 --output gradle.zip https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
+          unzip -q gradle.zip
+          TASK="assembleDebug"
+          [ "$BUILD_MODE" = "signed" ] && TASK="assembleRelease"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":55,"message":"Compilation Android en cours. Cela peut prendre quelques minutes."}' "$PROGRESS_URL" || true
+          ./gradle-8.10.2/bin/gradle ":app:$TASK" --no-daemon --stacktrace
+
+      - name: Prepare APK artifact
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        shell: bash
+        env:
+          PUBLISHER_COMPLETION_URL: ${{ steps.claim.outputs.publisher_completion_url }}
+          PROGRESS_URL: ${{ steps.claim.outputs.worker_progress_url }}
+          BUILD_MODE: ${{ steps.claim.outputs.build_mode }}
+        run: |
+          set -euo pipefail
+          test -n "$PUBLISHER_COMPLETION_URL"
+          APK_VARIANT="debug"
+          [ "$BUILD_MODE" = "signed" ] && APK_VARIANT="release"
+          APK_PATH="$(find "$ANDROID_ROOT/app/build/outputs/apk/$APK_VARIANT" -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          test -n "$APK_PATH"
+          mkdir -p "$WORK_ROOT/output"
+          cp "$APK_PATH" "$WORK_ROOT/output/one-app-${{ steps.claim.outputs.build_id }}.apk"
+          curl --fail --silent --show-error --request POST --header "Content-Type: application/json" --data '{"progress":82,"message":"APK créée. Préparation de sa publication sécurisée."}' "$PROGRESS_URL" || true
+          jq -n --arg completionUrl "$PUBLISHER_COMPLETION_URL" --arg buildMode "$BUILD_MODE" '{completionUrl: $completionUrl, buildMode: $buildMode}' > "$WORK_ROOT/output/one-app-${{ steps.claim.outputs.build_id }}.json"
+
+      # The imported project may run installation or build scripts. It therefore
+      # never receives contents:write. The APK is passed as a short-lived
+      # Actions artifact to a separate, trusted publisher workflow.
+      - name: Keep APK briefly for the trusted publisher
+        if: ${{ steps.claim.outputs.has_job == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-app-${{ steps.claim.outputs.build_id }}
+          # The publisher needs both the binary and the single-use completion URL.
+          # Keeping them in one short-lived artifact preserves the trusted split:
+          # imported code still cannot publish a GitHub release itself.
+          path: |
+            ${{ env.WORK_ROOT }}/output/one-app-${{ steps.claim.outputs.build_id }}.apk
+            ${{ env.WORK_ROOT }}/output/one-app-${{ steps.claim.outputs.build_id }}.json
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Report the result securely
+        if: ${{ always() && steps.claim.outputs.has_job == 'true' }}
+        shell: bash
+        env:
+          BUILD_ID: ${{ steps.claim.outputs.build_id }}
+          JOB_STATUS: ${{ job.status }}
+          WORKER_COMPLETION_URL: ${{ steps.claim.outputs.worker_completion_url }}
+        run: |
+          set -euo pipefail
+          # A successful build is reported by the isolated publisher only after
+          # GitHub has accepted the APK release. This worker reports failures.
+          if [ "$JOB_STATUS" = "success" ]; then
+            exit 0
+          fi
+          curl --fail --show-error --request POST --header "Content-Type: application/json" --data '{"outcome":"failed"}' "$WORKER_COMPLETION_URL"
