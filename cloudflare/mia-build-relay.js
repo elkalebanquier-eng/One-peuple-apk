@@ -12,11 +12,11 @@ const GITHUB_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS_URL = `${GITHUB_OIDC_ISSUER}/.well-known/jwks`;
 const BUILD_WORKER_REPOSITORY = "elkalebanquier-eng/one-app-build-worker";
 const BUILD_WORKER_WORKFLOW = `${BUILD_WORKER_REPOSITORY}/.github/workflows/build-imported-project.yml@refs/heads/main`;
-const TEMPORARY_APK_BASE_URL = `https://github.com/${BUILD_WORKER_REPOSITORY}/releases/download`;
+const TEMPORARY_ARTIFACT_BASE_URL = `https://github.com/${BUILD_WORKER_REPOSITORY}/releases/download`;
 let githubJwksCache;
 
 const ALLOWED_PROJECT_TYPES = new Set(["expo", "android", "html"]);
-const ALLOWED_BUILD_MODES = new Set(["debug", "signed"]);
+const ALLOWED_BUILD_MODES = new Set(["debug", "signed", "aab"]);
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -98,9 +98,9 @@ function keyBackupKey(id) {
   return `key-backup:${id}`;
 }
 
-function expectedApkUrl(id) {
+function expectedArtifactUrl(id, artifactType = "apk") {
   const tag = `one-app-build-${id}`;
-  return `${TEMPORARY_APK_BASE_URL}/${tag}/one-app-${id}.apk`;
+  return `${TEMPORARY_ARTIFACT_BASE_URL}/${tag}/one-app-${id}.${artifactType}`;
 }
 
 function rateKey(request) {
@@ -136,7 +136,9 @@ async function writeJob(env, job) {
 }
 
 function publicJob(job, includeKeyBackupUrl = false) {
-  const signing = job.buildMode === "signed"
+  const artifactType = job.artifactType === "aab" || job.buildMode === "aab" ? "aab" : "apk";
+  const artifactUrl = job.artifactUrl ?? expectedArtifactUrl(job.id, artifactType);
+  const signing = job.buildMode === "signed" || job.buildMode === "aab"
     ? {
         keyBackupAvailable: Boolean(job.keyBackupAvailable),
         ...(includeKeyBackupUrl && job.keyBackupUrl ? { keyBackupUrl: job.keyBackupUrl } : {}),
@@ -148,7 +150,9 @@ function publicJob(job, includeKeyBackupUrl = false) {
     message: job.message,
     progress: Number.isFinite(job.progress) ? Math.max(0, Math.min(100, Math.round(job.progress))) : 0,
     events: Array.isArray(job.events) ? job.events.slice(-MAX_PROGRESS_EVENTS) : [],
-    apkUrl: job.apkUrl ?? expectedApkUrl(job.id),
+    artifactType,
+    artifactUrl,
+    ...(artifactType === "apk" ? { apkUrl: artifactUrl } : { aabUrl: artifactUrl }),
     buildMode: job.buildMode,
     remainingBuilds: job.remainingBuilds,
     maxBuildsPerHour: MAX_SUBMISSIONS_PER_HOUR,
@@ -371,7 +375,8 @@ async function submitBuild(request, env, origin) {
     sourceToken: randomToken(),
     workerToken: randomToken(),
     publisherToken: randomToken(),
-    keyBackupToken: fields.buildMode === "signed" ? randomToken() : undefined,
+    artifactType: fields.buildMode === "aab" ? "aab" : "apk",
+    keyBackupToken: fields.buildMode === "signed" || fields.buildMode === "aab" ? randomToken() : undefined,
     keyBackupUrl: undefined,
     keyBackupAvailable: false,
   };
@@ -399,6 +404,7 @@ async function claimBuild(request, env, origin) {
     id: job.id,
     projectType: job.projectType,
     buildMode: job.buildMode,
+    artifactType: job.artifactType,
     projectName: job.projectName,
     packageName: job.packageName,
     appVersion: job.appVersion,
@@ -438,10 +444,16 @@ async function completeBuild(request, env, id, token, publisher = false) {
   const payload = await request.json().catch(() => ({}));
   if (payload.outcome === "failed") {
     job.status = "failed";
-    job.message = "MIA💻 n’a pas pu créer l’APK. Vérifiez que le ZIP correspond bien au type choisi.";
+    job.message = job.buildMode === "aab"
+      ? "MIA💻 n’a pas pu créer le fichier AAB. Vérifiez que le ZIP correspond bien au type choisi."
+      : "MIA💻 n’a pas pu créer l’APK. Vérifiez que le ZIP correspond bien au type choisi.";
   } else if (publisher) {
     try {
-      if (job.buildMode === "signed") {
+      const expectedArtifactType = job.buildMode === "aab" ? "aab" : "apk";
+      if (payload.artifactType && payload.artifactType !== expectedArtifactType) {
+        return error("Le format d’artefact publié ne correspond pas au build demandé.");
+      }
+      if (job.buildMode === "signed" || job.buildMode === "aab") {
         const backup = parseKeyBackup(payload.keyBackupBase64);
         await env.BUILDS.put(keyBackupKey(id), backup, { expirationTtl: JOB_TTL_SECONDS });
         job.keyBackupAvailable = true;
@@ -450,11 +462,16 @@ async function completeBuild(request, env, id, token, publisher = false) {
       return error(caught instanceof Error ? caught.message : "La sauvegarde de clé de signature est invalide.");
     }
     job.status = "complete";
-    appendProgress(job, 100, "Votre APK est prête à être téléchargée.");
-    job.apkUrl = expectedApkUrl(id);
+    job.artifactType = job.buildMode === "aab" ? "aab" : "apk";
+    job.artifactUrl = expectedArtifactUrl(id, job.artifactType);
+    if (job.artifactType === "aab") {
+      appendProgress(job, 100, "Votre fichier AAB est prêt pour Google Play.");
+    } else {
+      appendProgress(job, 100, "Votre APK est prête à être téléchargée.");
+    }
   } else {
     job.status = "building";
-    appendProgress(job, 90, "APK créée. Sa publication sécurisée est en cours.");
+    appendProgress(job, 90, job.buildMode === "aab" ? "Fichier AAB créé. Sa publication sécurisée est en cours." : "APK créée. Sa publication sécurisée est en cours.");
   }
   await writeJob(env, job);
   return json(publicJob(job));
@@ -475,7 +492,7 @@ async function reportBuildProgress(request, env, id, token, publisher = false) {
 
 async function downloadKeyBackup(env, id, token) {
   const job = await readJob(env, id);
-  if (!job || job.buildMode !== "signed" || !job.keyBackupAvailable || !job.keyBackupToken || token !== job.keyBackupToken) {
+  if (!job || !["signed", "aab"].includes(job.buildMode) || !job.keyBackupAvailable || !job.keyBackupToken || token !== job.keyBackupToken) {
     return error("La sauvegarde de clé n’est plus disponible. Gardez toujours ce fichier après le téléchargement.", 410);
   }
   const archive = await env.BUILDS.get(keyBackupKey(id), "arrayBuffer");

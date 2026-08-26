@@ -8,15 +8,15 @@ import { getUnavailableBuildMessage, readBuildResponse } from "@/lib/build-respo
 import { makeRestartBuildInput } from "@/lib/restart-build";
 import { notifyBuildOutcome } from "@/lib/build-notifications";
 import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "@/shared/app-identity";
-import { getExpectedApkUrl } from "@/shared/build-delivery";
-import { canDeleteBuildFromHistory, getLocalApkFileUri, getLocalBuildDirectory } from "@/shared/build-history";
+import { getExpectedArtifactUrl, type BuildArtifactType } from "@/shared/build-delivery";
+import { canDeleteBuildFromHistory, getLocalArtifactFileUri, getLocalBuildDirectory } from "@/shared/build-history";
 import { shouldNotifyBuildStatus } from "@/shared/build-notifications";
 import { normalizeBuildProgress, readBuildProgressEvents, type BuildProgressEvent } from "@/shared/build-progress";
 import { getKeyBackupStorageKey } from "@/shared/secure-storage-key";
 
 export type ProjectType = "expo" | "android" | "html";
 export type BuildStatus = "draft" | "ready" | "queued" | "building" | "complete" | "failed";
-export type BuildMode = "debug" | "signed";
+export type BuildMode = "debug" | "signed" | "aab";
 
 export type BuildQuota = {
   remaining: number;
@@ -37,6 +37,8 @@ export interface BuildJob {
   appVersion?: string;
   versionCode?: number;
   buildMode: BuildMode;
+  artifactType?: BuildArtifactType;
+  artifactUri?: string;
   keyBackupAvailable?: boolean;
   status: BuildStatus;
   createdAt: string;
@@ -45,6 +47,10 @@ export interface BuildJob {
   progress?: number;
   events?: BuildProgressEvent[];
   apkUri?: string;
+}
+
+export function getBuildArtifactType(buildMode: BuildMode): BuildArtifactType {
+  return buildMode === "aab" ? "aab" : "apk";
 }
 
 export const PROJECT_TYPES: Array<{
@@ -147,12 +153,13 @@ function buildApiUrl(path: string) {
   return `${baseUrl}${path}`;
 }
 
-/** Vérifie l’APK temporaire seulement si le statut serveur a été perdu après un redémarrage. */
-async function findPublishedApk(job: BuildJob) {
-  const apkUri = job.apkUri ?? getExpectedApkUrl(job.id);
+/** Vérifie l’artefact temporaire seulement si le statut serveur a été perdu après un redémarrage. */
+async function findPublishedArtifact(job: BuildJob) {
+  const artifactType = job.artifactType ?? getBuildArtifactType(job.buildMode);
+  const artifactUri = job.artifactUri ?? job.apkUri ?? getExpectedArtifactUrl(job.id, artifactType);
   try {
-    const response = await fetch(apkUri, { method: "HEAD" });
-    return response.ok ? apkUri : undefined;
+    const response = await fetch(artifactUri, { method: "HEAD" });
+    return response.ok ? artifactUri : undefined;
   } catch {
     return undefined;
   }
@@ -204,10 +211,11 @@ export async function deleteBuildJob(job: BuildJob) {
   const rootDirectory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
   if (rootDirectory) {
     const localDirectory = getLocalBuildDirectory(rootDirectory, job.id);
-    const localApkUri = getLocalApkFileUri(rootDirectory, job.projectName, job.id);
+    const artifactType = job.artifactType ?? getBuildArtifactType(job.buildMode);
+    const localArtifactUri = getLocalArtifactFileUri(rootDirectory, job.projectName, job.id, artifactType);
     await Promise.allSettled([
       FileSystem.deleteAsync(localDirectory, { idempotent: true }),
-      FileSystem.deleteAsync(localApkUri, { idempotent: true }),
+      FileSystem.deleteAsync(localArtifactUri, { idempotent: true }),
     ]);
   }
 
@@ -231,7 +239,7 @@ export async function deleteFinishedBuildJobs() {
     if (rootDirectory) {
       await Promise.allSettled([
         FileSystem.deleteAsync(getLocalBuildDirectory(rootDirectory, job.id), { idempotent: true }),
-        FileSystem.deleteAsync(getLocalApkFileUri(rootDirectory, job.projectName, job.id), { idempotent: true }),
+        FileSystem.deleteAsync(getLocalArtifactFileUri(rootDirectory, job.projectName, job.id, job.artifactType ?? getBuildArtifactType(job.buildMode)), { idempotent: true }),
       ]);
     }
     await clearPrivateKeyBackupUrl(job.id).catch(() => undefined);
@@ -321,6 +329,7 @@ export async function createLocalBuildDraft(input: {
     appVersion: identity.appVersion,
     versionCode: identity.versionCode,
     buildMode: input.buildMode ?? "debug",
+    artifactType: getBuildArtifactType(input.buildMode ?? "debug"),
     status: "ready",
     progress: 0,
     events: [],
@@ -376,6 +385,9 @@ export async function submitBuildJob(job: BuildJob) {
       ? readBuildResponse(responseBody, statusCode) as {
         message?: string;
         apkUrl?: string;
+        aabUrl?: string;
+        artifactUrl?: string;
+        artifactType?: BuildArtifactType;
         buildMode?: BuildMode;
         keyBackupUrl?: string;
         keyBackupAvailable?: boolean;
@@ -389,16 +401,21 @@ export async function submitBuildJob(job: BuildJob) {
       throw new Error(payload.message || "L’envoi n’a pas pu être terminé.");
     }
 
-    if (payload.buildMode === "signed" && payload.keyBackupUrl) {
+    if ((payload.buildMode === "signed" || payload.buildMode === "aab") && payload.keyBackupUrl) {
       await savePrivateKeyBackupUrl(job.id, payload.keyBackupUrl);
     }
     saveBuildQuota(payload.remainingBuilds, payload.maxBuildsPerHour);
+    const buildMode = payload.buildMode ?? job.buildMode;
+    const artifactType = payload.artifactType ?? getBuildArtifactType(buildMode);
+    const artifactUri = payload.artifactUrl ?? payload.aabUrl ?? payload.apkUrl ?? getExpectedArtifactUrl(job.id, artifactType);
 
     return await updateJob(job.id, {
       status: "queued",
       message: payload.message || "Votre projet attend le démarrage de la compilation.",
-      apkUri: payload.apkUrl || getExpectedApkUrl(job.id),
-      buildMode: payload.buildMode ?? job.buildMode,
+      apkUri: artifactType === "apk" ? artifactUri : undefined,
+      artifactUri,
+      artifactType,
+      buildMode,
       keyBackupAvailable: payload.keyBackupAvailable ?? false,
       progress: normalizeBuildProgress(payload.progress, 5),
       events: readBuildProgressEvents(payload.events),
@@ -435,6 +452,9 @@ export async function refreshBuildJob(job: BuildJob) {
       status?: BuildStatus;
       message?: string;
       apkUrl?: string;
+      aabUrl?: string;
+      artifactUrl?: string;
+      artifactType?: BuildArtifactType;
       buildMode?: BuildMode;
       keyBackupAvailable?: boolean;
       remainingBuilds?: number;
@@ -444,12 +464,15 @@ export async function refreshBuildJob(job: BuildJob) {
     };
     const unavailableMessage = getUnavailableBuildMessage(response.status, payload.message);
     if (unavailableMessage) {
-      const apkUri = await findPublishedApk(job);
-      if (apkUri) {
+      const artifactUri = await findPublishedArtifact(job);
+      if (artifactUri) {
+        const artifactType = job.artifactType ?? getBuildArtifactType(job.buildMode);
         return await updateJob(job.id, {
           status: "complete",
-          apkUri,
-          message: "Votre APK est prête à être téléchargée.",
+          apkUri: artifactType === "apk" ? artifactUri : undefined,
+          artifactUri,
+          artifactType,
+          message: artifactType === "aab" ? "Votre fichier AAB est prêt à être téléchargé." : "Votre APK est prête à être téléchargée.",
         });
       }
       return await updateJob(job.id, { status: "failed", message: unavailableMessage });
@@ -458,11 +481,16 @@ export async function refreshBuildJob(job: BuildJob) {
       throw new Error(payload.message || "Le statut est indisponible.");
     }
     saveBuildQuota(payload.remainingBuilds, payload.maxBuildsPerHour);
+    const buildMode = payload.buildMode ?? job.buildMode;
+    const artifactType = payload.artifactType ?? job.artifactType ?? getBuildArtifactType(buildMode);
+    const artifactUri = payload.artifactUrl ?? payload.aabUrl ?? payload.apkUrl ?? job.artifactUri ?? job.apkUri ?? getExpectedArtifactUrl(job.id, artifactType);
     return await updateJob(job.id, {
       status: payload.status,
       message: payload.message || job.message,
-      apkUri: payload.apkUrl || job.apkUri || getExpectedApkUrl(job.id),
-      buildMode: payload.buildMode ?? job.buildMode,
+      apkUri: artifactType === "apk" ? artifactUri : undefined,
+      artifactUri,
+      artifactType,
+      buildMode,
       keyBackupAvailable: payload.keyBackupAvailable ?? job.keyBackupAvailable ?? false,
       progress: normalizeBuildProgress(payload.progress, job.progress ?? 0),
       events: readBuildProgressEvents(payload.events),

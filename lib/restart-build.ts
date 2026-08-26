@@ -11,7 +11,7 @@ export type RestartBuildInput = {
   iconUri?: string;
   packageName?: string;
   appVersion?: string;
-  buildMode: "debug" | "signed";
+  buildMode: "debug" | "signed" | "aab";
 };
 
 /** Préserve l’intégralité de la sélection initiale pour une nouvelle compilation. */

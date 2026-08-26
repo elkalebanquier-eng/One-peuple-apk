@@ -13,7 +13,7 @@ import { useColors } from "@/hooks/use-colors";
 import { saveMiaBuildHelpDraft } from "@/lib/ai-code-assistant";
 import { getBuildErrorHelp } from "@/shared/build-error-help";
 import { getBuildTimeRemainingLabel } from "@/shared/build-progress";
-import { canDeleteBuildFromHistory, countDeletableBuilds, getLocalApkFileUri, matchesBuildHistoryFilter, type BuildHistoryFilter } from "@/shared/build-history";
+import { canDeleteBuildFromHistory, countDeletableBuilds, getLocalArtifactFileUri, matchesBuildHistoryFilter, type BuildHistoryFilter } from "@/shared/build-history";
 import {
   clearPrivateKeyBackupUrl,
   deleteBuildJob,
@@ -74,7 +74,12 @@ function makeKeyBackupFileName(projectName: string) {
 function BuildCard({ item, installFromNotification = false }: { item: BuildJob; installFromNotification?: boolean }) {
   const colors = useColors();
   const type = getProjectType(item.projectType);
-  const status = STATUS_COPY[item.status];
+  const artifactType = item.artifactType ?? (item.buildMode === "aab" ? "aab" : "apk");
+  const isAab = artifactType === "aab";
+  const artifactLabel = isAab ? "fichier AAB" : "APK";
+  const status = item.status === "complete" && isAab
+    ? { label: "AAB prête", color: "#34D399", icon: "verified" as IconName }
+    : STATUS_COPY[item.status];
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{ received: number; total: number } | null>(null);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
@@ -103,14 +108,14 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       ? `${progressPercent} % · ${formatBytes(receivedBytes)} sur ${formatBytes(expectedBytes)}`
       : receivedBytes > 0
         ? `${formatBytes(receivedBytes)} téléchargés · taille en cours de lecture`
-        : "Connexion au fichier APK…");
+        : `Connexion au ${artifactLabel}…`);
 
   useEffect(() => {
     let active = true;
     const findSavedApk = async () => {
       const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
       if (!directory) return;
-      const fileUri = getLocalApkFileUri(directory, item.projectName, item.id);
+      const fileUri = getLocalArtifactFileUri(directory, item.projectName, item.id, artifactType);
       const info = await FileSystem.getInfoAsync(fileUri);
       if (active && info.exists && info.size && info.size >= 10_000) setSavedApkUri(fileUri);
     };
@@ -118,14 +123,15 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
     return () => {
       active = false;
     };
-  }, [item.id, item.projectName]);
+  }, [artifactType, item.id, item.projectName]);
 
   async function downloadApkToPhone() {
-    if (!item.apkUri) throw new Error("L’adresse de téléchargement de cette APK est indisponible.");
+    const artifactUri = item.artifactUri ?? item.apkUri;
+    if (!artifactUri) throw new Error(`L’adresse de téléchargement de ce ${artifactLabel} est indisponible.`);
     const directory = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
     if (!directory) throw new Error("Le dossier de téléchargement est indisponible sur ce téléphone.");
 
-    const fileUri = getLocalApkFileUri(directory, item.projectName, item.id);
+    const fileUri = getLocalArtifactFileUri(directory, item.projectName, item.id, artifactType);
     const existing = await FileSystem.getInfoAsync(fileUri);
     if (existing.exists && existing.size && existing.size >= 10_000) {
       setDownloadProgress({ received: existing.size, total: existing.size });
@@ -135,7 +141,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
     if (existing.exists) await FileSystem.deleteAsync(fileUri, { idempotent: true });
 
     const downloadTask = FileSystem.createDownloadResumable(
-      item.apkUri,
+      artifactUri,
       fileUri,
       {},
       ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
@@ -146,15 +152,15 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       },
     );
     const download = await downloadTask.downloadAsync();
-    if (!download) throw new Error("Le téléchargement a été interrompu avant la réception du fichier APK.");
+    if (!download) throw new Error(`Le téléchargement a été interrompu avant la réception du ${artifactLabel}.`);
     const info = await FileSystem.getInfoAsync(download.uri);
     if (!info.exists || !info.size || info.size < 10_000) {
       await FileSystem.deleteAsync(download.uri, { idempotent: true });
-      throw new Error("Le fichier reçu n’est pas une APK Android complète. Réessayez la compilation.");
+      throw new Error(`Le fichier reçu n’est pas un ${artifactLabel} Android complet. Réessayez la compilation.`);
     }
 
     setDownloadProgress({ received: info.size, total: info.size });
-    setDownloadMessage("Fichier reçu · vérification de l’APK…");
+    setDownloadMessage(`Fichier reçu · vérification du ${artifactLabel}…`);
     const apkHeader = await FileSystem.readAsStringAsync(download.uri, {
       encoding: FileSystem.EncodingType.Base64,
       length: 8,
@@ -162,14 +168,14 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
     });
     if (!apkHeader.startsWith("UEs")) {
       await FileSystem.deleteAsync(download.uri, { idempotent: true });
-      throw new Error("Le fichier reçu ne ressemble pas à une APK Android. Relancez la compilation.");
+      throw new Error(`Le fichier reçu ne ressemble pas à un ${artifactLabel} Android. Relancez la compilation.`);
     }
     setSavedApkUri(download.uri);
     return download.uri;
   }
 
   async function handleDownloadAndInstall() {
-    if (!item.apkUri) return;
+    if (isAab || !(item.artifactUri ?? item.apkUri)) return;
     if (Platform.OS !== "android") {
       Alert.alert("Android requis", "L’installation directe d’une APK est disponible uniquement sur Android.");
       return;
@@ -200,10 +206,10 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   }
 
   useEffect(() => {
-    if (!installFromNotification || handledNotificationInstall.current || item.status !== "complete" || !item.apkUri) return;
+    if (!installFromNotification || isAab || handledNotificationInstall.current || item.status !== "complete" || !(item.artifactUri ?? item.apkUri)) return;
     handledNotificationInstall.current = true;
     void handleDownloadAndInstall();
-  }, [installFromNotification, item.apkUri, item.status]);
+  }, [installFromNotification, isAab, item.apkUri, item.artifactUri, item.status]);
 
   async function handleShareApk() {
     try {
@@ -219,17 +225,17 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       if (!fileUri) {
         setDownloading(true);
         setDownloadProgress({ received: 0, total: 0 });
-        setDownloadMessage("Téléchargement de l’APK avant l’envoi…");
+        setDownloadMessage(`Téléchargement du ${artifactLabel} avant l’envoi…`);
         fileUri = await downloadApkToPhone();
       }
       if (!(await Sharing.isAvailableAsync())) {
         throw new Error("Le partage de fichiers est indisponible sur ce téléphone.");
       }
       await Sharing.shareAsync(fileUri, {
-        dialogTitle: `Envoyer l’APK ${item.projectName}`,
-        mimeType: APK_MIME_TYPE,
+        dialogTitle: `Envoyer le ${artifactLabel} ${item.projectName}`,
+        mimeType: isAab ? "application/octet-stream" : APK_MIME_TYPE,
       });
-      setDownloadMessage("APK prête à être envoyée depuis votre téléphone");
+      setDownloadMessage(`${artifactLabel} prêt à être envoyé depuis votre téléphone`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "L’envoi de l’APK a échoué.";
       Alert.alert("Envoi non terminé", message);
@@ -279,12 +285,12 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   }
 
   function confirmDelete() {
-    const signingWarning = item.buildMode === "signed" && item.keyBackupAvailable
-      ? "\n\nSi vous devez mettre cette APK à jour plus tard, exportez d’abord le ZIP « clé + mot de passe ». Après suppression, son lien privé ne sera plus accessible dans MIA💻."
+    const signingWarning = (item.buildMode === "signed" || item.buildMode === "aab") && item.keyBackupAvailable
+      ? "\n\nSi vous devez mettre cette application à jour plus tard, exportez d’abord le ZIP « clé + mot de passe ». Après suppression, son lien privé ne sera plus accessible dans MIA💻."
       : "";
     Alert.alert(
       "Supprimer cette compilation ?",
-      `Cette action retire cette carte, le ZIP importé et l’APK enregistrée par MIA💻 sur ce téléphone. Elle ne désinstalle pas une APK déjà installée et ne supprime pas les fichiers déjà envoyés ou copiés dans Fichiers.${signingWarning}`,
+      `Cette action retire cette carte, le ZIP importé et le ${artifactLabel} enregistré par MIA💻 sur ce téléphone. Elle ne désinstalle pas une APK déjà installée et ne supprime pas les fichiers déjà envoyés ou copiés dans Fichiers.${signingWarning}`,
       [
         { text: "Annuler", style: "cancel" },
         { text: "Supprimer", style: "destructive", onPress: () => { void handleDelete(); } },
@@ -399,9 +405,9 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
         </View>
       ) : null}
 
-      <View style={[styles.buildModeBadge, { backgroundColor: item.buildMode === "signed" ? `${colors.success}16` : `${colors.primary}16` }]}>
-        <MaterialIcons color={item.buildMode === "signed" ? colors.success : colors.primary} name={item.buildMode === "signed" ? "verified-user" : "science"} size={14} />
-        <Text style={[styles.buildModeBadgeText, { color: item.buildMode === "signed" ? colors.success : colors.primary }]}>{item.buildMode === "signed" ? "APK signée · publication" : "APK de test · Android"}</Text>
+      <View style={[styles.buildModeBadge, { backgroundColor: item.buildMode === "debug" ? `${colors.primary}16` : `${colors.success}16` }]}>
+        <MaterialIcons color={item.buildMode === "debug" ? colors.primary : colors.success} name={item.buildMode === "aab" ? "shop" : item.buildMode === "signed" ? "verified-user" : "science"} size={14} />
+        <Text style={[styles.buildModeBadgeText, { color: item.buildMode === "debug" ? colors.primary : colors.success }]}>{item.buildMode === "aab" ? "AAB · Google Play" : item.buildMode === "signed" ? "APK signée · publication" : "APK de test · Android"}</Text>
       </View>
 
       {showCompilationProgress ? (
@@ -442,9 +448,9 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
         </View>
       ) : null}
 
-      {item.status === "complete" && item.apkUri ? (
+      {item.status === "complete" && (item.artifactUri ?? item.apkUri) ? (
         <>
-          {item.buildMode === "signed" && item.keyBackupAvailable ? (
+          {(item.buildMode === "signed" || item.buildMode === "aab") && item.keyBackupAvailable ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Exporter le ZIP privé contenant la clé et le mot de passe de ${item.projectName}`}
@@ -460,27 +466,44 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
               <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
             </Pressable>
           ) : null}
+          {isAab ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Télécharger le fichier AAB de ${item.projectName}`}
+              disabled={downloading || sharingApk}
+              onPress={() => { void handleShareApk(); }}
+              style={({ pressed }) => [styles.downloadButton, { backgroundColor: colors.primary }, pressed && !downloading && !sharingApk && styles.pressed]}
+            >
+              <View style={styles.downloadCopy}>
+                <Text style={[styles.downloadTitle, { color: colors.background }]}>{downloading || sharingApk ? "Préparation du fichier AAB…" : "Télécharger le fichier AAB"}</Text>
+                <Text style={[styles.downloadHint, { color: colors.background }]}>{downloading ? downloadHint : "À envoyer sur Google Play · ne s’installe pas sur le téléphone"}</Text>
+                {downloading ? <View style={[styles.downloadTrack, { backgroundColor: `${colors.background}3B` }]}><View style={[styles.downloadFill, { backgroundColor: colors.background, width: expectedBytes > 0 ? `${Math.max(3, progressPercent)}%` : "18%" }]} /></View> : null}
+              </View>
+              <MaterialIcons color={colors.background} name={downloading || sharingApk ? "downloading" : "download"} size={24} />
+            </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Télécharger et installer l’APK de ${item.projectName}`}
+              disabled={downloading}
+              onPress={() => { void handleDownloadAndInstall(); }}
+              style={({ pressed }) => [styles.downloadButton, { backgroundColor: colors.primary }, pressed && !downloading && styles.pressed]}
+            >
+              <View style={styles.downloadCopy}>
+                <Text style={[styles.downloadTitle, { color: colors.background }]}>{downloading ? "Téléchargement de l’APK…" : "Télécharger et installer"}</Text>
+                <Text style={[styles.downloadHint, { color: colors.background }]}>{downloading ? downloadHint : "Ouvre directement l’installateur Android"}</Text>
+                {downloading ? (
+                  <View style={[styles.downloadTrack, { backgroundColor: `${colors.background}3B` }]}>
+                    <View style={[styles.downloadFill, { backgroundColor: colors.background, width: expectedBytes > 0 ? `${Math.max(3, progressPercent)}%` : "18%" }]} />
+                  </View>
+                ) : null}
+              </View>
+              <MaterialIcons color={colors.background} name={downloading ? "downloading" : "install-mobile"} size={24} />
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Télécharger et installer l’APK de ${item.projectName}`}
-            disabled={downloading}
-            onPress={() => { void handleDownloadAndInstall(); }}
-            style={({ pressed }) => [styles.downloadButton, { backgroundColor: colors.primary }, pressed && !downloading && styles.pressed]}
-          >
-            <View style={styles.downloadCopy}>
-              <Text style={[styles.downloadTitle, { color: colors.background }]}>{downloading ? "Téléchargement de l’APK…" : "Télécharger et installer"}</Text>
-              <Text style={[styles.downloadHint, { color: colors.background }]}>{downloading ? downloadHint : "Ouvre directement l’installateur Android"}</Text>
-              {downloading ? (
-                <View style={[styles.downloadTrack, { backgroundColor: `${colors.background}3B` }]}>
-                  <View style={[styles.downloadFill, { backgroundColor: colors.background, width: expectedBytes > 0 ? `${Math.max(3, progressPercent)}%` : "18%" }]} />
-                </View>
-              ) : null}
-            </View>
-            <MaterialIcons color={colors.background} name={downloading ? "downloading" : "install-mobile"} size={24} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Envoyer l’APK de ${item.projectName}`}
+            accessibilityLabel={`Envoyer le ${artifactLabel} de ${item.projectName}`}
             disabled={downloading || sharingApk}
             onPress={() => { void handleShareApk(); }}
             style={({ pressed }) => [styles.shareApkButton, { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}66` }, pressed && !downloading && !sharingApk && styles.pressed]}
@@ -489,7 +512,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
               <MaterialIcons color={colors.primary} name={sharingApk ? "downloading" : "ios-share"} size={21} />
             </View>
             <View style={styles.shareApkCopy}>
-              <Text style={[styles.shareApkTitle, { color: colors.foreground }]}>{sharingApk ? "Préparation de l’envoi…" : "Envoyer l’APK"}</Text>
+              <Text style={[styles.shareApkTitle, { color: colors.foreground }]}>{sharingApk ? "Préparation de l’envoi…" : `Envoyer le ${artifactLabel}`}</Text>
               <Text style={[styles.shareApkHint, { color: colors.muted }]}>{savedApkUri ? "Choisir WhatsApp, Bluetooth ou Fichiers" : "Télécharge puis ouvre les applications de partage"}</Text>
             </View>
             <MaterialIcons color={colors.primary} name="arrow-forward" size={20} />
@@ -512,7 +535,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
             </View>
             <MaterialIcons color={colors.primary} name={restarting ? "autorenew" : "replay"} size={22} />
           </Pressable>
-          {item.status === "complete" ? <Text style={[styles.expiryNote, { color: colors.muted }]}>L’APK est téléchargée sur le téléphone, sans navigateur. Disponible temporairement.</Text> : null}
+          {item.status === "complete" ? <Text style={[styles.expiryNote, { color: colors.muted }]}>{isAab ? "Le fichier AAB est destiné à Google Play et ne peut pas être installé directement." : "L’APK est téléchargée sur le téléphone, sans navigateur. Disponible temporairement."}</Text> : null}
         </>
       ) : null}
 

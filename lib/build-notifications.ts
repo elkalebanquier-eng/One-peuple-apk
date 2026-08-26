@@ -28,7 +28,7 @@ async function prepareAndroidChannel() {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(BUILD_CHANNEL_ID, {
     name: "Compilations MIA",
-    description: "Résultat de vos compilations APK",
+    description: "Résultat de vos compilations Android",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 180, 100, 180],
     lightColor: "#D4AF37",
@@ -105,6 +105,7 @@ export async function notifyBuildOutcome(input: {
   status: BuildNotificationStatus;
   projectName: string;
   message?: string;
+  artifactType?: "apk" | "aab";
 }) {
   if (Platform.OS === "web") return false;
   const copy = getBuildOutcomeNotification(input);
@@ -123,7 +124,7 @@ export async function notifyBuildOutcome(input: {
         body: copy.body,
         data: { route: "/(tabs)", buildId: input.id },
         sound: "default",
-        categoryIdentifier: input.status === "complete" ? BUILD_READY_NOTIFICATION_CATEGORY : undefined,
+        categoryIdentifier: input.status === "complete" && input.artifactType !== "aab" ? BUILD_READY_NOTIFICATION_CATEGORY : undefined,
       },
       trigger: null,
     });

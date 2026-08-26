@@ -4,7 +4,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import multer from "multer";
 
 import { DEFAULT_APP_VERSION, getGeneratedPackageName, readAppIdentity } from "../shared/app-identity";
-import { getExpectedApkUrl } from "../shared/build-delivery";
+import { getExpectedArtifactUrl, type BuildArtifactType } from "../shared/build-delivery";
 import { getBuildTimeoutMessage } from "../shared/build-timeout";
 
 const WORKER_OWNER = "elkalebanquier-eng";
@@ -26,7 +26,7 @@ const submissionTimes = new Map<string, number[]>();
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 
 type ProjectType = "expo" | "android" | "html";
-type BuildMode = "debug" | "signed";
+type BuildMode = "debug" | "signed" | "aab";
 type BuildState = "queued" | "building" | "complete" | "failed";
 
 type BuildRecord = {
@@ -43,6 +43,7 @@ type BuildRecord = {
   iconUrl?: string;
   iconArchive?: Buffer;
   buildMode: BuildMode;
+  artifactType: BuildArtifactType;
   keyBackupUrl?: string;
   keyBackupAccessToken?: string;
   keyBackupArchive?: Buffer;
@@ -53,7 +54,7 @@ type BuildRecord = {
   message: string;
   createdAt: number;
   updatedAt: number;
-  apkUrl?: string;
+  artifactUrl?: string;
 };
 
 const builds = new Map<string, BuildRecord>();
@@ -128,7 +129,8 @@ function parseProjectType(value: string): ProjectType {
 function parseBuildMode(value: string): BuildMode {
   if (!value || value === "debug") return "debug";
   if (value === "signed") return "signed";
-  throw new BuildRequestError("Le type d’APK choisi est invalide.", 400);
+  if (value === "aab") return "aab";
+  throw new BuildRequestError("Le format Android choisi est invalide.", 400);
 }
 
 function parseBuildId(value: string) {
@@ -251,7 +253,7 @@ async function verifyWorkerOrBuildToken(
 
 function sendJob(response: Response, job: BuildRecord, includeKeyBackupUrl = false) {
   const quota = getQuotaStatusForKey(job.quotaKey);
-  const signing = job.buildMode === "signed"
+  const signing = job.buildMode === "signed" || job.buildMode === "aab"
     ? {
       buildMode: job.buildMode,
       keyBackupAvailable: Boolean(job.keyBackupArchive),
@@ -264,8 +266,12 @@ function sendJob(response: Response, job: BuildRecord, includeKeyBackupUrl = fal
     status: job.status,
     message: job.message,
     // The release path is deterministic. Returning it early lets the phone
-    // recover a completed APK if the in-memory build status vanishes.
-    apkUrl: job.apkUrl ?? getExpectedApkUrl(job.id),
+    // recover a completed Android artifact if the in-memory status vanishes.
+    artifactType: job.artifactType,
+    artifactUrl: job.artifactUrl ?? getExpectedArtifactUrl(job.id, job.artifactType),
+    ...(job.artifactType === "apk"
+      ? { apkUrl: job.artifactUrl ?? getExpectedArtifactUrl(job.id, "apk") }
+      : { aabUrl: job.artifactUrl ?? getExpectedArtifactUrl(job.id, "aab") }),
     remainingBuilds: quota.remaining,
     maxBuildsPerHour: quota.max,
     ...signing,
@@ -307,7 +313,10 @@ export function registerBuildRoutes(app: Express) {
         const now = Date.now();
         const workerAccessToken = randomBytes(32).toString("base64url");
         const publisherAccessToken = randomBytes(32).toString("base64url");
-        const keyBackupAccessToken = buildMode === "signed" ? randomBytes(32).toString("base64url") : undefined;
+        const artifactType: BuildArtifactType = buildMode === "aab" ? "aab" : "apk";
+        const keyBackupAccessToken = buildMode === "signed" || buildMode === "aab"
+          ? randomBytes(32).toString("base64url")
+          : undefined;
         const buildBaseUrl = `${getPublicBaseUrl()}/api/builds/${buildId}`;
         const job: BuildRecord = {
           id: buildId,
@@ -323,6 +332,7 @@ export function registerBuildRoutes(app: Express) {
           iconUrl: customIcon ? `${buildBaseUrl}/icon?accessToken=${workerAccessToken}` : undefined,
           iconArchive: customIcon,
           buildMode,
+          artifactType,
           keyBackupAccessToken,
           keyBackupUrl: keyBackupAccessToken ? `${buildBaseUrl}/key-backup?accessToken=${keyBackupAccessToken}` : undefined,
           packageName: identity.packageName,
@@ -409,7 +419,7 @@ export function registerBuildRoutes(app: Express) {
       cleanExpiredBuilds();
       const buildId = parseBuildId(request.params.buildId);
       const job = builds.get(buildId);
-      if (!job || job.buildMode !== "signed" || !job.keyBackupArchive || !job.keyBackupAccessToken) {
+      if (!job || !["signed", "aab"].includes(job.buildMode) || !job.keyBackupArchive || !job.keyBackupAccessToken) {
         throw new BuildRequestError("La sauvegarde de clé n’est plus disponible. Gardez toujours ce fichier après le téléchargement.", 410);
       }
       if (!hasValidBuildToken(request, job.keyBackupAccessToken)) {
@@ -438,7 +448,9 @@ export function registerBuildRoutes(app: Express) {
         return;
       }
       job.status = "building";
-      job.message = "MIA💻 fabrique votre APK. Cette étape peut prendre plusieurs minutes.";
+      job.message = job.buildMode === "aab"
+        ? "MIA💻 prépare votre fichier AAB. Cette étape peut prendre plusieurs minutes."
+        : "MIA💻 fabrique votre APK. Cette étape peut prendre plusieurs minutes.";
       job.updatedAt = Date.now();
       response.json({
         id: job.id,
@@ -472,7 +484,10 @@ export function registerBuildRoutes(app: Express) {
         }
         if (outcome === "complete") {
           await verifyWorkerOrBuildToken(request, job.publisherAccessToken, [PUBLISHER_WORKFLOW], ["workflow_run"]);
-          if (job.buildMode === "signed") {
+          if (request.body?.artifactType && request.body.artifactType !== job.artifactType) {
+            throw new BuildRequestError("Le format d’artefact publié ne correspond pas au build demandé.", 400);
+          }
+          if (job.buildMode === "signed" || job.buildMode === "aab") {
             const keyBackupBase64 = request.body?.keyBackupBase64;
             if (
               typeof keyBackupBase64 !== "string"
@@ -488,14 +503,18 @@ export function registerBuildRoutes(app: Express) {
             }
             job.keyBackupArchive = keyBackup;
           }
-          job.apkUrl = getExpectedApkUrl(buildId);
+          job.artifactUrl = getExpectedArtifactUrl(buildId, job.artifactType);
         } else {
           await verifyWorkerOrBuildToken(request, job.workerAccessToken, [WORKER_WORKFLOW, PUBLISHER_WORKFLOW]);
         }
         job.status = outcome;
         job.message = outcome === "complete"
-          ? "Votre APK est prête à être téléchargée."
-          : "MIA💻 n’a pas pu créer l’APK. Vérifiez que le ZIP correspond bien au type choisi.";
+          ? job.artifactType === "aab"
+            ? "Votre fichier AAB est prêt pour Google Play."
+            : "Votre APK est prête à être téléchargée."
+          : job.artifactType === "aab"
+            ? "MIA💻 n’a pas pu créer le fichier AAB. Vérifiez que le ZIP correspond bien au type choisi."
+            : "MIA💻 n’a pas pu créer l’APK. Vérifiez que le ZIP correspond bien au type choisi.";
         job.updatedAt = Date.now();
         sendJob(response, job);
       } catch (error) {

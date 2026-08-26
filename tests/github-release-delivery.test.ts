@@ -17,10 +17,13 @@ describe("One App free APK delivery", () => {
     expect(worker).not.toContain("contents: write");
     expect(worker).toContain("actions/upload-artifact@v4");
     expect(worker).toContain('Authorization: Bearer $OIDC_TOKEN');
+    expect(worker).toContain('TASK="bundleRelease"');
 
     expect(publisher).toContain("workflow_run:");
     expect(publisher).toContain("contents: write");
     expect(publisher).toContain("gh release create");
+    expect(publisher).toContain("jarsigner");
+    expect(publisher).toContain("artifactType");
     expect(publisher).toContain("48 hours ago");
   });
 });

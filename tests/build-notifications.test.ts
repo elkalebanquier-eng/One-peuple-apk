@@ -16,6 +16,13 @@ describe("notifications locales de compilation", () => {
     });
   });
 
+  it("annonce un AAB sans proposer l’installation directe", () => {
+    expect(getBuildOutcomeNotification({ status: "complete", projectName: "Mon projet", artifactType: "aab" })).toEqual({
+      title: "Votre fichier AAB est prêt",
+      body: "Mon projet est prêt pour Google Play. Téléchargez le fichier AAB depuis MIA💻 : il ne s’installe pas directement sur le téléphone.",
+    });
+  });
+
   it("annonce un échec sans afficher de message technique", () => {
     expect(getBuildOutcomeNotification({ status: "failed", projectName: "Mon projet" })?.title).toBe("Compilation à vérifier");
     expect(getBuildOutcomeNotification({ status: "failed", projectName: "Mon projet" })?.body).toContain("Mon projet");

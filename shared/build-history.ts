@@ -17,18 +17,22 @@ export function countDeletableBuilds(statuses: BuildHistoryStatus[]) {
   return statuses.filter(canDeleteBuildFromHistory).length;
 }
 
-function makeSafeApkName(projectName: string, buildId: string) {
+function makeSafeArtifactName(projectName: string, buildId: string, artifactType: "apk" | "aab") {
   const safeName = projectName
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase() || "mia-build";
-  return `${safeName}-${buildId.slice(-8)}.apk`;
+  return `${safeName}-${buildId.slice(-8)}.${artifactType}`;
 }
 
 export function getLocalApkFileUri(rootDirectory: string, projectName: string, buildId: string) {
-  return `${rootDirectory}${makeSafeApkName(projectName, buildId)}`;
+  return getLocalArtifactFileUri(rootDirectory, projectName, buildId, "apk");
+}
+
+export function getLocalArtifactFileUri(rootDirectory: string, projectName: string, buildId: string, artifactType: "apk" | "aab") {
+  return `${rootDirectory}${makeSafeArtifactName(projectName, buildId, artifactType)}`;
 }
 
 export function getLocalBuildDirectory(rootDirectory: string, buildId: string) {

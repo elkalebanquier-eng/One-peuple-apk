@@ -22,10 +22,17 @@ export function getBuildOutcomeNotification(input: {
   status: BuildNotificationStatus;
   projectName: string;
   message?: string;
+  artifactType?: "apk" | "aab";
 }): BuildNotificationCopy | null {
   const projectName = input.projectName.trim() || "votre projet";
 
   if (input.status === "complete") {
+    if (input.artifactType === "aab") {
+      return {
+        title: "Votre fichier AAB est prêt",
+        body: `${projectName} est prêt pour Google Play. Téléchargez le fichier AAB depuis MIA💻 : il ne s’installe pas directement sur le téléphone.`,
+      };
+    }
     return {
       title: "Votre APK est prête",
       body: `${projectName} a terminé sa compilation. Utilisez « Installer l’APK » pour l’ouvrir directement.`,

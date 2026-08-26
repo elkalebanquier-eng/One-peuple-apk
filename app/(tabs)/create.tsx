@@ -522,13 +522,13 @@ export default function NewBuildScreen() {
           <Pressable
             accessibilityRole="radio"
             accessibilityState={{ selected: buildMode === "debug" }}
-            accessibilityLabel="APK de test"
+            accessibilityLabel="APK debug"
             disabled={saving}
             onPress={() => setBuildMode("debug")}
             style={({ pressed }) => [styles.buildModeRow, { backgroundColor: buildMode === "debug" ? `${colors.primary}13` : colors.surface, borderColor: buildMode === "debug" ? colors.primary : colors.border }, pressed && styles.pressed]}
           >
             <View style={[styles.buildModeIcon, { backgroundColor: buildMode === "debug" ? colors.primary : colors.background }]}><MaterialIcons color={buildMode === "debug" ? colors.background : colors.primary} name="science" size={21} /></View>
-            <View style={styles.buildModeCopy}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>APK de test</Text><Text style={[styles.buildModeText, { color: colors.muted }]}>À installer et essayer immédiatement sur Android.</Text></View>
+            <View style={styles.buildModeCopy}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>APK debug</Text><Text style={[styles.buildModeText, { color: colors.muted }]}>À installer et essayer immédiatement sur Android.</Text></View>
             <View style={[styles.radio, { borderColor: buildMode === "debug" ? colors.primary : colors.border }]}>{buildMode === "debug" ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}</View>
           </Pressable>
           <Pressable
@@ -543,6 +543,16 @@ export default function NewBuildScreen() {
             <View style={styles.buildModeCopy}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>APK signée</Text><Text style={[styles.buildModeText, { color: colors.muted }]}>Crée une clé unique pour cette application et une APK de publication.</Text></View>
             <View style={[styles.radio, { borderColor: buildMode === "signed" ? colors.success : colors.border }]}>{buildMode === "signed" ? <View style={[styles.radioDot, { backgroundColor: colors.success }]} /> : null}</View>
           </Pressable>
+          <View accessibilityLabel="AAB Play Store en préparation" style={[styles.buildModeRow, styles.buildModeUnavailable, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.buildModeIcon, { backgroundColor: colors.background }]}><MaterialIcons color={colors.muted} name="shop" size={21} /></View>
+            <View style={styles.buildModeCopy}><View style={styles.buildModeTitleRow}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>AAB Play Store</Text><Text style={[styles.formatBadge, { color: colors.warning, backgroundColor: `${colors.warning}18` }]}>Bientôt</Text></View><Text style={[styles.buildModeText, { color: colors.muted }]}>Fichier demandé par Google Play. Il s’ouvrira quand la signature de publication sera prête.</Text></View>
+            <MaterialIcons color={colors.muted} name="lock-outline" size={20} />
+          </View>
+          <View accessibilityLabel="IPA Apple bientôt disponible" style={[styles.buildModeRow, styles.buildModeUnavailable, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.buildModeIcon, { backgroundColor: colors.background }]}><MaterialIcons color={colors.muted} name="phone-iphone" size={21} /></View>
+            <View style={styles.buildModeCopy}><View style={styles.buildModeTitleRow}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>IPA Apple</Text><Text style={[styles.formatBadge, { color: colors.warning, backgroundColor: `${colors.warning}18` }]}>Bientôt</Text></View><Text style={[styles.buildModeText, { color: colors.muted }]}>Fichier Apple. Il faut d’abord la signature officielle Apple pour le rendre disponible.</Text></View>
+            <MaterialIcons color={colors.muted} name="lock-outline" size={20} />
+          </View>
         </View>
         {buildMode === "signed" ? (
           <View style={[styles.signingNote, { backgroundColor: `${colors.success}10`, borderColor: `${colors.success}55` }]}>
@@ -557,7 +567,7 @@ export default function NewBuildScreen() {
         </View>
 
         <Pressable accessibilityRole="button" accessibilityLabel="Lancer la compilation" disabled={!canPrepare} onPress={handlePrepareBuild} style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : colors.surface, borderColor: canPrepare ? colors.primary : colors.border }, pressed && canPrepare && styles.pressed]}>
-          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : buildMode === "signed" ? "Sortie : APK Android signée" : "Sortie : APK Android de test"}</Text></View>
+          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : buildMode === "signed" ? "Sortie : APK Android signée" : "Sortie : APK Android debug"}</Text></View>
           <MaterialIcons color={canPrepare ? colors.background : colors.muted} name="arrow-forward" size={23} />
         </Pressable>
       </ScrollView>
@@ -671,9 +681,12 @@ const styles = StyleSheet.create({
   identityError: { marginTop: -8, marginBottom: 16, fontSize: 11, lineHeight: 16 },
   buildModeList: { gap: 9, marginBottom: 12 },
   buildModeRow: { minHeight: 77, borderWidth: 1, borderRadius: 18, padding: 12, flexDirection: "row", alignItems: "center" },
+  buildModeUnavailable: { opacity: 0.72 },
   buildModeIcon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center", marginRight: 11 },
   buildModeCopy: { flex: 1, paddingRight: 9 },
+  buildModeTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   buildModeTitle: { fontSize: 13, fontWeight: "800" },
+  formatBadge: { borderRadius: 8, overflow: "hidden", paddingHorizontal: 6, paddingVertical: 2, fontSize: 8, fontWeight: "900" },
   buildModeText: { marginTop: 3, fontSize: 10.5, lineHeight: 15 },
   signingNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 15 },
   signingText: { flex: 1, fontSize: 11, lineHeight: 17 },
