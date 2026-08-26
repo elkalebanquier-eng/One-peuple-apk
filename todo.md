@@ -797,4 +797,4 @@
 - [x] Ajouter un aperçu des modifications, avec actions « Appliquer », « Annuler » et « Relancer ».
 - [x] Interdire toute correction automatique des dépendances, permissions, signatures, secrets ou configurations de publication.
 - [x] Tester une correction acceptée, annulée et sans proposition — TypeScript et 94 tests réussis.
-- [ ] Compiler, contrôler et remettre une APK debug avec la correction automatique.
+- [x] Compiler, contrôler et remettre une APK debug avec la correction automatique — build GitHub Actions 32912951249 réussi ; APK vérifiée avec manifeste Android et classes.dex.
