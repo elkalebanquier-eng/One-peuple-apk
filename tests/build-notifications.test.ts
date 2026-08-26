@@ -18,8 +18,8 @@ describe("notifications locales de compilation", () => {
 
   it("annonce un AAB sans proposer l’installation directe", () => {
     expect(getBuildOutcomeNotification({ status: "complete", projectName: "Mon projet", artifactType: "aab" })).toEqual({
-      title: "Votre fichier AAB est prêt",
-      body: "Mon projet est prêt pour Google Play. Téléchargez le fichier AAB depuis MIA💻 : il ne s’installe pas directement sur le téléphone.",
+      title: "AAB prêt — sauvegardez votre clé",
+      body: "Mon projet est prêt pour Google Play. Ouvrez MIA💻 pour exporter le ZIP privé « clé + mot de passe » avant de partager l’AAB.",
     });
   });
 

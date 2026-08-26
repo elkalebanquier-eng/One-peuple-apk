@@ -29,8 +29,8 @@ export function getBuildOutcomeNotification(input: {
   if (input.status === "complete") {
     if (input.artifactType === "aab") {
       return {
-        title: "Votre fichier AAB est prêt",
-        body: `${projectName} est prêt pour Google Play. Téléchargez le fichier AAB depuis MIA💻 : il ne s’installe pas directement sur le téléphone.`,
+        title: "AAB prêt — sauvegardez votre clé",
+        body: `${projectName} est prêt pour Google Play. Ouvrez MIA💻 pour exporter le ZIP privé « clé + mot de passe » avant de partager l’AAB.`,
       };
     }
     return {

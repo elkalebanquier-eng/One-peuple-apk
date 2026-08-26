@@ -818,3 +818,13 @@
 - [x] Conserver APK debug et APK signée comme choix Android disponibles selon le flux de signature existant.
 - [x] Rendre AAB Play Store disponible uniquement lorsque son export signé est configuré côté relais.
 - [x] Présenter IPA Apple comme « Bientôt disponible » et empêcher toute compilation iOS tant que la signature Apple officielle n’existe pas.
+
+## Sauvegarde de clé AAB et préparation Apple
+
+- [x] Rendre la sauvegarde de clé AAB immédiatement visible après une compilation terminée, avec un état clair « à sauvegarder » ou « sauvegardée ».
+- [x] Améliorer la notification AAB pour rappeler que le fichier est destiné à Google Play et que la sauvegarde de clé est indispensable pour une future mise à jour.
+- [x] Ajouter un rappel non intrusif dans l’historique tant que la sauvegarde privée n’a pas été demandée, sans mémoriser la clé dans MIA💻.
+- [x] Ajouter une fiche simple « Préparer Apple » qui explique les éléments requis : compte Apple, certificat, profil de provisionnement et compilation macOS.
+- [x] Conserver IPA Apple verrouillé et empêcher toute soumission ou consommation de quota avant l’existence de ces éléments officiels.
+- [ ] Tester les libellés, notifications et protections de l’interface, puis produire une APK debug actualisée.
+- [x] Retirer du contrôle local l’appel réseau Gemini devenu inutile, puisque KIA reste désactivé dans MIA💻.

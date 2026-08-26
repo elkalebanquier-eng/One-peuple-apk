@@ -563,6 +563,13 @@ export default function NewBuildScreen() {
             <MaterialIcons color={colors.muted} name="lock-outline" size={20} />
           </View>
         </View>
+        <View accessibilityLabel="Préparation requise pour une IPA Apple" style={[styles.appleSetupNote, { backgroundColor: `${colors.warning}0D`, borderColor: `${colors.warning}48` }]}>
+          <MaterialIcons color={colors.warning} name="verified-user" size={20} />
+          <View style={styles.appleSetupCopy}>
+            <Text style={[styles.appleSetupTitle, { color: colors.foreground }]}>Préparer Apple avant de compiler</Text>
+            <Text style={[styles.appleSetupText, { color: colors.muted }]}>Une IPA publiable exige un compte Apple Developer, un certificat de distribution, un profil de provisionnement et une machine macOS. MIA💻 garde l’option bloquée tant que ce service sécurisé n’existe pas.</Text>
+          </View>
+        </View>
         {buildMode === "signed" || buildMode === "aab" ? (
           <View style={[styles.signingNote, { backgroundColor: `${colors.success}10`, borderColor: `${colors.success}55` }]}>
             <MaterialIcons color={colors.success} name="key" size={20} />
@@ -699,6 +706,10 @@ const styles = StyleSheet.create({
   buildModeText: { marginTop: 3, fontSize: 10.5, lineHeight: 15 },
   signingNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 15 },
   signingText: { flex: 1, fontSize: 11, lineHeight: 17 },
+  appleSetupNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 3, marginBottom: 15 },
+  appleSetupCopy: { flex: 1 },
+  appleSetupTitle: { fontSize: 11.5, fontWeight: "900", lineHeight: 17 },
+  appleSetupText: { marginTop: 2, fontSize: 10.5, lineHeight: 16 },
   securityNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 18 },
   securityText: { flex: 1, fontSize: 11, lineHeight: 17 },
   submitButton: { minHeight: 64, borderRadius: 18, borderWidth: 1, paddingHorizontal: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

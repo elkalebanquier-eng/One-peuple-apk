@@ -40,6 +40,8 @@ export interface BuildJob {
   artifactType?: BuildArtifactType;
   artifactUri?: string;
   keyBackupAvailable?: boolean;
+  /** Confirmation locale choisie par le propriétaire après avoir exporté le ZIP privé. */
+  keyBackupSavedAt?: string;
   status: BuildStatus;
   createdAt: string;
   updatedAt: string;
@@ -188,6 +190,14 @@ export async function getPrivateKeyBackupUrl(buildId: string) {
 
 export async function clearPrivateKeyBackupUrl(buildId: string) {
   await SecureStore.deleteItemAsync(keyBackupStorageKey(buildId));
+}
+
+/**
+ * Mémorise uniquement la confirmation de l’utilisateur. Le ZIP, la clé, le mot
+ * de passe et l’URL privée restent hors de l’historique local.
+ */
+export async function markPrivateKeyBackupSaved(buildId: string) {
+  return updateJob(buildId, { keyBackupSavedAt: new Date().toISOString() });
 }
 
 async function savePrivateKeyBackupUrl(buildId: string, url: string | undefined) {

@@ -14,12 +14,14 @@ import { saveMiaBuildHelpDraft } from "@/lib/ai-code-assistant";
 import { getBuildErrorHelp } from "@/shared/build-error-help";
 import { getBuildTimeRemainingLabel } from "@/shared/build-progress";
 import { canDeleteBuildFromHistory, countDeletableBuilds, getLocalArtifactFileUri, matchesBuildHistoryFilter, type BuildHistoryFilter } from "@/shared/build-history";
+import { getKeyBackupState } from "@/shared/key-backup-status";
 import {
   clearPrivateKeyBackupUrl,
   deleteBuildJob,
   deleteFinishedBuildJobs,
   formatBytes,
   getPrivateKeyBackupUrl,
+  markPrivateKeyBackupSaved,
   getProjectType,
   refreshBuildQuota,
   refreshBuildJob,
@@ -77,6 +79,13 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
   const artifactType = item.artifactType ?? (item.buildMode === "aab" ? "aab" : "apk");
   const isAab = artifactType === "aab";
   const artifactLabel = isAab ? "fichier AAB" : "APK";
+  const keyBackupState = getKeyBackupState({
+    buildMode: item.buildMode,
+    keyBackupAvailable: item.keyBackupAvailable,
+    keyBackupSavedAt: item.keyBackupSavedAt,
+  });
+  const keyBackupNeedsSaving = keyBackupState === "needs-save";
+  const keyBackupConfirmed = keyBackupState === "saved";
   const status = item.status === "complete" && isAab
     ? { label: "AAB prête", color: "#34D399", icon: "verified" as IconName }
     : STATUS_COPY[item.status];
@@ -317,6 +326,7 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       const existing = await FileSystem.getInfoAsync(fileUri);
       if (existing.exists && existing.size && existing.size > 100) {
         await shareSavedKeyBackup(fileUri);
+        confirmKeyBackupSaved();
         return;
       }
 
@@ -332,16 +342,31 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       }
       await clearPrivateKeyBackupUrl(item.id);
       await shareSavedKeyBackup(download.uri);
-      Alert.alert(
-        "Sauvegarde prête",
-        "Dans le ZIP, ouvrez le fichier « MOT-DE-PASSE-ET-INFOS…txt » : il contient le mot de passe et l’alias de votre clé. Conservez ce ZIP dans un endroit privé et ne le partagez avec personne.",
-      );
+      confirmKeyBackupSaved();
     } catch (error) {
       const message = error instanceof Error ? error.message : "La sauvegarde de clé a échoué.";
       Alert.alert("Sauvegarde non terminée", message);
     } finally {
       setSavingKey(false);
     }
+  }
+
+  function confirmKeyBackupSaved() {
+    Alert.alert(
+      "Le ZIP est-il sauvegardé ?",
+      "Choisissez Fichiers, un espace privé ou un autre endroit sûr. Le ZIP contient « MOT-DE-PASSE-ET-INFOS…txt ». Ne l’envoyez à personne et conservez-le pour une future mise à jour Google Play.",
+      [
+        { text: "Je dois encore le sauvegarder", style: "cancel" },
+        {
+          text: "Oui, c’est sauvegardé",
+          onPress: () => {
+            void markPrivateKeyBackupSaved(item.id).catch(() => {
+              Alert.alert("Confirmation non enregistrée", "Le ZIP reste disponible sur ce téléphone. Réessayez la confirmation après l’avoir sauvegardé.");
+            });
+          },
+        },
+      ],
+    );
   }
 
   function confirmKeyBackup() {
@@ -451,20 +476,29 @@ function BuildCard({ item, installFromNotification = false }: { item: BuildJob; 
       {item.status === "complete" && (item.artifactUri ?? item.apkUri) ? (
         <>
           {(item.buildMode === "signed" || item.buildMode === "aab") && item.keyBackupAvailable ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Exporter le ZIP privé contenant la clé et le mot de passe de ${item.projectName}`}
-              disabled={savingKey || downloading}
-              onPress={confirmKeyBackup}
-              style={({ pressed }) => [styles.keyBackupButton, { backgroundColor: colors.success }, pressed && !savingKey && !downloading && styles.pressed]}
-            >
-              <View style={[styles.keyBackupIcon, { backgroundColor: `${colors.background}22` }]}><MaterialIcons color={colors.background} name={savingKey ? "downloading" : "file-download"} size={22} /></View>
-              <View style={styles.keyBackupCopy}>
-                <Text style={[styles.keyBackupTitle, { color: colors.background }]}>{savingKey ? "Export du ZIP en cours…" : "Exporter le ZIP : clé + mot de passe"}</Text>
-                <Text style={[styles.keyBackupHint, { color: colors.background }]}>{savingKey ? "Ne fermez pas MIA💻" : "Une seule fois · fichier MOT-DE-PASSE-ET-INFOS inclus"}</Text>
+            <>
+              <View style={[styles.keyBackupStatus, { backgroundColor: keyBackupNeedsSaving ? `${colors.warning}12` : `${colors.success}12`, borderColor: keyBackupNeedsSaving ? `${colors.warning}52` : `${colors.success}52` }]}>
+                <MaterialIcons color={keyBackupNeedsSaving ? colors.warning : colors.success} name={keyBackupNeedsSaving ? "priority-high" : "verified-user"} size={20} />
+                <View style={styles.keyBackupStatusCopy}>
+                  <Text style={[styles.keyBackupStatusTitle, { color: colors.foreground }]}>{keyBackupNeedsSaving ? "Clé de publication à sauvegarder" : "Clé de publication sauvegardée"}</Text>
+                  <Text style={[styles.keyBackupStatusHint, { color: colors.muted }]}>{keyBackupNeedsSaving ? "Indispensable pour publier ou mettre à jour cette application plus tard." : "Vous avez confirmé le ZIP privé. Gardez-le dans un endroit sûr."}</Text>
+                </View>
               </View>
-              <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${keyBackupConfirmed ? "Ouvrir à nouveau" : "Exporter"} le ZIP privé contenant la clé et le mot de passe de ${item.projectName}`}
+                disabled={savingKey || downloading}
+                onPress={confirmKeyBackup}
+                style={({ pressed }) => [styles.keyBackupButton, { backgroundColor: keyBackupNeedsSaving ? colors.warning : colors.success }, pressed && !savingKey && !downloading && styles.pressed]}
+              >
+                <View style={[styles.keyBackupIcon, { backgroundColor: `${colors.background}22` }]}><MaterialIcons color={colors.background} name={savingKey ? "downloading" : keyBackupConfirmed ? "folder-open" : "file-download"} size={22} /></View>
+                <View style={styles.keyBackupCopy}>
+                  <Text style={[styles.keyBackupTitle, { color: colors.background }]}>{savingKey ? "Export du ZIP en cours…" : keyBackupConfirmed ? "Ouvrir le ZIP privé sauvegardé" : "Sauvegarder le ZIP : clé + mot de passe"}</Text>
+                  <Text style={[styles.keyBackupHint, { color: colors.background }]}>{savingKey ? "Ne fermez pas MIA💻" : keyBackupConfirmed ? "Pour vérifier ou copier le fichier dans Fichiers" : "À faire maintenant · une clé est nécessaire pour les mises à jour"}</Text>
+                </View>
+                <MaterialIcons color={colors.background} name="arrow-forward" size={22} />
+              </Pressable>
+            </>
           ) : null}
           {isAab ? (
             <Pressable
@@ -885,6 +919,10 @@ const styles = StyleSheet.create({
   shareApkTitle: { fontSize: 13, fontWeight: "900" },
   shareApkHint: { marginTop: 2, fontSize: 10.5, lineHeight: 15 },
   keyBackupButton: { minHeight: 70, marginTop: 12, paddingHorizontal: 14, borderRadius: 16, flexDirection: "row", alignItems: "center" },
+  keyBackupStatus: { minHeight: 66, marginTop: 12, padding: 11, borderWidth: 1, borderRadius: 15, flexDirection: "row", alignItems: "flex-start", gap: 9 },
+  keyBackupStatusCopy: { flex: 1 },
+  keyBackupStatusTitle: { fontSize: 12.5, lineHeight: 17, fontWeight: "900" },
+  keyBackupStatusHint: { marginTop: 2, fontSize: 10.5, lineHeight: 15, fontWeight: "600" },
   keyBackupIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: 10 },
   keyBackupCopy: { flex: 1, paddingRight: 8 },
   keyBackupTitle: { fontSize: 13, fontWeight: "900" },
