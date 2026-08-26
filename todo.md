@@ -805,7 +805,7 @@
 - [x] Ajouter le choix clair « APK debug » ou « AAB Play Store » avant la compilation.
 - [x] Conserver la clé et le mot de passe de signature uniquement dans le stockage protégé du relais, jamais dans MIA💻, le dépôt ou les journaux.
 - [x] Bloquer la demande AAB tant qu’une signature de publication n’est pas officiellement préparée.
-- [ ] Tester le choix de format, les messages d’état et le build AAB, puis compiler une APK debug actualisée.
+- [x] Tester le choix de format, les messages d’état et le build AAB, puis compiler une APK debug actualisée.
 - [x] Faire circuler le type d’artefact APK ou AAB entre MIA💻, le relais et les deux workflows, sans assimiler un AAB à une APK installable.
 - [x] Signer et vérifier l’AAB uniquement dans le publieur isolé, puis remettre une sauvegarde de clé à usage unique au propriétaire.
 - [x] Expliquer avant et après le build AAB que la clé remise doit être conservée pour une future mise à jour Play Store ; aucune compatibilité de mise à jour n’est garantie sans cette clé.
