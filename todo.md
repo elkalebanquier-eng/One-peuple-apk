@@ -826,5 +826,5 @@
 - [x] Ajouter un rappel non intrusif dans l’historique tant que la sauvegarde privée n’a pas été demandée, sans mémoriser la clé dans MIA💻.
 - [x] Ajouter une fiche simple « Préparer Apple » qui explique les éléments requis : compte Apple, certificat, profil de provisionnement et compilation macOS.
 - [x] Conserver IPA Apple verrouillé et empêcher toute soumission ou consommation de quota avant l’existence de ces éléments officiels.
-- [ ] Tester les libellés, notifications et protections de l’interface, puis produire une APK debug actualisée.
+- [x] Tester les libellés, notifications et protections de l’interface, puis produire une APK debug actualisée.
 - [x] Retirer du contrôle local l’appel réseau Gemini devenu inutile, puisque KIA reste désactivé dans MIA💻.
