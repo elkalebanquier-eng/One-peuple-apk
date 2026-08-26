@@ -801,19 +801,20 @@
 
 ## Format AAB Play Store
 
-- [ ] Analyser le workflow Android actuel et les fichiers d’export pour préparer un AAB séparé de l’APK debug.
-- [ ] Ajouter le choix clair « APK debug » ou « AAB Play Store » avant la compilation.
-- [ ] Conserver la clé et le mot de passe de signature uniquement dans le stockage protégé du relais, jamais dans MIA💻, le dépôt ou les journaux.
-- [ ] Bloquer la demande AAB tant qu’une signature de publication n’est pas officiellement préparée.
+- [x] Analyser le workflow Android actuel et les fichiers d’export pour préparer un AAB séparé de l’APK debug.
+- [x] Ajouter le choix clair « APK debug » ou « AAB Play Store » avant la compilation.
+- [x] Conserver la clé et le mot de passe de signature uniquement dans le stockage protégé du relais, jamais dans MIA💻, le dépôt ou les journaux.
+- [x] Bloquer la demande AAB tant qu’une signature de publication n’est pas officiellement préparée.
 - [ ] Tester le choix de format, les messages d’état et le build AAB, puis compiler une APK debug actualisée.
-- [ ] Faire circuler le type d’artefact APK ou AAB entre MIA💻, le relais et les deux workflows, sans assimiler un AAB à une APK installable.
-- [ ] Signer et vérifier l’AAB uniquement dans le publieur isolé, puis remettre une sauvegarde de clé à usage unique au propriétaire.
-- [ ] Expliquer avant et après le build AAB que la clé remise doit être conservée pour une future mise à jour Play Store ; aucune compatibilité de mise à jour n’est garantie sans cette clé.
-- [ ] Contrôler un AAB réellement généré avec sa structure Android avant de l’activer dans MIA💻.
+- [x] Faire circuler le type d’artefact APK ou AAB entre MIA💻, le relais et les deux workflows, sans assimiler un AAB à une APK installable.
+- [x] Signer et vérifier l’AAB uniquement dans le publieur isolé, puis remettre une sauvegarde de clé à usage unique au propriétaire.
+- [x] Expliquer avant et après le build AAB que la clé remise doit être conservée pour une future mise à jour Play Store ; aucune compatibilité de mise à jour n’est garantie sans cette clé.
+- [x] Contrôler un AAB réellement généré avec sa structure Android avant de l’activer dans MIA💻.
+- [x] Reprendre au plus deux fois un téléchargement Gradle temporairement refusé par Maven, puis remonter l’échec réel si la limite persiste.
 
 ## Quatre formats de livraison
 
-- [ ] Afficher APK debug, APK signée, AAB Play Store et IPA Apple dans un sélecteur unique et facile à comprendre.
-- [ ] Conserver APK debug et APK signée comme choix Android disponibles selon le flux de signature existant.
-- [ ] Rendre AAB Play Store disponible uniquement lorsque son export signé est configuré côté relais.
-- [ ] Présenter IPA Apple comme « Bientôt disponible » et empêcher toute compilation iOS tant que la signature Apple officielle n’existe pas.
+- [x] Afficher APK debug, APK signée, AAB Play Store et IPA Apple dans un sélecteur unique et facile à comprendre.
+- [x] Conserver APK debug et APK signée comme choix Android disponibles selon le flux de signature existant.
+- [x] Rendre AAB Play Store disponible uniquement lorsque son export signé est configuré côté relais.
+- [x] Présenter IPA Apple comme « Bientôt disponible » et empêcher toute compilation iOS tant que la signature Apple officielle n’existe pas.

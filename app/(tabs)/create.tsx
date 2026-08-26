@@ -305,7 +305,9 @@ export default function NewBuildScreen() {
         "Compilation lancée",
         buildMode === "signed"
           ? `${notificationsEnabled ? "MIA💻 vous préviendra dès que l’APK sera prête. " : ""}MIA💻 prépare une APK signée. Quand elle sera prête, téléchargez aussi la sauvegarde de clé une seule fois depuis Mes APK.`
-          : `${notificationsEnabled ? "MIA💻 vous préviendra dès que l’APK sera prête. " : ""}MIA💻 prépare votre APK de test. Vous verrez son avancement dans Mes APK.`,
+          : buildMode === "aab"
+            ? `${notificationsEnabled ? "MIA💻 vous préviendra dès que le fichier AAB sera prêt. " : ""}Ce fichier est destiné à Google Play et ne s’installe pas directement sur le téléphone. Téléchargez aussi la sauvegarde de clé une seule fois depuis Mes APK et conservez-la pour vos futures mises à jour.`
+            : `${notificationsEnabled ? "MIA💻 vous préviendra dès que l’APK sera prête. " : ""}MIA💻 prépare votre APK de test. Vous verrez son avancement dans Mes APK.`,
         [{ text: "Voir mes APK", onPress: () => router.replace("/(tabs)") }],
       );
     } catch (error) {
@@ -516,7 +518,7 @@ export default function NewBuildScreen() {
 
         <View style={styles.optionalHead}>
           <View style={[styles.optionalBadge, { backgroundColor: `${colors.primary}18` }]}><MaterialIcons color={colors.primary} name="verified-user" size={17} /></View>
-          <View><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Type d’APK</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>Choisissez une version de test ou une version prête à signer pour une publication.</Text></View>
+          <View><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Format de sortie Android</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>Choisissez un fichier de test, de publication Android ou un AAB pour Google Play.</Text></View>
         </View>
         <View style={styles.buildModeList}>
           <Pressable
@@ -543,18 +545,25 @@ export default function NewBuildScreen() {
             <View style={styles.buildModeCopy}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>APK signée</Text><Text style={[styles.buildModeText, { color: colors.muted }]}>Crée une clé unique pour cette application et une APK de publication.</Text></View>
             <View style={[styles.radio, { borderColor: buildMode === "signed" ? colors.success : colors.border }]}>{buildMode === "signed" ? <View style={[styles.radioDot, { backgroundColor: colors.success }]} /> : null}</View>
           </Pressable>
-          <View accessibilityLabel="AAB Play Store en préparation" style={[styles.buildModeRow, styles.buildModeUnavailable, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.buildModeIcon, { backgroundColor: colors.background }]}><MaterialIcons color={colors.muted} name="shop" size={21} /></View>
-            <View style={styles.buildModeCopy}><View style={styles.buildModeTitleRow}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>AAB Play Store</Text><Text style={[styles.formatBadge, { color: colors.warning, backgroundColor: `${colors.warning}18` }]}>Bientôt</Text></View><Text style={[styles.buildModeText, { color: colors.muted }]}>Fichier demandé par Google Play. Il s’ouvrira quand la signature de publication sera prête.</Text></View>
-            <MaterialIcons color={colors.muted} name="lock-outline" size={20} />
-          </View>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: buildMode === "aab" }}
+            accessibilityLabel="AAB Play Store"
+            disabled={saving}
+            onPress={() => setBuildMode("aab")}
+            style={({ pressed }) => [styles.buildModeRow, { backgroundColor: buildMode === "aab" ? `${colors.primary}13` : colors.surface, borderColor: buildMode === "aab" ? colors.primary : colors.border }, pressed && styles.pressed]}
+          >
+            <View style={[styles.buildModeIcon, { backgroundColor: buildMode === "aab" ? colors.primary : colors.background }]}><MaterialIcons color={buildMode === "aab" ? colors.background : colors.primary} name="shop" size={21} /></View>
+            <View style={styles.buildModeCopy}><View style={styles.buildModeTitleRow}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>AAB Play Store</Text><Text style={[styles.formatBadge, { color: colors.primary, backgroundColor: `${colors.primary}18` }]}>Google Play</Text></View><Text style={[styles.buildModeText, { color: colors.muted }]}>À envoyer sur Google Play. Ce fichier ne s’installe pas directement sur le téléphone.</Text></View>
+            <View style={[styles.radio, { borderColor: buildMode === "aab" ? colors.primary : colors.border }]}>{buildMode === "aab" ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}</View>
+          </Pressable>
           <View accessibilityLabel="IPA Apple bientôt disponible" style={[styles.buildModeRow, styles.buildModeUnavailable, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[styles.buildModeIcon, { backgroundColor: colors.background }]}><MaterialIcons color={colors.muted} name="phone-iphone" size={21} /></View>
             <View style={styles.buildModeCopy}><View style={styles.buildModeTitleRow}><Text style={[styles.buildModeTitle, { color: colors.foreground }]}>IPA Apple</Text><Text style={[styles.formatBadge, { color: colors.warning, backgroundColor: `${colors.warning}18` }]}>Bientôt</Text></View><Text style={[styles.buildModeText, { color: colors.muted }]}>Fichier Apple. Il faut d’abord la signature officielle Apple pour le rendre disponible.</Text></View>
             <MaterialIcons color={colors.muted} name="lock-outline" size={20} />
           </View>
         </View>
-        {buildMode === "signed" ? (
+        {buildMode === "signed" || buildMode === "aab" ? (
           <View style={[styles.signingNote, { backgroundColor: `${colors.success}10`, borderColor: `${colors.success}55` }]}>
             <MaterialIcons color={colors.success} name="key" size={20} />
             <Text style={[styles.signingText, { color: colors.muted }]}>Après la compilation, sauvegardez le fichier de clé proposé dans Builds. Il est nécessaire pour publier une mise à jour de la même application et ne pourra être téléchargé qu’une fois.</Text>
@@ -567,7 +576,7 @@ export default function NewBuildScreen() {
         </View>
 
         <Pressable accessibilityRole="button" accessibilityLabel="Lancer la compilation" disabled={!canPrepare} onPress={handlePrepareBuild} style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : colors.surface, borderColor: canPrepare ? colors.primary : colors.border }, pressed && canPrepare && styles.pressed]}>
-          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : buildMode === "signed" ? "Sortie : APK Android signée" : "Sortie : APK Android debug"}</Text></View>
+          <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : buildMode === "signed" ? "Sortie : APK Android signée" : buildMode === "aab" ? "Sortie : fichier AAB pour Google Play" : "Sortie : APK Android debug"}</Text></View>
           <MaterialIcons color={canPrepare ? colors.background : colors.muted} name="arrow-forward" size={23} />
         </Pressable>
       </ScrollView>
