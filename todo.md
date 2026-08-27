@@ -843,3 +843,9 @@
 - [x] Définir les exigences minimales d’une signature IPA distribuable : certificat de distribution, profil App Store, identifiant d’équipe et App Store Connect.
 - [x] Refuser l’activation de l’IPA tant que les fichiers et secrets ne peuvent pas être déposés directement dans un coffre de signature isolé, hors MIA💻 et hors dépôt.
 - [x] Tester les protections du formulaire et le verrou iOS, puis fournir une APK debug mise à jour uniquement si le parcours reste sûr.
+
+## Procédure de signature App Store
+
+- [x] Vérifier et documenter la création officielle d’un certificat Apple Distribution et d’un profil App Store associé à l’identifiant iOS.
+- [x] Expliquer la conservation du certificat, de la clé privée et du profil dans un coffre de signature isolé, jamais dans MIA💻 ou le dépôt.
+- [x] Indiquer les derniers prérequis de compilation macOS et de chargement App Store Connect avant toute activation de l’IPA.
