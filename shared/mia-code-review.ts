@@ -17,6 +17,9 @@ export type MiaCodeReview = {
   blockers: MiaReviewItem[];
   warnings: MiaReviewItem[];
   fixes: string[];
+  /** Fichier complet facultatif, proposé par MIA mais jamais appliqué automatiquement. */
+  suggestedCode?: string;
+  suggestedCodeSummary?: string;
 };
 
 export type MiaCodeReviewRequest = {
@@ -70,6 +73,10 @@ export function readMiaCodeReview(text: string): MiaCodeReview | null {
       blockers: readItems(payload.blockers, "blocker"),
       warnings: readItems(payload.warnings, "warning"),
       fixes: readFixes(payload.fixes),
+      ...(readText(payload.suggestedCode, 120000) ? {
+        suggestedCode: readText(payload.suggestedCode, 120000),
+        suggestedCodeSummary: readText(payload.suggestedCodeSummary, 240) || "MIA propose ce fichier à relire avant toute utilisation.",
+      } : {}),
     };
   } catch {
     return null;

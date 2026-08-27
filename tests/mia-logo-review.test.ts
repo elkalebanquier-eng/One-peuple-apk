@@ -70,4 +70,18 @@ describe("logo et vérification MIA", () => {
       fixes: ["Installez la dépendance."],
     });
   });
+
+  it("garde une correction complète seulement comme proposition à relire", () => {
+    const review = readMiaCodeReview(JSON.stringify({
+      summary: "Une correction est proposée.",
+      blockers: [],
+      warnings: [],
+      fixes: ["Relisez la proposition."],
+      suggestedCode: "<!doctype html><html lang=\"fr\"><body><button>Bonjour</button></body></html>",
+      suggestedCodeSummary: "Le bouton est conservé dans un fichier HTML complet.",
+    }));
+
+    expect(review?.suggestedCode).toContain("<!doctype html>");
+    expect(review?.suggestedCodeSummary).toContain("bouton");
+  });
 });

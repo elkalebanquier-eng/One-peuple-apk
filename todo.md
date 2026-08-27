@@ -859,3 +859,13 @@
 - [x] Présenter clairement les limites restantes : compte Play Console, politique Google Play, fiche d’application et conservation de la clé de signature.
 - [x] Préciser dans le message final AAB que le fichier est prêt à envoyer à Google Play, dont Play Console effectue ensuite la validation définitive.
 - [x] Tester les protections, compiler l’APK debug actualisée et la remettre directement.
+
+## MIA assistant de code renforcé — A, B et C
+
+- [x] Vérifier que le modèle Cloudflare spécialisé Qwen2.5-Coder est disponible pour le relais MIA et mesurer sa réponse sans exposer de secret.
+- [x] Auditer les capacités réelles du relais IA MIA et ses limites de contexte, sans activer Gemini, KIA ou Claude.
+- [x] Renforcer les instructions du relais pour fournir du code complet, une explication simple et des limites clairement annoncées.
+- [x] Étendre le diagnostic avant compilation avec des corrections proposées, limitées et réversibles.
+- [x] Améliorer le mode Agent afin qu’il explique chaque action et exige une confirmation explicite avant toute modification ou préparation de projet.
+- [x] Vérifier que l’APK, les journaux et le dépôt ne contiennent ni clé IA, ni secret, ni session utilisateur.
+- [x] Tester les parcours A, B et C puis compiler et remettre une APK debug contrôlée.

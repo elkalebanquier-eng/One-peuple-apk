@@ -649,6 +649,33 @@ export default function AssistantScreen() {
     await runCodeReview(reviewCode);
   }
 
+  function confirmOpenSuggestedCode() {
+    const suggestedCode = reviewResult?.suggestedCode;
+    if (!suggestedCode) return;
+    Alert.alert(
+      "Ouvrir la correction proposée ?",
+      "Votre code actuel ne sera pas remplacé. Vous pourrez relire et copier cette proposition avant de l’utiliser.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Voir la proposition",
+          onPress: () => {
+            setCopyState("idle");
+            setPreviewMessage({
+              id: `mia-suggested-code-${Date.now()}`,
+              role: "assistant",
+              content: reviewResult?.suggestedCodeSummary || "MIA propose cette correction. Relisez-la avant de l’utiliser.",
+              code: suggestedCode,
+              checklist: ["Le code original n’a pas été remplacé.", "Relisez et testez la proposition avant la compilation."],
+              createdAt: new Date().toISOString(),
+            });
+            setReviewOpen(false);
+          },
+        },
+      ],
+    );
+  }
+
   function confirmDeleteConversation(conversation: MiaConversation) {
     Alert.alert(
       "Supprimer cette discussion ?",
@@ -768,7 +795,7 @@ export default function AssistantScreen() {
           </Pressable>
           <View style={styles.topIdentity}>
             <View style={[styles.topAvatar, { backgroundColor: colors.primary }]}><Text style={[styles.topAvatarText, { color: colors.background }]}>{provider === "kia" ? "K" : "M"}</Text></View>
-            <View><Text style={[styles.topTitle, { color: colors.foreground }]}>{assistantName}</Text><Text style={[styles.topSubtitle, { color: colors.success }]}>Prête à vous aider</Text></View>
+            <View><Text style={[styles.topTitle, { color: colors.foreground }]}>{assistantName}</Text><Text style={[styles.topSubtitle, { color: colors.success }]}>Code avancé · actions confirmées</Text></View>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={`Nouvelle discussion avec ${assistantName}`} onPress={startNewConversation} style={({ pressed }) => [styles.topIconButton, { borderColor: colors.border }, pressed && styles.pressed]}>
             <MaterialIcons color={colors.primary} name="add" size={24} />
@@ -913,7 +940,7 @@ export default function AssistantScreen() {
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); openCodeReview(); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: `${colors.success}0D`, borderColor: `${colors.success}66` }, pressed && styles.pressed]}>
               <View style={styles.toolIconStack}><View style={[styles.typeChoiceIcon, { backgroundColor: `${colors.success}18` }]}><MaterialIcons color={colors.success} name="fact-check" size={20} /></View><Text style={[styles.toolIconLabel, { color: colors.success }]}>CODE</Text></View>
-              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Vérifier mon code</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Analyse votre code avant la compilation et explique les problèmes.</Text></View>
+              <View style={styles.typeChoiceCopy}><Text style={[styles.typeChoiceTitle, { color: colors.foreground }]}>Vérifier mon code</Text><Text style={[styles.typeChoiceText, { color: colors.muted }]}>Analyse le code, explique les problèmes et peut proposer une correction à relire.</Text></View>
               <MaterialIcons color={colors.success} name="chevron-right" size={22} />
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => { setToolsOpen(false); setAgentPlannerOpen(true); }} style={({ pressed }) => [styles.toolChoice, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
@@ -937,7 +964,7 @@ export default function AssistantScreen() {
             contentContainerStyle={styles.aiToolContent}
             renderItem={() => (
               <View style={styles.aiToolForm}>
-                <Text style={[styles.toolLead, { color: colors.foreground }]}>Collez le code à contrôler. MIA adapte son diagnostic au type de projet {selectedType.shortLabel}.</Text>
+                <Text style={[styles.toolLead, { color: colors.foreground }]}>Collez le code à contrôler. MIA cherche les blocages et peut proposer un fichier corrigé, sans jamais remplacer votre code actuel.</Text>
                 <TextInput value={reviewCode} onChangeText={setReviewCode} maxLength={60000} multiline textAlignVertical="top" placeholder="Collez votre code ici…" placeholderTextColor={colors.muted} style={[styles.reviewCodeInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }]} />
                 <Pressable accessibilityRole="button" disabled={reviewLoading} onPress={() => void handleCodeReview()} style={({ pressed }) => [styles.toolPrimaryButton, { backgroundColor: colors.success }, (pressed || reviewLoading) && styles.pressed]}>{reviewLoading ? <ActivityIndicator color={colors.background} /> : <MaterialIcons color={colors.background} name="fact-check" size={19} />}<Text style={[styles.toolPrimaryText, { color: colors.background }]}>{reviewLoading ? "Vérification…" : "Vérifier le code"}</Text></Pressable>
                 {reviewError ? <View style={[styles.reviewError, { backgroundColor: `${colors.error}12`, borderColor: `${colors.error}66` }]}><MaterialIcons color={colors.error} name="error-outline" size={18} /><Text style={[styles.errorText, { color: colors.error }]}>{reviewError}</Text></View> : null}
@@ -946,8 +973,9 @@ export default function AssistantScreen() {
                   {reviewResult.blockers.map((item, index) => <View key={`blocker-${index}`} style={[styles.reviewItem, { borderColor: `${colors.error}66`, backgroundColor: `${colors.error}0A` }]}><MaterialIcons color={colors.error} name="block" size={17} /><View style={styles.reviewCopy}><Text style={[styles.reviewItemTitle, { color: colors.error }]}>{item.title}{item.line ? ` · ligne ${item.line}` : ""}</Text><Text style={[styles.reviewItemText, { color: colors.foreground }]}>{item.detail}</Text></View></View>)}
                   {reviewResult.warnings.map((item, index) => <View key={`warning-${index}`} style={[styles.reviewItem, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0A` }]}><MaterialIcons color={colors.primary} name="warning-amber" size={17} /><View style={styles.reviewCopy}><Text style={[styles.reviewItemTitle, { color: colors.primary }]}>{item.title}{item.line ? ` · ligne ${item.line}` : ""}</Text><Text style={[styles.reviewItemText, { color: colors.foreground }]}>{item.detail}</Text></View></View>)}
                   {reviewResult.fixes.length ? <View style={[styles.fixBox, { borderColor: `${colors.success}66`, backgroundColor: `${colors.success}0A` }]}><Text style={[styles.fixTitle, { color: colors.success }]}>À corriger avant d’envoyer</Text>{reviewResult.fixes.map((fix) => <View key={fix} style={styles.fixRow}><MaterialIcons color={colors.success} name="check-circle" size={15} /><Text style={[styles.fixText, { color: colors.foreground }]}>{fix}</Text></View>)}</View> : null}
+                  {reviewResult.suggestedCode ? <View style={[styles.fixBox, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}0A` }]}><Text style={[styles.fixTitle, { color: colors.primary }]}>Correction proposée</Text><Text style={[styles.fixText, { color: colors.foreground }]}>{reviewResult.suggestedCodeSummary}</Text><Pressable accessibilityRole="button" onPress={confirmOpenSuggestedCode} style={({ pressed }) => [styles.prepareInline, { backgroundColor: colors.primary }, pressed && styles.pressed]}><Text style={[styles.prepareInlineText, { color: colors.background }]}>Voir la correction proposée</Text><MaterialIcons color={colors.background} name="arrow-forward" size={18} /></Pressable></View> : null}
                 </View> : null}
-                <Text style={[styles.toolNote, { color: colors.muted }]}>MIA repère des risques probables. La compilation reste la confirmation finale.</Text>
+                <Text style={[styles.toolNote, { color: colors.muted }]}>MIA repère des risques probables ; une correction proposée reste facultative. La compilation reste la confirmation finale.</Text>
               </View>
             )}
           />

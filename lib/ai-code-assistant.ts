@@ -126,6 +126,7 @@ export async function sendMiaMessage(input: MiaChatInput): Promise<MiaChatRespon
       history: input.history.slice(-8).map((entry) => ({
         role: entry.role,
         content: entry.content.slice(0, 1400),
+        ...(entry.role === "assistant" && entry.code ? { code: entry.code.slice(0, 16000) } : {}),
       })),
     }),
   });

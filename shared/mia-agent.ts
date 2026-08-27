@@ -24,10 +24,10 @@ export type MiaAgentActionContext = {
 const ACTION_COPY: Record<MiaAgentActionKind, Omit<MiaAgentAction, "id">> = {
   "review-latest-code": {
     kind: "review-latest-code",
-    title: "Vérifier le dernier code",
-    detail: "MIA analyse le dernier code généré pour repérer les blocages probables.",
+    title: "Vérifier et corriger le dernier code",
+    detail: "MIA analyse le dernier code généré, explique les blocages probables et peut proposer un fichier corrigé.",
     dataLabel: "Le dernier fichier de code affiché dans cette discussion",
-    consequence: "Un diagnostic simple sera ajouté à l’écran. Aucune compilation ne démarre.",
+    consequence: "Un diagnostic et, si possible, une correction à relire seront ajoutés à l’écran. Aucun code n’est remplacé et aucune compilation ne démarre.",
   },
   "prepare-html-apk": {
     kind: "prepare-html-apk",
