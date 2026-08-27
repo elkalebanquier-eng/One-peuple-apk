@@ -835,4 +835,4 @@
 - [x] Afficher clairement les certificats et profils à réunir, mais interdire tout collage, envoi ou stockage de clé privée, certificat `.p12`, profil `.mobileprovision` ou mot de passe dans MIA💻.
 - [x] Conserver localement seulement l’état de préparation non sensible, avec une remise à zéro facile sur l’appareil.
 - [x] Garder IPA Apple verrouillé et guider vers une signature macOS isolée tant qu’un pipeline Apple certifié n’est pas actif.
-- [ ] Couvrir le formulaire par des tests, vérifier l’APK debug puis livrer la mise à jour.
+- [x] Couvrir le formulaire par des tests, vérifier l’APK debug puis livrer la mise à jour.
