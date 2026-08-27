@@ -6,6 +6,12 @@ La préparation à demander avant toute future activation est la suivante : un c
 
 > Tant que ces éléments ne sont pas disponibles et contrôlés dans un environnement de signature isolé, l’option « IPA Apple » reste verrouillée et ne crée aucun build ni aucune consommation de quota.
 
+## Données à préparer dans MIA💻
+
+Le formulaire mobile peut conserver sur l’appareil l’identifiant d’application iOS au format DNS inversé, l’identifiant d’équipe Apple, le nom non secret du certificat de distribution, le nom du profil App Store Connect, la version et le numéro de build. L’identifiant d’application doit correspondre entre le projet, l’enregistrement App Store Connect et le profil de provisionnement. Apple indique également qu’un profil App Store Connect associe un seul certificat de distribution à un App ID explicite.
+
+MIA💻 ne doit jamais demander, recevoir ou conserver un certificat exporté `.p12`, un profil `.mobileprovision`, une clé privée, une clé API `.p8`, un mot de passe ou un code à usage unique. Ces éléments ne pourront être ajoutés qu’à un futur environnement de signature macOS isolé, après une décision explicite du propriétaire.
+
 ## Sources officielles
 
 - Apple Developer, [Create an App Store Connect provisioning profile](https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile/)

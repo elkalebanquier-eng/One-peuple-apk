@@ -828,3 +828,11 @@
 - [x] Conserver IPA Apple verrouillé et empêcher toute soumission ou consommation de quota avant l’existence de ces éléments officiels.
 - [x] Tester les libellés, notifications et protections de l’interface, puis produire une APK debug actualisée.
 - [x] Retirer du contrôle local l’appel réseau Gemini devenu inutile, puisque KIA reste désactivé dans MIA💻.
+
+## Formulaire de préparation iOS
+
+- [x] Concevoir une fiche mobile de préparation Apple avec identifiant d’application, équipe Apple et type de distribution, sans champ de secret.
+- [x] Afficher clairement les certificats et profils à réunir, mais interdire tout collage, envoi ou stockage de clé privée, certificat `.p12`, profil `.mobileprovision` ou mot de passe dans MIA💻.
+- [x] Conserver localement seulement l’état de préparation non sensible, avec une remise à zéro facile sur l’appareil.
+- [x] Garder IPA Apple verrouillé et guider vers une signature macOS isolée tant qu’un pipeline Apple certifié n’est pas actif.
+- [ ] Couvrir le formulaire par des tests, vérifier l’APK debug puis livrer la mise à jour.

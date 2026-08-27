@@ -9,6 +9,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
 
 import { LocalHtmlPreviewModal } from "@/components/local-html-preview-modal";
+import { AppleSigningPreparationSheet } from "@/components/apple-signing-preparation-sheet";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { prepareAssistantHtmlSource, reviewMiaCode, takeAssistantDraft, takeMiaLogoDraft } from "@/lib/ai-code-assistant";
@@ -54,6 +55,7 @@ export default function NewBuildScreen() {
   const [repairPreview, setRepairPreview] = useState(false);
   const [repairLoading, setRepairLoading] = useState(false);
   const [repairMessage, setRepairMessage] = useState<string | null>(null);
+  const [applePreparationOpen, setApplePreparationOpen] = useState(false);
 
   const selectedType = useMemo(() => PROJECT_TYPES.find((type) => type.id === projectType) ?? null, [projectType]);
   const appIdentity = useMemo(() => readAppIdentity(packageName, appVersion), [appVersion, packageName]);
@@ -568,6 +570,10 @@ export default function NewBuildScreen() {
           <View style={styles.appleSetupCopy}>
             <Text style={[styles.appleSetupTitle, { color: colors.foreground }]}>Préparer Apple avant de compiler</Text>
             <Text style={[styles.appleSetupText, { color: colors.muted }]}>Une IPA publiable exige un compte Apple Developer, un certificat de distribution, un profil de provisionnement et une machine macOS. MIA💻 garde l’option bloquée tant que ce service sécurisé n’existe pas.</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Préparer les éléments Apple" onPress={() => setApplePreparationOpen(true)} style={({ pressed }) => [styles.appleSetupButton, { borderColor: `${colors.warning}66`, backgroundColor: `${colors.warning}14` }, pressed && styles.pressed]}>
+              <Text style={[styles.appleSetupButtonText, { color: colors.warning }]}>Préparer mes éléments Apple</Text>
+              <MaterialIcons color={colors.warning} name="arrow-forward" size={17} />
+            </Pressable>
           </View>
         </View>
         {buildMode === "signed" || buildMode === "aab" ? (
@@ -588,6 +594,7 @@ export default function NewBuildScreen() {
         </Pressable>
       </ScrollView>
       <LocalHtmlPreviewModal preview={htmlPreview} visible={previewOpen} onClose={() => setPreviewOpen(false)} />
+      <AppleSigningPreparationSheet visible={applePreparationOpen} onClose={() => setApplePreparationOpen(false)} />
     </ScreenContainer>
   );
 }
@@ -710,6 +717,8 @@ const styles = StyleSheet.create({
   appleSetupCopy: { flex: 1 },
   appleSetupTitle: { fontSize: 11.5, fontWeight: "900", lineHeight: 17 },
   appleSetupText: { marginTop: 2, fontSize: 10.5, lineHeight: 16 },
+  appleSetupButton: { alignSelf: "flex-start", minHeight: 37, borderWidth: 1, borderRadius: 11, paddingHorizontal: 10, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 7 },
+  appleSetupButtonText: { fontSize: 10.5, fontWeight: "900" },
   securityNote: { borderWidth: 1, borderRadius: 16, padding: 13, flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 18 },
   securityText: { flex: 1, fontSize: 11, lineHeight: 17 },
   submitButton: { minHeight: 64, borderRadius: 18, borderWidth: 1, paddingHorizontal: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
