@@ -842,4 +842,4 @@
 - [x] Vérifier les prérequis Apple actuels, les comptes configurés et l’existence éventuelle d’un environnement macOS de compilation.
 - [x] Définir les exigences minimales d’une signature IPA distribuable : certificat de distribution, profil App Store, identifiant d’équipe et App Store Connect.
 - [x] Refuser l’activation de l’IPA tant que les fichiers et secrets ne peuvent pas être déposés directement dans un coffre de signature isolé, hors MIA💻 et hors dépôt.
-- [ ] Tester les protections du formulaire et le verrou iOS, puis fournir une APK debug mise à jour uniquement si le parcours reste sûr.
+- [x] Tester les protections du formulaire et le verrou iOS, puis fournir une APK debug mise à jour uniquement si le parcours reste sûr.
