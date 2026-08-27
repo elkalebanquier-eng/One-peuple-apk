@@ -836,3 +836,10 @@
 - [x] Conserver localement seulement l’état de préparation non sensible, avec une remise à zéro facile sur l’appareil.
 - [x] Garder IPA Apple verrouillé et guider vers une signature macOS isolée tant qu’un pipeline Apple certifié n’est pas actif.
 - [x] Couvrir le formulaire par des tests, vérifier l’APK debug puis livrer la mise à jour.
+
+## Validation d’un futur pipeline Apple
+
+- [x] Vérifier les prérequis Apple actuels, les comptes configurés et l’existence éventuelle d’un environnement macOS de compilation.
+- [x] Définir les exigences minimales d’une signature IPA distribuable : certificat de distribution, profil App Store, identifiant d’équipe et App Store Connect.
+- [x] Refuser l’activation de l’IPA tant que les fichiers et secrets ne peuvent pas être déposés directement dans un coffre de signature isolé, hors MIA💻 et hors dépôt.
+- [ ] Tester les protections du formulaire et le verrou iOS, puis fournir une APK debug mise à jour uniquement si le parcours reste sûr.

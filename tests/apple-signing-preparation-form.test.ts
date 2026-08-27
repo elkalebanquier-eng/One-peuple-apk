@@ -36,9 +36,30 @@ describe("préparation de signature Apple", () => {
       ...EMPTY_APPLE_SIGNING_PREPARATION,
       bundleIdentifier: "com.exemple.mia",
       appleTeamId: "AB12CD34EF",
+      certificateName: "Distribution MIA",
+      profileName: "App Store MIA",
       certificatePrepared: true,
       profilePrepared: true,
     }).ready).toBe(true);
+
+    expect(getApplePreparationState({
+      ...EMPTY_APPLE_SIGNING_PREPARATION,
+      bundleIdentifier: "com.exemple.mia",
+      appleTeamId: "AB12CD34EF",
+      certificateName: "Distribution MIA",
+      profileName: "App Store MIA",
+      certificatePrepared: true,
+      profilePrepared: true,
+    }).ready).toBe(true);
+    expect(getApplePreparationState({
+      ...EMPTY_APPLE_SIGNING_PREPARATION,
+      bundleIdentifier: "com.exemple.mia",
+      appleTeamId: "AB12CD34EF",
+      certificateName: "Distribution MIA",
+      profileName: "App Store MIA",
+      certificatePrepared: true,
+      profilePrepared: true,
+    }).ipaAvailable).toBe(false);
   });
 
   it("ne comporte ni téléversement de certificat ni stockage de secret", () => {

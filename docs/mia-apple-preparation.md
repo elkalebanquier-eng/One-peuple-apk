@@ -12,8 +12,14 @@ Le formulaire mobile peut conserver sur l’appareil l’identifiant d’applica
 
 MIA💻 ne doit jamais demander, recevoir ou conserver un certificat exporté `.p12`, un profil `.mobileprovision`, une clé privée, une clé API `.p8`, un mot de passe ou un code à usage unique. Ces éléments ne pourront être ajoutés qu’à un futur environnement de signature macOS isolé, après une décision explicite du propriétaire.
 
+## État contrôlé du 27 août 2026
+
+Le dépôt MIA💻 ne contient aujourd’hui qu’un workflow Android de génération d’APK debug. Aucun workflow macOS, aucune archive Xcode, aucun certificat de distribution, aucun profil Apple et aucun service isolé de signature ne sont configurés. Le formulaire peut donc préparer les repères, mais l’indicateur de disponibilité IPA demeure explicitement à `false` et aucune demande iOS ne peut être soumise.
+
+Avant d’activer une IPA App Store, il faudra disposer du compte Apple Developer du propriétaire, d’un App ID explicite enregistré, d’un certificat Apple Distribution et d’un profil App Store Connect qui lui est associé. Apple indique que le profil App Store Connect contient un seul certificat de distribution et que ce certificat permet l’envoi à App Store Connect. La signature devra se faire uniquement dans une machine macOS isolée, avec les éléments privés remis directement à son coffre de signature ; ils ne passeront jamais par l’APK, MIA💻, GitHub, un ZIP importé ou les journaux.
+
 ## Sources officielles
 
+- Apple Developer, [Certificates overview](https://developer.apple.com/help/account/certificates/certificates-overview/)
 - Apple Developer, [Create an App Store Connect provisioning profile](https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile/)
-- Apple Developer, [Preparing your app for distribution](https://developer.apple.com/documentation/xcode/preparing-your-app-for-distribution)
-- Apple Developer, [Upload builds to App Store Connect](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
+- Apple Developer, [Distributing your app for beta testing and releases](https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases)
