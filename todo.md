@@ -849,3 +849,13 @@
 - [x] Vérifier et documenter la création officielle d’un certificat Apple Distribution et d’un profil App Store associé à l’identifiant iOS.
 - [x] Expliquer la conservation du certificat, de la clé privée et du profil dans un coffre de signature isolé, jamais dans MIA💻 ou le dépôt.
 - [x] Indiquer les derniers prérequis de compilation macOS et de chargement App Store Connect avant toute activation de l’IPA.
+
+## Validation AAB pour Google Play
+
+- [x] Vérifier les exigences Google Play actuelles applicables à un Android App Bundle signé et à sa première mise en ligne.
+- [x] Auditer le relais et le publieur pour confirmer que l’AAB est signé et vérifié uniquement dans l’environnement isolé.
+- [x] Ajouter au publieur un contrôle obligatoire de l’archive AAB, de `BundleConfig.pb`, du manifeste et du code avant la signature et la publication.
+- [x] Produire un AAB de contrôle, inspecter sa structure et vérifier qu’il peut être remis comme fichier Play Store, jamais comme APK installable.
+- [x] Présenter clairement les limites restantes : compte Play Console, politique Google Play, fiche d’application et conservation de la clé de signature.
+- [x] Préciser dans le message final AAB que le fichier est prêt à envoyer à Google Play, dont Play Console effectue ensuite la validation définitive.
+- [ ] Tester les protections, compiler l’APK debug actualisée et la remettre directement.

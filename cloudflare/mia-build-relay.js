@@ -465,7 +465,7 @@ async function completeBuild(request, env, id, token, publisher = false) {
     job.artifactType = job.buildMode === "aab" ? "aab" : "apk";
     job.artifactUrl = expectedArtifactUrl(id, job.artifactType);
     if (job.artifactType === "aab") {
-      appendProgress(job, 100, "Votre fichier AAB est prêt pour Google Play.");
+      appendProgress(job, 100, "Votre fichier AAB est prêt à envoyer à Google Play. Play Console effectue ensuite la validation finale.");
     } else {
       appendProgress(job, 100, "Votre APK est prête à être téléchargée.");
     }
