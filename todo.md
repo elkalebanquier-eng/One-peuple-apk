@@ -858,4 +858,4 @@
 - [x] Produire un AAB de contrôle, inspecter sa structure et vérifier qu’il peut être remis comme fichier Play Store, jamais comme APK installable.
 - [x] Présenter clairement les limites restantes : compte Play Console, politique Google Play, fiche d’application et conservation de la clé de signature.
 - [x] Préciser dans le message final AAB que le fichier est prêt à envoyer à Google Play, dont Play Console effectue ensuite la validation définitive.
-- [ ] Tester les protections, compiler l’APK debug actualisée et la remettre directement.
+- [x] Tester les protections, compiler l’APK debug actualisée et la remettre directement.
