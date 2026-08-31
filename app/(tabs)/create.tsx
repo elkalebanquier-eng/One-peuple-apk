@@ -272,7 +272,19 @@ export default function NewBuildScreen() {
   }
 
   async function handlePrepareBuild() {
-    if (!projectType || !archive || !projectName.trim()) return;
+    if (saving) return;
+    if (!projectType) {
+      Alert.alert("Choisissez un type", "Sélectionnez HTML, Expo ou Android avant de compiler.");
+      return;
+    }
+    if (!archive) {
+      Alert.alert("Ajoutez votre projet", "Choisissez un fichier index.html ou un ZIP avant de compiler.");
+      return;
+    }
+    if (!projectName.trim()) {
+      Alert.alert("Donnez un nom au projet", "Écrivez un nom simple pour votre application avant de compiler.");
+      return;
+    }
     if (!appIdentity.valid) {
       Alert.alert("Paramètres à corriger", appIdentity.message);
       return;
@@ -588,7 +600,7 @@ export default function NewBuildScreen() {
           <Text style={[styles.securityText, { color: colors.muted }]}>N’ajoutez jamais de mot de passe, clé privée ou information personnelle dans votre fichier.</Text>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Lancer la compilation" disabled={!canPrepare} onPress={handlePrepareBuild} style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : colors.surface, borderColor: canPrepare ? colors.primary : colors.border }, pressed && canPrepare && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Lancer la compilation" accessibilityState={{ disabled: saving }} disabled={saving} onPress={handlePrepareBuild} style={({ pressed }) => [styles.submitButton, { backgroundColor: canPrepare ? colors.primary : colors.surface, borderColor: canPrepare ? colors.primary : colors.border }, pressed && canPrepare && styles.pressed]}>
           <View><Text style={[styles.submitTitle, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Envoi du projet…" : "Lancer la compilation"}</Text><Text style={[styles.submitText, { color: canPrepare ? colors.background : colors.muted }]}>{saving ? "Patientez un instant" : buildMode === "signed" ? "Sortie : APK Android signée" : buildMode === "aab" ? "Sortie : fichier AAB pour Google Play" : "Sortie : APK Android debug"}</Text></View>
           <MaterialIcons color={canPrepare ? colors.background : colors.muted} name="arrow-forward" size={23} />
         </Pressable>
