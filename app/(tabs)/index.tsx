@@ -21,6 +21,7 @@ import {
   deleteFinishedBuildJobs,
   formatBytes,
   getPrivateKeyBackupUrl,
+  loadBuildJobs,
   markPrivateKeyBackupSaved,
   getProjectType,
   refreshBuildQuota,
@@ -618,6 +619,10 @@ export default function BuildsScreen() {
 
   useFocusEffect(useCallback(() => {
     void refreshBuildQuota();
+    void loadBuildJobs().then((storedJobs) => {
+      const activeJobs = storedJobs.filter((job) => job.status === "queued" || job.status === "building");
+      return Promise.all(activeJobs.map((job) => refreshBuildJob(job)));
+    });
   }, []));
 
   useEffect(() => {
