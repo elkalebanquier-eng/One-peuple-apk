@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet } from "react-native";
+import { Platform } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
