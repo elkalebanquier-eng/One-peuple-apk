@@ -306,7 +306,7 @@ export default function AssistantScreen() {
     setTypePickerOpen(false);
   }
 
-  function applyQuickPrompt(value: string) {
+  function useQuickPrompt(value: string) {
     setDraft(value);
     setError("");
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -838,7 +838,7 @@ export default function AssistantScreen() {
               <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Bonjour, je suis {assistantName}.</Text>
               <View style={styles.quickPromptList}>
                 {QUICK_PROMPTS.map((quick) => (
-                  <Pressable key={quick.label} accessibilityRole="button" onPress={() => applyQuickPrompt(quick.value)} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
+                  <Pressable key={quick.label} accessibilityRole="button" onPress={() => useQuickPrompt(quick.value)} style={({ pressed }) => [styles.quickPrompt, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
                     <MaterialIcons color={colors.primary} name={quick.icon} size={18} />
                     <Text style={[styles.quickPromptText, { color: colors.foreground }]}>{quick.label}</Text>
                   </Pressable>

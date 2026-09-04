@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { BackHandler, Platform } from "react-native";
+import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import {
@@ -38,18 +38,6 @@ export default function RootLayout() {
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
     initManusRuntime();
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!router.canGoBack()) return false;
-      router.back();
-      return true;
-    });
-
-    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
